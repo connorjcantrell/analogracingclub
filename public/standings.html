@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Analog Racing Club</title>
-  <meta name="description" content="Analog Racing Club — an iRacing league.">
+  <title>Standings · Analog Racing Club</title>
   <meta name="theme-color" content="#221f20">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,12 +17,39 @@
       <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
     <nav>
-      <a href="/standings.html">Standings</a>
+      <a href="/standings.html" class="active">Standings</a>
       <a href="/results.html">Results</a>
       <a href="/drivers.html">Drivers</a>
       <a href="/about.html">About</a>
     </nav>
     <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   </header>
+  <main>
+    <h2>Standings</h2>
+    <table>
+      <thead>
+        <tr>
+          <th class="pos">Pos</th>
+          <th>Driver</th>
+          <th class="num">R1</th>
+          <th class="num">R2</th>
+          <th class="num">R3</th>
+          <th class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="pos">1</td>
+          <td>—</td>
+          <td class="num muted">—</td>
+          <td class="num muted">—</td>
+          <td class="num muted">—</td>
+          <td class="num total">—</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="empty">No results yet — standings appear after Round 1.</p>
+  </main>
+  <footer>Analog Racing Club · an iRacing league</footer>
 </body>
 </html>
