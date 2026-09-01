@@ -120,3 +120,14 @@ footer { border-top: 1px solid var(--border); margin-top: 2rem; padding: 2rem; t
   table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   th, td { padding: 0.55rem 0.6rem; }
 }
+
+/* ---------- Series picker + homepage latest event ---------- */
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.page-head h2 { margin: 0; }
+.series-pick { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.7rem; font: inherit; font-size: 0.95rem; }
+.podium { display: inline-flex; gap: 2.5rem; justify-content: center; margin: 0 0 2rem; flex-wrap: wrap; }
+.podium-card { display: flex; flex-direction: column; gap: 0.25rem; align-items: center; }
+.latest-table { max-width: 720px; margin: 0 auto; text-align: left; }
+@media (max-width: 640px) {
+  .podium { gap: 1.2rem; }
+}

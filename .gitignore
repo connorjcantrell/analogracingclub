@@ -3,3 +3,6 @@ node_modules/
 .env.local
 .claude/settings.local.json
 .DS_Store
+
+# Local dev-only Docker overrides (must not reach deploys)
+docker-compose.override.yml

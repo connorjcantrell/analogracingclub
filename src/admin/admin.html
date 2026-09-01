@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · Analog Racing Club</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <style>
+    .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 1.4rem 1.6rem; margin-bottom: 1.4rem; }
+    .panel h3 { margin: 0 0 0.2rem; font-size: 1.15rem; font-weight: 600; }
+    .panel h4 { margin: 1.4rem 0 0.2rem; font-size: 1rem; font-weight: 600; }
+    .panel .desc { color: var(--muted); font-size: 0.9rem; margin: 0 0 1rem; }
+    .row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+    label.field { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--muted); font-size: 0.9rem; }
+    select, input[type="number"], input[type="text"], input[type="file"], textarea {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.45rem 0.6rem; font: inherit; font-size: 0.92rem;
+    }
+    textarea { width: 100%; min-height: 12rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; }
+    input[type="number"] { width: 4.5rem; }
+    input[type="file"]::file-selector-button {
+      background: transparent; color: var(--accent); border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.3rem 0.7rem; font: inherit; margin-right: 0.7rem; cursor: pointer;
+    }
+    .btn { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 1rem; font: inherit; font-size: 0.92rem; cursor: pointer; text-decoration: none; }
+    .btn:hover { border-color: var(--muted); }
+    .btn.primary { background: var(--accent); color: #1a1410; border-color: var(--accent); font-weight: 600; }
+    .btn.sm { padding: 0.3rem 0.7rem; font-size: 0.82rem; }
+    .btn.danger { color: var(--red); }
+    .msg { color: var(--muted); font-size: 0.88rem; margin: 0.8rem 0 0; min-height: 1.1em; }
+    .msg.ok { color: var(--green); }
+    .msg.err { color: var(--red); }
+    .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .topbar h2 { margin: 0; }
+    .sched { display: grid; gap: 0.5rem; margin-bottom: 0.8rem; }
+    .sched .row input[type="text"] { flex: 1; min-width: 10rem; }
+    .sched .rn { color: var(--muted); width: 2.2rem; }
+    table { font-size: 0.92rem; }
+    .badge { display: inline-block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+    .badge.active { color: var(--green); border-color: var(--green); }
+    .badge.upcoming { color: var(--accent); border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/" aria-label="Analog Racing Club">
+      <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
+    </a>
+    <nav>
+      <a href="/standings.html">Standings</a>
+      <a href="/results.html">Results</a>
+      <a href="/drivers.html">Drivers</a>
+      <a href="/admin" class="active">Admin</a>
+    </nav>
+    <form class="platform" method="post" action="/admin/logout" style="line-height:1"><button class="btn sm" type="submit">Log out</button></form>
+  </header>
+  <main>
+    <div class="topbar">
+      <h2>Admin</h2>
+      <button class="btn sm" id="refreshAll">↻ Refresh</button>
+    </div>
+
+    <section class="panel">
+      <h3>Upload results</h3>
+      <p class="desc">Upload an iRacing event-result JSON (the file iRacing downloads from a session's results page). Assign it to a series and round; re-uploading the same session to the same series replaces it. An event that counts toward two series (a season round that is also a championship round) is uploaded to each, and scored under each one's format.</p>
+      <div class="row" style="margin-bottom:0.8rem">
+        <input type="file" id="file" accept="application/json,.json">
+      </div>
+      <div class="row">
+        <label class="field">Series <select id="uploadSeries"></select></label>
+        <label class="field">Round <input type="number" id="round" min="1" value="1"></label>
+        <button class="btn primary" id="upload">Upload &amp; score</button>
+      </div>
+      <p id="uploadMsg" class="msg"></p>
+    </section>
+
+    <section class="panel">
+      <h3>Stored results</h3>
+      <p class="desc">Every uploaded session. Download re-exports the original JSON.</p>
+      <div id="resultsList"><p class="empty">Loading…</p></div>
+    </section>
+
+    <section class="panel">
+      <h3>Series</h3>
+      <p class="desc">Special events, seasonal series, and the annual championship can all run at once. Active series are listed on the site; complete ones stay browsable.</p>
+      <div id="seriesList"><p class="empty">Loading…</p></div>
+
+      <h4>New series</h4>
+      <div class="row">
+        <label class="field">Type <select id="newType"></select></label>
+        <label class="field">Slug <input type="text" id="newSlug" placeholder="fall-2026" size="12"></label>
+        <label class="field">Name <input type="text" id="newName" placeholder="Fall 2026" size="16"></label>
+        <label class="field">Rounds <input type="number" id="newRounds" min="1" value="3"></label>
+        <label class="field">Points <select id="newFormat"></select></label>
+        <button class="btn primary" id="createSeries">Create</button>
+      </div>
+      <p class="desc" id="newFormatDesc" style="margin-top:0.5rem"></p>
+      <p id="newMsg" class="msg"></p>
+    </section>
+
+    <section class="panel">
+      <h3>Edit series</h3>
+      <div class="row">
+        <label class="field">Series <select id="seriesSel"></select></label>
+        <label class="field">Name <input type="text" id="editName" size="18"></label>
+        <label class="field">Status <select id="editStatus"></select></label>
+        <button class="btn primary" id="saveSeries">Save</button>
+        <button class="btn danger sm" id="deleteSeries">Delete</button>
+      </div>
+      <p id="seriesMsg" class="msg"></p>
+
+      <h4>Schedule</h4>
+      <p class="desc">Track and date per round, shown on the results page until a result is uploaded.</p>
+      <div class="sched" id="sched"></div>
+      <div class="row">
+        <button class="btn" id="addRound">+ Round</button>
+        <button class="btn primary" id="saveSched">Save schedule</button>
+      </div>
+      <p id="schedMsg" class="msg"></p>
+
+      <h4>Points format</h4>
+      <p class="desc">Each series scores under its own format. Pick a preset, or edit the JSON for a custom scale (positions → points per session kind; <code>lapLedBonus</code> pays for leading a lap). Saving rescores every stored result in this series.</p>
+      <div class="row" style="margin-bottom:0.6rem">
+        <label class="field">Preset <select id="editFormat"></select></label>
+        <button class="btn" id="applyPreset">Apply preset &amp; rescore</button>
+      </div>
+      <textarea id="pointsJson" spellcheck="false"></textarea>
+      <div class="row" style="margin-top:0.6rem">
+        <button class="btn" id="saveCustom">Save custom JSON &amp; rescore</button>
+      </div>
+      <p id="pointsMsg" class="msg"></p>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api, el, fmtDate } from '/app.js';
+    const $ = (id) => document.getElementById(id);
+    const setMsg = (node, text, kind) => { node.textContent = text; node.className = `msg ${kind || ''}`.trim(); };
+    const post = (path, body, method = 'POST') => fetch(path, {
+      method, headers: { 'content-type': 'application/json' }, body: body == null ? undefined : JSON.stringify(body),
+    }).then(async (r) => { if (r.status === 401) location.href = '/admin/login'; return r.json(); });
+    const fill = (sel, opts, value) => { sel.innerHTML = ''; for (const [v, label] of opts) sel.append(el('option', { value: v }, label)); if (value != null) sel.value = value; };
+
+    const meta = await api('/api/admin/formats');
+    const formatOpts = meta.formats.map((f) => [f.id, f.name]);
+    fill($('newType'), Object.entries(meta.types), 'season');
+    fill($('newFormat'), formatOpts, meta.default);
+    fill($('editFormat'), formatOpts, meta.default);
+    fill($('editStatus'), meta.statuses.map((s) => [s, s]));
+    const describeFormat = () => { $('newFormatDesc').textContent = meta.formats.find((f) => f.id === $('newFormat').value)?.description ?? ''; };
+    $('newFormat').addEventListener('change', describeFormat); describeFormat();
+    $('newType').addEventListener('change', () => { if ($('newType').value === 'event') $('newRounds').value = 1; });
+
+    let series = [];
+    const seriesSel = $('seriesSel'), uploadSeries = $('uploadSeries');
+    const selected = () => series.find((x) => x.slug === seriesSel.value);
+
+    const scheduleRow = (r) => el('div', { class: 'row' },
+      el('span', { class: 'rn' }, `R${r.round}`),
+      el('input', { type: 'text', 'data-k': 'track', placeholder: 'Track', value: r.track ?? '' }),
+      el('input', { type: 'text', 'data-k': 'date', placeholder: 'Date (e.g. Thu Oct 2)', value: r.date ?? '' }));
+
+    function renderEditor() {
+      const s = selected();
+      $('editName').value = s?.name ?? '';
+      $('editStatus').value = s?.status ?? 'upcoming';
+      const box = $('sched'); box.innerHTML = '';
+      for (const r of s?.schedule ?? []) box.append(scheduleRow(r));
+      if (s && meta.formats.some((f) => f.id === s.format)) $('editFormat').value = s.format;
+      $('pointsJson').value = s ? JSON.stringify(s.pointsConfig, null, 2) : '';
+    }
+    seriesSel.addEventListener('change', renderEditor);
+
+    function renderSeriesList() {
+      const box = $('seriesList'); box.innerHTML = '';
+      if (!series.length) { box.append(el('p', { class: 'empty' }, 'No series yet — create one below.')); return; }
+      const head = el('tr', {}, ...['Name', 'Type', 'Status', 'Rounds', 'Points', 'Slug'].map((h) => el('th', {}, h)));
+      const rows = series.map((s) => el('tr', {},
+        el('td', {}, s.name),
+        el('td', { class: 'muted' }, meta.types[s.type] ?? s.type),
+        el('td', {}, el('span', { class: `badge ${s.status}` }, s.status)),
+        el('td', { class: 'num' }, String(s.schedule?.length ?? 0)),
+        el('td', { class: 'muted' }, meta.formats.find((f) => f.id === s.format)?.name ?? s.format),
+        el('td', { class: 'muted' }, s.slug)));
+      box.append(el('table', {}, el('thead', {}, head), el('tbody', {}, ...rows)));
+    }
+
+    async function loadSeries() {
+      series = await api('/api/admin/series');
+      const keep = seriesSel.value, keepUp = uploadSeries.value;
+      const opts = series.map((s) => [s.slug, `${s.name} (${s.status})`]);
+      fill(seriesSel, opts, series.some((s) => s.slug === keep) ? keep : series[0]?.slug);
+      fill(uploadSeries, opts, series.some((s) => s.slug === keepUp) ? keepUp : (series.find((s) => s.status === 'active') ?? series[0])?.slug);
+      renderSeriesList();
+      renderEditor();
+    }
+
+    $('createSeries').addEventListener('click', async () => {
+      const res = await post('/api/admin/series', {
+        slug: $('newSlug').value.trim(), name: $('newName').value.trim(), type: $('newType').value,
+        rounds: Number($('newRounds').value) || 1, format: $('newFormat').value,
+      });
+      setMsg($('newMsg'), res.ok ? `Created ${res.slug}. Set its status to active when it starts.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+      if (res.ok) { $('newSlug').value = ''; $('newName').value = ''; }
+      await loadSeries();
+      if (res.ok) { seriesSel.value = res.slug; renderEditor(); }
+    });
+
+    $('saveSeries').addEventListener('click', async () => {
+      const res = await post('/api/admin/series-update', { slug: seriesSel.value, name: $('editName').value, status: $('editStatus').value });
+      setMsg($('seriesMsg'), res.ok ? 'Saved.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+      await loadSeries();
+    });
+    $('deleteSeries').addEventListener('click', async () => {
+      const s = selected(); if (!s) return;
+      if (!confirm(`Delete series ${s.slug}? Only possible when it has no stored results.`)) return;
+      const res = await post(`/api/admin/series/${encodeURIComponent(s.slug)}`, null, 'DELETE');
+      setMsg($('seriesMsg'), res.ok ? `Deleted ${res.deleted}.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+      await loadSeries();
+    });
+
+    $('addRound').addEventListener('click', () => $('sched').append(scheduleRow({ round: $('sched').children.length + 1 })));
+    $('saveSched').addEventListener('click', async () => {
+      const schedule = [...$('sched').children].map((row, i) => ({
+        round: i + 1,
+        track: row.querySelector('[data-k=track]').value.trim() || null,
+        date: row.querySelector('[data-k=date]').value.trim() || null,
+      }));
+      const res = await post('/api/admin/series-update', { slug: seriesSel.value, schedule });
+      setMsg($('schedMsg'), res.ok ? 'Schedule saved.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+      await loadSeries();
+    });
+
+    $('applyPreset').addEventListener('click', async () => {
+      setMsg($('pointsMsg'), 'Rescoring…');
+      const res = await post('/api/admin/series-points', { slug: seriesSel.value, format: $('editFormat').value });
+      setMsg($('pointsMsg'), res.ok ? `Applied ${res.format}; rescored ${res.rescored} sessions.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+      await loadSeries();
+    });
+    $('saveCustom').addEventListener('click', async () => {
+      let pointsConfig;
+      try { pointsConfig = JSON.parse($('pointsJson').value); }
+      catch (e) { setMsg($('pointsMsg'), `Invalid JSON: ${e.message}`, 'err'); return; }
+      setMsg($('pointsMsg'), 'Rescoring…');
+      const res = await post('/api/admin/series-points', { slug: seriesSel.value, pointsConfig });
+      setMsg($('pointsMsg'), res.ok ? `Saved custom format; rescored ${res.rescored} sessions.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+      await loadSeries();
+    });
+
+    $('upload').addEventListener('click', async () => {
+      const f = $('file').files[0];
+      const msg = $('uploadMsg');
+      if (!f) { setMsg(msg, 'Choose a file first.', 'err'); return; }
+      if (!uploadSeries.value) { setMsg(msg, 'Create a series first.', 'err'); return; }
+      setMsg(msg, 'Uploading…');
+      const q = new URLSearchParams({ series: uploadSeries.value, round: $('round').value });
+      const res = await fetch(`/api/admin/upload?${q}`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: await f.text(),
+      }).then((r) => r.json());
+      if (res.ok) setMsg(msg, `Scored ${res.subsessionId}: ${res.drivers} drivers, ${res.results} results.`, 'ok');
+      else setMsg(msg, `Error: ${res.error}`, 'err');
+      await loadResults();
+    });
+
+    const resultsEl = $('resultsList');
+    async function loadResults() {
+      resultsEl.innerHTML = '<p class="empty">Loading…</p>';
+      const subs = await api('/api/subsessions');
+      resultsEl.innerHTML = '';
+      if (!subs.length) { resultsEl.append(el('p', { class: 'empty' }, 'No results uploaded yet.')); return; }
+      const head = el('tr', {}, ...['Series', 'Round', 'Track', 'Date', 'Sessions', ''].map((h) => el('th', {}, h)));
+      const rows = subs.map((s) => el('tr', {},
+        el('td', {}, series.find((x) => x.slug === s.seriesSlug)?.name ?? s.seriesSlug ?? '—'),
+        el('td', { class: 'pos' }, s.round == null ? '—' : String(s.round)),
+        el('td', {}, [s.track?.name, s.track?.config].filter(Boolean).join(' — ') || '—'),
+        el('td', {}, fmtDate(s.startTime)),
+        el('td', { class: 'muted' }, (s.simsessions ?? []).map((x) => x.kind).filter((k) => k !== 'practice').join(', ')),
+        el('td', {}, el('div', { class: 'row' },
+          el('a', { class: 'btn sm', href: `/api/admin/subsessions/${encodeURIComponent(s._id)}/download` }, '↓ JSON'),
+          delButton(s)))));
+      resultsEl.append(el('table', {}, el('thead', {}, head), el('tbody', {}, ...rows)));
+    }
+    function delButton(s) {
+      const b = el('button', { class: 'btn sm danger' }, 'Delete');
+      b.addEventListener('click', async () => {
+        if (!confirm(`Delete ${s._id}? This removes the stored result.`)) return;
+        const res = await post(`/api/admin/subsessions/${encodeURIComponent(s._id)}`, null, 'DELETE');
+        if (!res.ok) alert(`Error: ${res.error}`);
+        await loadResults();
+      });
+      return b;
+    }
+
+    $('refreshAll').addEventListener('click', async () => { await loadSeries(); await loadResults(); });
+    await loadSeries();
+    await loadResults();
+  </script>
+</body>
+</html>

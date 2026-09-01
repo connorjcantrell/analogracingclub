@@ -25,31 +25,41 @@
     <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   </header>
   <main>
-    <h2>Standings</h2>
-    <table>
-      <thead>
-        <tr>
-          <th class="pos">Pos</th>
-          <th>Driver</th>
-          <th class="num">R1</th>
-          <th class="num">R2</th>
-          <th class="num">R3</th>
-          <th class="num">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="pos">1</td>
-          <td>—</td>
-          <td class="num muted">—</td>
-          <td class="num muted">—</td>
-          <td class="num muted">—</td>
-          <td class="num total">—</td>
-        </tr>
-      </tbody>
+    <div class="page-head">
+      <h2>Standings</h2>
+      <div id="pick"></div>
+    </div>
+    <p class="muted" id="seriesName"></p>
+    <table id="table">
+      <thead><tr id="head"></tr></thead>
+      <tbody id="body"></tbody>
     </table>
-    <p class="empty">No results yet — standings appear after Round 1.</p>
+    <p class="empty" id="empty" hidden>No results yet — standings appear after the first round.</p>
   </main>
+  <script type="module">
+    import { api, el, driverName, pickSeries } from '/app.js';
+    const $ = (id) => document.getElementById(id);
+    async function load(slug) {
+      const data = await api(`/api/standings?series=${encodeURIComponent(slug)}`);
+      const head = $('head'), body = $('body');
+      head.innerHTML = ''; body.innerHTML = '';
+      $('seriesName').textContent = `${data.series.name} · ${data.series.typeLabel}`;
+      head.append(el('th', { class: 'pos' }, 'Pos'), el('th', {}, 'Driver'));
+      for (const r of data.rounds) head.append(el('th', { class: 'num' }, `R${r}`));
+      head.append(el('th', { class: 'num' }, 'Total'));
+      data.standings.forEach((d, i) => body.append(el('tr', {},
+        el('td', { class: 'pos' }, String(i + 1)),
+        el('td', {}, driverName(d.displayName)),
+        ...data.rounds.map((r) => d.rounds[r] == null
+          ? el('td', { class: 'num muted' }, '—')
+          : el('td', { class: 'num' }, String(d.rounds[r]))),
+        el('td', { class: 'num total' }, String(d.total)))));
+      $('empty').hidden = data.standings.length > 0;
+      $('table').hidden = !data.standings.length;
+    }
+    const slug = await pickSeries($('pick'), load);
+    if (slug) await load(slug); else { $('empty').hidden = false; $('table').hidden = true; }
+  </script>
   <footer>Analog Racing Club · an iRacing league</footer>
 </body>
 </html>

@@ -24,39 +24,93 @@
     </nav>
     <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>  </header>
   <main>
-    <h2>Results</h2>
-    <table>
+    <div class="page-head">
+      <h2>Results</h2>
+      <div id="pick"></div>
+    </div>
+    <p class="muted" id="seriesName"></p>
+    <table id="table">
       <thead>
         <tr>
           <th>Round</th>
           <th>Track</th>
           <th>Date</th>
-          <th>Winner</th>
+          <th>Pole</th>
+          <th>Sprint winner</th>
+          <th>Feature winner</th>
         </tr>
       </thead>
-      <tbody>
-        <tr>
-          <td class="pos">1</td>
-          <td>—</td>
-          <td class="muted">TBD</td>
-          <td class="muted">—</td>
-        </tr>
-        <tr>
-          <td class="pos">2</td>
-          <td>—</td>
-          <td class="muted">TBD</td>
-          <td class="muted">—</td>
-        </tr>
-        <tr>
-          <td class="pos">3</td>
-          <td>—</td>
-          <td class="muted">TBD</td>
-          <td class="muted">—</td>
-        </tr>
-      </tbody>
+      <tbody id="body"></tbody>
     </table>
-    <p class="empty">No races run yet — results appear after Round 1.</p>
+    <p class="empty" id="empty" hidden>No races run yet — results appear after the first round.</p>
+    <section id="detail" hidden>
+      <h2 id="detailTitle" style="margin-top:2.5rem;font-size:1.5rem"></h2>
+      <table>
+        <thead>
+          <tr>
+            <th class="pos">Pos</th>
+            <th>Driver</th>
+            <th class="num">Qual</th>
+            <th class="num">Sprint</th>
+            <th class="num">Feature</th>
+            <th class="num">Points</th>
+          </tr>
+        </thead>
+        <tbody id="detailBody"></tbody>
+      </table>
+    </section>
   </main>
+  <script type="module">
+    import { api, el, driverName, fmtDate, trackName, winner, roundTable, pickSeries } from '/app.js';
+    const $ = (id) => document.getElementById(id);
+    const cell = (x, extra = '') => x ? `P${x.finish ?? '—'}${extra}${x.points.total ? ` · ${x.points.total}` : ''}` : '—';
+
+    function showRound(r) {
+      const sub = r.subsessions[0];
+      const tb = $('detailBody'); tb.innerHTML = '';
+      roundTable(sub).forEach((d, i) => tb.append(el('tr', {},
+        el('td', { class: 'pos' }, String(i + 1)),
+        el('td', {}, driverName(d.name)),
+        el('td', { class: 'num' }, cell(d.qualifying)),
+        el('td', { class: 'num' }, cell(d.sprint, d.sprint?.lapsLead ? ` · led ${d.sprint.lapsLead}` : '')),
+        el('td', { class: 'num' }, cell(d.feature)),
+        el('td', { class: 'num total' }, String(d.total)))));
+      $('detailTitle').textContent = `Round ${r.round} · ${trackName(sub)}`;
+      $('detail').hidden = false;
+    }
+
+    async function load(slug) {
+      const data = await api(`/api/results?series=${encodeURIComponent(slug)}`);
+      const body = $('body'); body.innerHTML = '';
+      $('detail').hidden = true;
+      $('seriesName').textContent = `${data.series.name} · ${data.series.typeLabel}`;
+      let anyRun = false;
+      for (const r of data.rounds) {
+        const sub = r.subsessions[0];
+        const track = sub ? trackName(sub) : r.track;
+        const m = (v) => (v ? {} : { class: 'muted' });
+        const row = el('tr', {},
+          el('td', { class: 'pos' }, String(r.round)),
+          el('td', m(track), track || '—'),
+          el('td', m(sub), sub ? fmtDate(sub.startTime) : r.date || 'TBD'),
+          el('td', m(sub), winner(sub, 'qualifying') || '—'),
+          el('td', m(sub), winner(sub, 'sprint') || '—'),
+          el('td', m(sub), winner(sub, 'feature') || '—'));
+        if (sub) {
+          anyRun = true;
+          row.style.cursor = 'pointer';
+          row.addEventListener('click', () => { showRound(r); $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+        }
+        body.append(row);
+      }
+      $('empty').hidden = anyRun;
+      const want = Number(new URLSearchParams(location.search).get('round'));
+      const first = data.rounds.find((r) => r.round === want && r.subsessions.length);
+      if (first) showRound(first);
+    }
+    const slug = await pickSeries($('pick'), load);
+    if (slug) await load(slug); else $('empty').hidden = false;
+  </script>
   <footer>Analog Racing Club · an iRacing league</footer>
 </body>
 </html>

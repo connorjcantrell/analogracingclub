@@ -25,5 +25,83 @@
     </nav>
     <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   </header>
+  <main>
+    <section class="lp-hero">
+      <img class="lp-hero-logo" src="/assets/logo.png" alt="Analog Racing Club">
+      <p class="lp-hero-lead">An iRacing league for drivers who'd rather race close than qualify well.</p>
+    </section>
+
+    <section class="lp-section" id="latest">
+      <p class="sched-round" id="latestKicker">Latest event</p>
+      <h2 class="lp-h" id="latestTitle">No events yet</h2>
+      <p class="lp-sub" id="latestSub">The first result will show up here as soon as it's run.</p>
+      <div class="podium" id="podium" hidden>
+        <div class="podium-card"><span class="join-label">Pole</span><span class="join-val" id="pole">—</span></div>
+        <div class="podium-card"><span class="join-label">Sprint winner</span><span class="join-val" id="sprintWin">—</span></div>
+        <div class="podium-card"><span class="join-label">Feature winner</span><span class="join-val" id="featureWin">—</span></div>
+      </div>
+      <div class="latest-table" id="latestTable" hidden>
+        <table>
+          <thead>
+            <tr>
+              <th class="pos">Pos</th>
+              <th>Driver</th>
+              <th class="num">Qual</th>
+              <th class="num">Sprint</th>
+              <th class="num">Feature</th>
+              <th class="num">Points</th>
+            </tr>
+          </thead>
+          <tbody id="latestBody"></tbody>
+        </table>
+        <p style="margin-top:1.2rem"><a class="link" id="latestLink" href="/results.html">Full results and standings →</a></p>
+      </div>
+    </section>
+
+    <section class="lp-section" id="seriesSection" hidden>
+      <h2 class="lp-h">On track now</h2>
+      <p class="lp-sub">Special events, seasonal series, and the annual championship run side by side. Each scores under its own points format.</p>
+      <div class="sched-cards" id="seriesCards"></div>
+    </section>
+  </main>
+  <footer>Analog Racing Club · an iRacing league</footer>
+  <script type="module">
+    import { api, el, driverName, fmtDate, trackName, winner, roundTable } from '/app.js';
+    const $ = (id) => document.getElementById(id);
+    const cell = (x, extra = '') => x ? `P${x.finish ?? '—'}${extra}${x.points.total ? ` · ${x.points.total}` : ''}` : '—';
+
+    const latest = await api('/api/latest');
+    if (!latest.error) {
+      const { series, subsession: sub } = latest;
+      $('latestKicker').textContent = series ? `${series.typeLabel} · ${series.name} · Round ${sub.round ?? '—'}` : 'Latest event';
+      $('latestTitle').textContent = trackName(sub) || 'Latest event';
+      $('latestSub').textContent = fmtDate(sub.startTime);
+      $('pole').textContent = winner(sub, 'qualifying') || '—';
+      $('sprintWin').textContent = winner(sub, 'sprint') || '—';
+      $('featureWin').textContent = winner(sub, 'feature') || '—';
+      $('podium').hidden = false;
+      const tb = $('latestBody');
+      roundTable(sub).slice(0, 10).forEach((d, i) => tb.append(el('tr', {},
+        el('td', { class: 'pos' }, String(i + 1)),
+        el('td', {}, driverName(d.name)),
+        el('td', { class: 'num' }, cell(d.qualifying)),
+        el('td', { class: 'num' }, cell(d.sprint, d.sprint?.lapsLead ? ` · led ${d.sprint.lapsLead}` : '')),
+        el('td', { class: 'num' }, cell(d.feature)),
+        el('td', { class: 'num total' }, String(d.total)))));
+      if (series) $('latestLink').href = `/results.html?series=${encodeURIComponent(series.slug)}&round=${sub.round ?? ''}`;
+      $('latestTable').hidden = false;
+    }
+
+    const active = await api('/api/series?status=active');
+    if (active.length) {
+      const cards = $('seriesCards');
+      for (const s of active) cards.append(el('div', { class: 'sched-card' },
+        el('p', { class: 'sched-round' }, s.typeLabel),
+        el('a', { class: 'sched-track', href: `/standings.html?series=${encodeURIComponent(s.slug)}` }, s.name),
+        el('p', { class: 'sched-date' }, el('a', { class: 'link', href: `/results.html?series=${encodeURIComponent(s.slug)}` }, 'Results'), ' · ',
+          el('a', { class: 'link', href: `/standings.html?series=${encodeURIComponent(s.slug)}` }, 'Standings'))));
+      $('seriesSection').hidden = false;
+    }
+  </script>
 </body>
 </html>

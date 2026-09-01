@@ -1,0 +1,38 @@
+# Analog Racing Club — full stack: Node app + MongoDB.
+#   docker compose up -d --build   bring up app + mongo (the app seeds Season 1 on first boot)
+#   docker compose down            stop (named volume retained)
+# Caddy on the host reverse-proxies analogracingclub.com -> localhost:${APP_PORT}.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      PORT: 8004
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DB: ${MONGO_DB:-arc}
+      # Admin login. With ADMIN_PASSWORD empty the admin area is loopback-only
+      # (dev mode) — which, from inside a container, means it is unreachable.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Signs the admin session cookie. Leave empty to generate one per boot
+      # (every restart logs the admin out).
+      SESSION_SECRET: ${SESSION_SECRET:-}
+    ports:
+      - "${APP_PORT:-8004}:8004"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping:1}).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  mongo-data:
