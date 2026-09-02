@@ -8,6 +8,7 @@ import {
   listSeries, getSeries, listDrivers, listSubsessions, listSubsessionsFull, getSubsession,
 } from './api/queries.js';
 import { computeStandings } from './standings/index.js';
+import { computePowerRanking } from './power/index.js';
 import { SERIES_TYPES } from './series.js';
 import {
   requireAdmin, checkPassword, issueSession, sessionCookie, clearCookie,
@@ -40,7 +41,15 @@ async function sendHtml(res, file, status = 200, headers = {}) {
   res.end(html);
 }
 
-const publicSeries = (s) => ({ slug: s.slug, name: s.name, type: s.type, typeLabel: SERIES_TYPES[s.type] ?? s.type, status: s.status });
+// How many qualifying places the series' format actually pays. The ARC
+// standard scores the top four ("the Fast Four"); a format that scores no
+// qualifying places has no such thing, so the site must not invent one.
+const qualifyingPlaces = (s) => Object.keys(s?.pointsConfig?.qualifying?.base ?? {}).length;
+const publicSeries = (s) => ({
+  slug: s.slug, name: s.name, type: s.type,
+  typeLabel: SERIES_TYPES[s.type] ?? s.type, status: s.status,
+  qualifyingPlaces: qualifyingPlaces(s),
+});
 
 // A series' rounds: schedule merged with the stored results for each round.
 async function seriesRounds(db, s) {
@@ -65,6 +74,13 @@ async function handleApi(db, res, url) {
     return s ? sendJson(res, 200, { ...publicSeries(s), schedule: s.schedule, format: s.format, pointsConfig: s.pointsConfig }) : sendJson(res, 404, { error: 'series not found' }), true;
   }
   if (seg[1] === 'drivers') return sendJson(res, 200, await listDrivers(db)), true;
+  // Cross-season driver power ranking, recency-weighted.
+  if (seg[1] === 'power') {
+    return sendJson(res, 200, await computePowerRanking(db, {
+      seriesSlug: q.get('series'),
+      minEvents: q.get('minEvents') ? Number(q.get('minEvents')) : undefined,
+    })), true;
+  }
   if (seg[1] === 'subsessions') {
     if (seg.length === 2) return sendJson(res, 200, await listSubsessions(db, { seriesSlug: q.get('series') })), true;
     const sub = await getSubsession(db, decodeURIComponent(seg[2]));

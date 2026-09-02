@@ -18,6 +18,9 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-}
     ports:
       - "${APP_PORT:-8004}:8004"
+    volumes:
+      # Admin-uploaded race photos must outlive image rebuilds.
+      - round-images:/app/public/assets/rounds
     depends_on:
       mongo:
         condition: service_healthy
@@ -36,3 +39,4 @@ services:
 
 volumes:
   mongo-data:
+  round-images:

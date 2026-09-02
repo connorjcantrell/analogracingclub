@@ -5,6 +5,8 @@ import { rescore } from '../scoring/rescore.js';
 import { FORMATS, DEFAULT_FORMAT, pointsConfigFor, validatePointsConfig } from '../scoring/formats.js';
 import { SERIES_TYPES, SERIES_STATUSES, SLUG_RE } from '../series.js';
 import { UPLOAD_MAX_BYTES } from '../config.js';
+import { readBuffer, boundaryOf, parseMultipart } from './multipart.js';
+import { saveImage, deleteImage, MAX_IMAGE_BYTES } from '../images.js';
 
 const sendJson = (res, status, body) => {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -27,6 +29,9 @@ export function readBody(req, max) {
 }
 
 const readJson = async (req, max = 50_000) => JSON.parse(await readBody(req, max));
+
+// Derive a URL slug from a free-text name ("Bathurst 1000" -> "bathurst-1000").
+const slugify = (name) => String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 // Resync the driver roster from stored results: keep every referenced driver,
 // drop the rest (after a delete or rescore).
@@ -139,18 +144,43 @@ export async function handleAdminApi(db, req, res, url) {
     return sendJson(res, 200, { ok: true, deleted: slug }), true;
   }
 
-  // POST /api/admin/upload?series=&round=  — body: iRacing event-result JSON.
+  // POST /api/admin/upload — body: iRacing event-result JSON.
+  //   ?series=&round=   file it as a round of an existing series, or
+  //   ?event=<name>     file it as a one-off special event, created on the fly
+  //                     (unscored, single round).
   if (req.method === 'POST' && sub === 'upload') {
-    const slug = url.searchParams.get('series') || null;
-    const round = url.searchParams.get('round') ? Number(url.searchParams.get('round')) : null;
-    if (!slug) return sendJson(res, 400, { error: 'series required' }), true;
+    const eventName = (url.searchParams.get('event') ?? '').trim();
+    let slug = url.searchParams.get('series') || null;
+    let round = url.searchParams.get('round') ? Number(url.searchParams.get('round')) : null;
+
+    if (eventName) {
+      // A special event needs no prior setup: name it here and it is created
+      // unscored, with a single round, ready for the result being uploaded.
+      slug = slugify(eventName);
+      if (!slug) return sendJson(res, 400, { error: 'event name must contain letters or numbers' }), true;
+      round = 1;
+      const existing = await series.findOne({ slug });
+      if (existing && existing.type !== 'event') {
+        return sendJson(res, 409, { error: `"${slug}" already exists as a ${existing.type}` }), true;
+      }
+      if (!existing) {
+        await series.insertOne({
+          slug, name: eventName, type: 'event', status: 'complete',
+          schedule: [{ round: 1, track: null, date: null }],
+          format: 'unscored', pointsConfig: pointsConfigFor('unscored'),
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    if (!slug) return sendJson(res, 400, { error: 'series or event required' }), true;
     if (!Number.isInteger(round) || round < 1) return sendJson(res, 400, { error: 'round (integer >= 1) required' }), true;
     let json;
     try { json = await readJson(req, UPLOAD_MAX_BYTES); }
     catch (e) { return sendJson(res, 400, { error: `invalid upload: ${e.message}` }), true; }
     try {
       const result = await ingestEventResult(db, json, { seriesSlug: slug, round });
-      return sendJson(res, 200, { ok: true, ...result }), true;
+      return sendJson(res, 200, { ok: true, series: slug, ...result }), true;
     } catch (e) {
       return sendJson(res, 400, { error: `ingest failed: ${e.message}` }), true;
     }
@@ -172,12 +202,73 @@ export async function handleAdminApi(db, req, res, url) {
   }
 
   // DELETE /api/admin/subsessions/:id — remove a stored result.
-  if (req.method === 'DELETE' && sub === 'subsessions' && seg[3]) {
+  if (req.method === 'DELETE' && sub === 'subsessions' && seg[3] && !seg[4]) {
     const id = decodeURIComponent(seg[3]);
     const del = await subsessions.deleteOne({ _id: id });
     if (!del.deletedCount) return sendJson(res, 404, { error: 'subsession not found' }), true;
     const roster = await resyncDrivers(db);
     return sendJson(res, 200, { ok: true, deleted: id, drivers: roster }), true;
+  }
+
+  // POST /api/admin/subsessions/:id/images — multipart upload of race photos.
+  // Appends to the subsession's `images` array; re-uploading a file is a no-op
+  // because the stored name is content-addressed.
+  if (req.method === 'POST' && sub === 'subsessions' && seg[4] === 'images') {
+    const id = decodeURIComponent(seg[3]);
+    const doc = await subsessions.findOne({ _id: id }, { projection: { images: 1 } });
+    if (!doc) return sendJson(res, 404, { error: 'subsession not found' }), true;
+    const boundary = boundaryOf(req.headers['content-type'] ?? '');
+    if (!boundary) return sendJson(res, 400, { error: 'expected multipart/form-data' }), true;
+
+    let body;
+    try { body = await readBuffer(req, MAX_IMAGE_BYTES * 25); }
+    catch (e) { return sendJson(res, 413, { error: e.message }), true; }
+
+    const files = parseMultipart(body, boundary).filter((p) => p.filename && p.data.length);
+    if (!files.length) return sendJson(res, 400, { error: 'no image files in upload' }), true;
+
+    const added = [];
+    const failed = [];
+    for (const f of files) {
+      try { added.push(await saveImage(id, f.data, f.filename)); }
+      catch (e) { failed.push({ name: f.filename, error: e.message }); }
+    }
+    if (added.length) {
+      const existing = doc.images ?? [];
+      const merged = [...existing];
+      for (const img of added) if (!merged.some((x) => x.url === img.url)) merged.push(img);
+      await subsessions.updateOne({ _id: id }, { $set: { images: merged } });
+    }
+    return sendJson(res, added.length ? 200 : 400, { ok: added.length > 0, added, failed }), true;
+  }
+
+  // PUT /api/admin/subsessions/:id/featured { url } — mark one photo as the
+  // round's hero shot (or clear it with a null url).
+  if (req.method === 'PUT' && sub === 'subsessions' && seg[4] === 'featured') {
+    const id = decodeURIComponent(seg[3]);
+    const doc = await subsessions.findOne({ _id: id }, { projection: { images: 1 } });
+    if (!doc) return sendJson(res, 404, { error: 'subsession not found' }), true;
+    let body = {};
+    try { body = await readJson(req, 10_000); } catch { /* empty body clears it */ }
+    const target = body?.url ?? null;
+    if (target && !(doc.images ?? []).some((x) => x.url === target)) {
+      return sendJson(res, 400, { error: 'that photo is not attached to this round' }), true;
+    }
+    await subsessions.updateOne({ _id: id }, { $set: { featuredImage: target } });
+    return sendJson(res, 200, { ok: true, featuredImage: target }), true;
+  }
+
+  // DELETE /api/admin/subsessions/:id/images?url= — drop one photo.
+  if (req.method === 'DELETE' && sub === 'subsessions' && seg[4] === 'images') {
+    const id = decodeURIComponent(seg[3]);
+    const target = url.searchParams.get('url');
+    if (!target) return sendJson(res, 400, { error: 'url required' }), true;
+    const upd = await subsessions.updateOne({ _id: id }, { $pull: { images: { url: target } } });
+    if (!upd.matchedCount) return sendJson(res, 404, { error: 'subsession not found' }), true;
+    // Never leave the hero pointing at a photo that no longer exists.
+    await subsessions.updateOne({ _id: id, featuredImage: target }, { $set: { featuredImage: null } });
+    await deleteImage(target);
+    return sendJson(res, 200, { ok: true, removed: target }), true;
   }
 
   // POST /api/admin/rescore { slug? } — rebuild stored results from raw with

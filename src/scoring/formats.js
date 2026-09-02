@@ -4,26 +4,40 @@
 //
 // pointsConfig shape, per session kind (qualifying | sprint | feature | practice):
 //   { base: { <finish position>: points, ... }, lapLedBonus?: points }
+//
+// lapLedBonus is a flat award for leading at least one lap, and is paid at
+// most once per round — see build-document.js, which strips the duplicate when
+// a driver leads in both the sprint and the feature.
 const scale = (pts) => Object.fromEntries(pts.map((p, i) => [i + 1, p]));
 
 export const FORMATS = {
   'arc-standard': {
     name: 'ARC standard',
-    description: 'Qualifying 7-5-3-1 · Sprint: 1 pt for leading a lap · Feature 20-18-16-14-12-11-10-9-8-7-6-5-4-3-2-1',
+    description: 'Qualifying 7-5-3-1 · Feature 20-18-16-14-12-11-10-9-8-7-6-5-4-3-2-1 · 1 pt for leading a lap in the sprint or feature (once per round)',
     pointsConfig: {
       qualifying: { base: scale([7, 5, 3, 1]) },
       sprint: { base: {}, lapLedBonus: 1 },
-      feature: { base: scale([20, 18, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]) },
+      feature: { base: scale([20, 18, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]), lapLedBonus: 1 },
       practice: { base: {} },
     },
   },
   'feature-only': {
     name: 'Feature only',
-    description: 'No qualifying or sprint points · Feature 20-18-16-14-12-11-10-9-8-7-6-5-4-3-2-1',
+    description: 'No qualifying or sprint points · Feature 20-18-16-14-12-11-10-9-8-7-6-5-4-3-2-1 · 1 pt for leading a lap (once per round)',
     pointsConfig: {
       qualifying: { base: {} },
       sprint: { base: {} },
-      feature: { base: scale([20, 18, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]) },
+      feature: { base: scale([20, 18, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]), lapLedBonus: 1 },
+      practice: { base: {} },
+    },
+  },
+  'unscored': {
+    name: 'Unscored (special event)',
+    description: 'No points at all — for one-off races that do not feed a championship',
+    pointsConfig: {
+      qualifying: { base: {} },
+      sprint: { base: {} },
+      feature: { base: {} },
       practice: { base: {} },
     },
   },

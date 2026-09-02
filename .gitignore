@@ -6,3 +6,6 @@ node_modules/
 
 # Local dev-only Docker overrides (must not reach deploys)
 docker-compose.override.yml
+
+# Uploaded race photos (user content)
+public/assets/rounds/

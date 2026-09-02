@@ -7,22 +7,23 @@
   <meta name="theme-color" content="#221f20">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
   <link rel="stylesheet" href="/styles.css">
-  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="icon" href="/assets/analog_sq.png" type="image/png">
 </head>
 <body>
   <header>
     <a class="brand" href="/" aria-label="Analog Racing Club">
-      <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
+      <img class="brand-logo" src="/assets/analog_sq.png" alt="Analog Racing Club">
     </a>
     <nav>
       <a href="/standings.html">Standings</a>
       <a href="/results.html" class="active">Results</a>
-      <a href="/drivers.html">Drivers</a>
+      <a href="/drivers.html">Power Rankings</a>
       <a href="/about.html">About</a>
     </nav>
-    <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>  </header>
+    <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
+  </header>
   <main>
     <div class="page-head">
       <h2>Results</h2>
@@ -32,56 +33,194 @@
     <table id="table">
       <thead>
         <tr>
-          <th>Round</th>
+          <th class="round-col">Round</th>
           <th>Track</th>
           <th>Date</th>
-          <th>Pole</th>
-          <th>Sprint winner</th>
-          <th>Feature winner</th>
+          <th class="feature-col">Feature winner</th>
+          <th id="overallCol">Overall winner</th>
         </tr>
       </thead>
       <tbody id="body"></tbody>
     </table>
     <p class="empty" id="empty" hidden>No races run yet — results appear after the first round.</p>
     <section id="detail" hidden>
-      <h2 id="detailTitle" style="margin-top:2.5rem;font-size:1.5rem"></h2>
-      <table>
-        <thead>
-          <tr>
-            <th class="pos">Pos</th>
-            <th>Driver</th>
-            <th class="num">Qual</th>
-            <th class="num">Sprint</th>
-            <th class="num">Feature</th>
-            <th class="num">Points</th>
-          </tr>
-        </thead>
-        <tbody id="detailBody"></tbody>
-      </table>
+      <h2 class="detail-title" id="detailTitle"></h2>
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <div id="tabPanel"></div>
+      <div class="gallery-section" id="gallerySection" hidden>
+        <h3 class="gallery-title">Photos</h3>
+        <div id="galleryMount"></div>
+      </div>
     </section>
   </main>
   <script type="module">
-    import { api, el, driverName, fmtDate, trackName, winner, roundTable, pickSeries } from '/app.js';
+    import { api, el, driverName, fmtDate, gallery, gap, lapTime, roundTable, session, sessionsRun, trackName, winner, pickSeries } from '/app.js';
+    const cell = (x) => (x?.finish ? `P${x.finish}` : '—');
     const $ = (id) => document.getElementById(id);
-    const cell = (x, extra = '') => x ? `P${x.finish ?? '—'}${extra}${x.points.total ? ` · ${x.points.total}` : ''}` : '—';
+    const TITLES = { qualifying: 'Qualifying', sprint: 'Sprint', feature: 'Feature' };
+
+    // Tabs follow the sessions this event actually ran. A special event that
+    // is only a feature gets one tab, not three with two empty.
+    function viewsFor(sub) {
+      const kinds = sessionsRun(sub);
+      // "Overall" only says something extra when more than one session ran.
+      return (kinds.length > 1 ? [['overall', 'Overall']] : [])
+        .concat(kinds.map((k) => [k, TITLES[k]]));
+    }
+
+    // Combined standings for the round: position per session plus points total.
+    const SHORT = { qualifying: 'Qual', sprint: 'Sprint', feature: 'Feature' };
+
+    function overallTable(sub) {
+      // One column per session the event ran, so a round without a sprint
+      // does not carry an empty sprint column.
+      const kinds = sessionsRun(sub);
+      const table = roundTable(sub);
+      const scored = table.some((d) => d.total !== 0);
+      const body = el('tbody', {});
+      table.forEach((d, i) => body.append(el('tr', {},
+        el('td', { class: 'pos' }, String(i + 1)),
+        el('td', {}, driverName(d.name)),
+        ...kinds.map((k) => el('td', { class: 'num' }, cell(d[k]))),
+        ...(scored ? [el('td', { class: 'num total' }, String(d.total))] : []))));
+      return el('table', {},
+        el('thead', {}, el('tr', {},
+          el('th', { class: 'pos' }, 'Pos'),
+          el('th', {}, 'Driver'),
+          ...kinds.map((k) => el('th', { class: 'num' }, SHORT[k])),
+          ...(scored ? [el('th', { class: 'num' }, 'Points')] : []))),
+        body);
+    }
+
+    // Each session gets the columns that matter for it: qualifying compares
+    // lap times against pole; races show laps led and the gap at the flag.
+    // Gap to the session leader. Qualifying derives it from the lap times we
+    // store, so it works without the `interval` field older results lack;
+    // races need the stored interval, since a gap at the flag is not a lap
+    // delta (backmarkers can be laps down).
+    // Winner on points across the round — the top of the Overall tab.
+    const overallWinner = (sub) => (sub ? driverName(roundTable(sub)[0]?.name) : null);
+
+    const qualGap = (rows, x) => {
+      const pole = rows.find((r) => r.finish === 1)?.bestLapTime;
+      if (!pole || !x.bestLapTime) return null;
+      return x.bestLapTime - pole;
+    };
+
+    const raceBehind = (rows, x) => {
+      if (x.finish === 1) return null;
+      if (x.interval != null) return gap(x.interval);
+      // Older results predate the stored interval; fall back to laps down.
+      const lead = rows.find((r) => r.finish === 1);
+      const down = (lead?.lapsComplete ?? 0) - (x.lapsComplete ?? 0);
+      return down > 0 ? `${down} lap${down > 1 ? 's' : ''}` : null;
+    };
+
+    const SESSION_COLS = {
+      qualifying: [
+        // The leader's lap time, then everyone else's deficit to it.
+        { head: 'Time / gap', cell: (x, rows) => {
+          if (x.finish === 1) return lapTime(x.bestLapTime);
+          const d = qualGap(rows, x);
+          return d == null ? null : (d > 0 ? gap(d) : lapTime(x.bestLapTime));
+        } },
+      ],
+      sprint: [
+        { head: 'Start', cell: (x) => (x.start ? `P${x.start}` : null) },
+        { head: 'Laps led', cell: (x) => (x.lapsLead ? String(x.lapsLead) : null) },
+        { head: 'Behind', cell: (x, rows) => raceBehind(rows, x) },
+        { head: 'Best lap', cell: (x) => lapTime(x.bestLapTime) },
+      ],
+      feature: [
+        { head: 'Start', cell: (x) => (x.start ? `P${x.start}` : null) },
+        { head: 'Laps led', cell: (x) => (x.lapsLead ? String(x.lapsLead) : null) },
+        { head: 'Behind', cell: (x, rows) => raceBehind(rows, x) },
+        { head: 'Best lap', cell: (x) => lapTime(x.bestLapTime) },
+      ],
+    };
+
+    // One session, ordered by finishing position, with the points it awarded.
+    function sessionTable(sub, kind) {
+      const rows = (session(sub, kind)?.results ?? [])
+        .slice()
+        .sort((a, b) => (a.finish ?? Infinity) - (b.finish ?? Infinity));
+      if (!rows.length) return el('p', { class: 'empty' }, 'No results for this session.');
+      // Drop columns with nothing in them: an unscored special event has no
+      // points, and a standing-start-only event has no grid positions.
+      const cols = (SESSION_COLS[kind] ?? []).filter((c) => rows.some((x) => c.cell(x, rows) != null));
+      const scored = rows.some((x) => (x.points?.total ?? 0) !== 0);
+      const body = el('tbody', {});
+      for (const x of rows) {
+        const extra = cols.map((c) => {
+          const v = c.cell(x, rows);
+          return el('td', { class: v == null ? 'num muted' : 'num' }, v ?? '—');
+        });
+        body.append(el('tr', {},
+          el('td', { class: 'pos' }, x.finish == null ? '—' : String(x.finish)),
+          el('td', {}, driverName(x.displayName)),
+          ...extra,
+          ...(scored ? [el('td', { class: 'num total' }, String(x.points?.total ?? 0))] : [])));
+      }
+      return el('table', {},
+        el('thead', {}, el('tr', {},
+          el('th', { class: 'pos' }, 'Pos'),
+          el('th', {}, 'Driver'),
+          ...cols.map((c) => el('th', { class: 'num' }, c.head)),
+          ...(scored ? [el('th', { class: 'num' }, 'Points')] : []))),
+        body);
+    }
+
+    const renderView = (sub, view) =>
+      view === 'overall' ? overallTable(sub) : sessionTable(sub, view);
 
     function showRound(r) {
       const sub = r.subsessions[0];
-      const tb = $('detailBody'); tb.innerHTML = '';
-      roundTable(sub).forEach((d, i) => tb.append(el('tr', {},
-        el('td', { class: 'pos' }, String(i + 1)),
-        el('td', {}, driverName(d.name)),
-        el('td', { class: 'num' }, cell(d.qualifying)),
-        el('td', { class: 'num' }, cell(d.sprint, d.sprint?.lapsLead ? ` · led ${d.sprint.lapsLead}` : '')),
-        el('td', { class: 'num' }, cell(d.feature)),
-        el('td', { class: 'num total' }, String(d.total)))));
-      $('detailTitle').textContent = `Round ${r.round} · ${trackName(sub)}`;
+      const tabs = $('tabs'), panel = $('tabPanel');
+      tabs.innerHTML = '';
+      const select = (view) => {
+        panel.innerHTML = '';
+        panel.append(renderView(sub, view));
+        for (const b of tabs.children) {
+          const on = b.dataset.view === view;
+          b.classList.toggle('active', on);
+          b.setAttribute('aria-selected', String(on));
+        }
+      };
+      for (const [view, title] of viewsFor(sub)) {
+        const btn = el('button', { class: 'tab', type: 'button', role: 'tab' }, title);
+        btn.dataset.view = view;
+        btn.addEventListener('click', () => select(view));
+        tabs.append(btn);
+      }
+      select(tabs.firstElementChild?.dataset.view ?? 'overall');
+      $('detailTitle').textContent = [
+        oneOff ? null : `Round ${r.round}`,
+        trackName(sub),
+        sub.cars?.length ? sub.cars.join(' · ') : null,
+      ].filter(Boolean).join(' · ');
+      const mount = $('galleryMount');
+      mount.innerHTML = '';
+      const shots = gallery(sub);
+      if (shots) mount.append(shots);
+      $('gallerySection').hidden = !shots;
       $('detail').hidden = false;
     }
 
+    let oneOff = false;
     async function load(slug) {
       const data = await api(`/api/results?series=${encodeURIComponent(slug)}`);
+      oneOff = data.series?.type === 'event';
       const body = $('body'); body.innerHTML = '';
+      // A one-off has a single race, so the round column carries no meaning.
+      for (const cell of document.querySelectorAll('#table thead .round-col')) cell.hidden = oneOff;
+      // With one session per round the feature winner and the overall winner
+      // are always the same person, so show a single "Winner" column.
+      const single = data.rounds.every((r) => {
+        const sub = r.subsessions[0];
+        return !sub || sessionsRun(sub).length <= 1;
+      });
+      $('overallCol').textContent = single ? 'Winner' : 'Overall winner';
+      for (const cell of document.querySelectorAll('#table thead .feature-col')) cell.hidden = single;
       $('detail').hidden = true;
       $('seriesName').textContent = `${data.series.name} · ${data.series.typeLabel}`;
       let anyRun = false;
@@ -90,12 +229,13 @@
         const track = sub ? trackName(sub) : r.track;
         const m = (v) => (v ? {} : { class: 'muted' });
         const row = el('tr', {},
-          el('td', { class: 'pos' }, String(r.round)),
-          el('td', m(track), track || '—'),
+          el('td', { class: 'pos round-col', ...(oneOff ? { hidden: 'hidden' } : {}) }, String(r.round)),
+          el('td', m(track),
+            el('span', { class: 'track-name' }, track || '—'),
+            ...(sub?.cars?.length ? [el('span', { class: 'track-cars' }, sub.cars.join(' · '))] : [])),
           el('td', m(sub), sub ? fmtDate(sub.startTime) : r.date || 'TBD'),
-          el('td', m(sub), winner(sub, 'qualifying') || '—'),
-          el('td', m(sub), winner(sub, 'sprint') || '—'),
-          el('td', m(sub), winner(sub, 'feature') || '—'));
+          el('td', { class: sub ? 'feature-col' : 'feature-col muted', ...(single ? { hidden: 'hidden' } : {}) }, winner(sub, 'feature') || '—'),
+          el('td', m(sub), overallWinner(sub) || '—'));
         if (sub) {
           anyRun = true;
           row.style.cursor = 'pointer';

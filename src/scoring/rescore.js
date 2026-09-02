@@ -21,6 +21,10 @@ export async function rescore(db, { seriesSlug = null } = {}) {
     const rebuilt = buildSubsessionDocument(doc.raw, {
       seriesSlug: doc.seriesSlug, round: doc.round, pointsConfig: await configFor(doc.seriesSlug), rawType: doc.rawType,
     });
+    // Photos are curated in the admin, not derived from the result JSON, so
+    // they must survive a rebuild.
+    if (doc.images) rebuilt.images = doc.images;
+    if (doc.featuredImage) rebuilt.featuredImage = doc.featuredImage;
     await subsessions.replaceOne({ _id: doc._id }, rebuilt);
     updated += 1;
   }

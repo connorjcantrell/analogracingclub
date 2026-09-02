@@ -67,3 +67,59 @@ test('buildSubsessionDocument drops AI, re-ranks, and scores each kind', () => {
   assert.deepEqual(feature.results.map((r) => [r.custId, r.finish, r.points.total]), [[3, 1, 20], [1, 2, 18], [2, null, 0]]);
   assert.equal(doc.raw, event);
 });
+
+test('the lap-led bonus pays once per round, not once per race', () => {
+  // cust 1 leads BOTH races, cust 2 the sprint only, cust 3 the feature only.
+  const ev = {
+    subsession_id: 43, track: { track_id: 1, track_name: 'Sonoma' },
+    session_results: [
+      { simsession_number: -3, simsession_type: 6, simsession_name: 'HEAT 1',
+        results: [row(1, 0, 0, { laps_lead: 5 }), row(2, 1, 1, { laps_lead: 3 }), row(3, 2, 2)] },
+      { simsession_number: 0, simsession_type: 6, simsession_name: 'FEATURE',
+        results: [row(1, 0, 0, { laps_lead: 6 }), row(3, 1, 1, { laps_lead: 4 }), row(2, 2, 2)] },
+    ],
+  };
+  const doc = buildSubsessionDocument(ev, { pointsConfig: cfg });
+  const bonusFor = (id) => doc.simsessions
+    .filter((s) => s.kind === 'sprint' || s.kind === 'feature')
+    .flatMap((s) => s.results)
+    .filter((r) => r.custId === id)
+    .reduce((n, r) => n + r.points.bonus, 0);
+
+  assert.equal(bonusFor(1), 1, 'leading both races still pays a single point');
+  assert.equal(bonusFor(2), 1, 'sprint-only leader is paid');
+  assert.equal(bonusFor(3), 1, 'feature-only leader is paid');
+
+  // The point lands on the first race led, and base points are untouched.
+  const sprint = doc.simsessions.find((s) => s.kind === 'sprint');
+  const feature = doc.simsessions.find((s) => s.kind === 'feature');
+  assert.equal(sprint.results.find((r) => r.custId === 1).points.bonus, 1);
+  assert.equal(feature.results.find((r) => r.custId === 1).points.bonus, 0);
+  assert.equal(feature.results.find((r) => r.custId === 1).points.total, 20);
+});
+
+test('an entrant who completed no laps is dropped from that session', () => {
+  // iRacing lists every registered driver in every session and gives each a
+  // finish_position, even one who never left the pits. Cust 4 sat out
+  // qualifying but raced; cust 5 signed up and turned no laps at all.
+  const ev = {
+    subsession_id: 44, track: { track_id: 1, track_name: 'Sonoma' },
+    session_results: [
+      { simsession_number: -4, simsession_type: 5, simsession_name: 'QUALIFY',
+        results: [row(1, 0, 0), row(2, 1, 1), row(4, 2, 2, { laps_complete: 0 }), row(5, 3, 3, { laps_complete: 0 })] },
+      { simsession_number: 0, simsession_type: 6, simsession_name: 'FEATURE',
+        results: [row(1, 0, 0), row(4, 1, 2), row(2, 2, 1), row(5, 3, 3, { laps_complete: 0, reason_out: 'Disconnected' })] },
+    ],
+  };
+  const doc = buildSubsessionDocument(ev, { pointsConfig: cfg });
+  const ids = (kind) => doc.simsessions.find((s) => s.kind === kind).results.map((r) => r.custId);
+
+  assert.deepEqual(ids('qualifying'), [1, 2], 'both no-shows drop out of qualifying');
+  assert.deepEqual(ids('feature'), [1, 4, 2], 'cust 4 counts in the race they actually ran');
+  assert.ok(!ids('feature').includes(5), 'the driver who never ran is absent entirely');
+
+  // Positions are re-ranked among real participants, so nobody inherits a
+  // placing from a car that was never on track.
+  const feature = doc.simsessions.find((s) => s.kind === 'feature');
+  assert.deepEqual(feature.results.map((r) => [r.custId, r.finish]), [[1, 1], [4, 2], [2, 3]]);
+});

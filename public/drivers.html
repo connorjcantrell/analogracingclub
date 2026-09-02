@@ -3,50 +3,75 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Drivers · Analog Racing Club</title>
+  <title>Power Rankings · Analog Racing Club</title>
   <meta name="theme-color" content="#221f20">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
   <link rel="stylesheet" href="/styles.css">
-  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="icon" href="/assets/analog_sq.png" type="image/png">
 </head>
 <body>
   <header>
     <a class="brand" href="/" aria-label="Analog Racing Club">
-      <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
+      <img class="brand-logo" src="/assets/analog_sq.png" alt="Analog Racing Club">
     </a>
     <nav>
       <a href="/standings.html">Standings</a>
       <a href="/results.html">Results</a>
-      <a href="/drivers.html" class="active">Drivers</a>
+      <a href="/drivers.html" class="active">Power Rankings</a>
       <a href="/about.html">About</a>
     </nav>
     <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   </header>
   <main>
-    <h2>Drivers</h2>
+    <h2>Power Rankings</h2>
+    <p class="rank-note">
+      Every driver across every season, rated on recent form.
+      <button class="rank-toggle" type="button" id="explain">How it works</button>
+    </p>
+    <div class="rank-detail" id="rankDetail" hidden></div>
     <table id="table">
       <thead>
         <tr>
           <th class="pos">#</th>
           <th>Driver</th>
-          <th class="num">iRacing ID</th>
+          <th class="num">Rating</th>
         </tr>
       </thead>
       <tbody id="body"></tbody>
     </table>
-    <p class="empty" id="empty" hidden>No drivers registered yet.</p>
+    <p class="empty" id="empty" hidden>No results yet — the ranking appears after the first race.</p>
   </main>
   <script type="module">
     import { api, el, driverName } from '/app.js';
-    const drivers = await api('/api/drivers');
-    const body = document.getElementById('body');
-    drivers.forEach((d, i) => body.append(el('tr', {},
-      el('td', { class: 'pos' }, String(i + 1)),
-      el('td', {}, driverName(d.displayName)),
-      el('td', { class: 'num muted' }, String(d.custId)))));
-    if (!drivers.length) { document.getElementById('empty').hidden = false; document.getElementById('table').hidden = true; }
+    const $ = (id) => document.getElementById(id);
+
+    const { drivers, weights, minEvents } = await api('/api/power');
+    const body = $('body');
+
+    for (const [i, d] of drivers.entries()) {
+      const name = el('td', {}, driverName(d.displayName));
+      if (d.provisional) name.append(el('span', { class: 'tag' }, 'Provisional'));
+      body.append(el('tr', {},
+        el('td', { class: 'pos' }, d.provisional ? '—' : String(i + 1)),
+        name,
+        el('td', { class: 'num total' }, d.rating.toFixed(1))));
+    }
+
+    if (!drivers.length) { $('empty').hidden = false; $('table').hidden = true; }
+
+    $('explain').addEventListener('click', () => {
+      const box = $('rankDetail');
+      if (!box.childElementCount) {
+        box.append(
+          el('p', {}, 'A driver\u2019s rating weighs up how they finished overall, how many cars they passed, how their quickest lap and their pace over a full run compared with the rest of the field, how long they spent in front, and how often they saw the flag.'),
+          el('p', {}, 'Each of those is measured against everyone else who raced, so a good result in a big field counts for more than the same placing in a small one, and no single category can run away with the rating.'),
+          el('p', {}, `A driver\u2019s last three races carry full weight, the seven before that count for steadily less, and anything further back than ten races is left out. Drivers with fewer than ${minEvents} races are shown as provisional and listed last.`));
+      }
+      box.hidden = !box.hidden;
+      $('explain').textContent = box.hidden ? 'How it works' : 'Hide';
+    });
   </script>
   <footer>Analog Racing Club · an iRacing league</footer>
 </body>
