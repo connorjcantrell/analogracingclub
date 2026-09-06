@@ -5,7 +5,7 @@ import { FORMATS, validatePointsConfig } from '../src/scoring/formats.js';
 import { buildSubsessionDocument } from '../src/import/build-document.js';
 import { sessionKind, unwrapEnvelope } from '../src/import/mappers.js';
 
-const cfg = FORMATS['arc-standard'].pointsConfig;
+const cfg = FORMATS['fast-four'].pointsConfig;
 
 test('qualifying pays 7-5-3-1 and nothing past P4', () => {
   assert.deepEqual([1, 2, 3, 4, 5].map((p) => computePoints(cfg, { kind: 'qualifying', finish: p }).total), [7, 5, 3, 1, 0]);
@@ -55,9 +55,11 @@ const event = {
 };
 
 test('buildSubsessionDocument drops AI, re-ranks, and scores each kind', () => {
-  const doc = buildSubsessionDocument(event, { seriesSlug: 'fall', round: 2, pointsConfig: cfg, rawType: 'event_result' });
+  const doc = buildSubsessionDocument(event, { seriesSlug: 'fall', round: 2, eventType: 'league-fast-four', pointsConfig: cfg, rawType: 'event_result' });
   assert.equal(doc._id, 'fall:42');
   assert.equal(doc.round, 2);
+  assert.equal(doc.eventType, 'league-fast-four');
+  assert.equal(doc.title, null, 'a league round carries no standalone title');
   const qual = doc.simsessions.find((s) => s.kind === 'qualifying');
   // AI car (cust 9) removed; cust 2 moves up from P3 to P2.
   assert.deepEqual(qual.results.map((r) => [r.custId, r.finish, r.points.total]), [[1, 1, 7], [2, 2, 5], [3, 3, 3]]);
@@ -66,6 +68,17 @@ test('buildSubsessionDocument drops AI, re-ranks, and scores each kind', () => {
   const feature = doc.simsessions.find((s) => s.kind === 'feature');
   assert.deepEqual(feature.results.map((r) => [r.custId, r.finish, r.points.total]), [[3, 1, 20], [1, 2, 18], [2, null, 0]]);
   assert.equal(doc.raw, event);
+});
+
+test('a standalone special event has no series: bare _id, own type, title from track', () => {
+  const doc = buildSubsessionDocument(event, { eventType: 'hosted-qual-race', pointsConfig: {} });
+  assert.equal(doc._id, '42', 'bare subsession id when there is no series');
+  assert.equal(doc.seriesSlug, null);
+  assert.equal(doc.round, null);
+  assert.equal(doc.eventType, 'hosted-qual-race');
+  assert.equal(doc.title, 'Sonoma', 'title falls back to the track name');
+  // Unscored: an empty pointsConfig means every result scores zero.
+  assert.ok(doc.simsessions.flatMap((s) => s.results).every((r) => r.points.total === 0));
 });
 
 test('the lap-led bonus pays once per round, not once per race', () => {

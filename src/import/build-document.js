@@ -10,13 +10,15 @@ import { computePoints } from '../scoring/calculator.js';
 // there. The complete event JSON is stored verbatim under `raw`, so a rescore
 // only needs a rebuild from raw (see src/scoring/rescore.js).
 //
-// opts: { seriesSlug?, round?, pointsConfig, rawType? }
+// opts: { seriesSlug?, round?, eventType?, title?, pointsConfig, rawType? }
+// A league round carries its container's eventType and a round; a standalone
+// special event has seriesSlug null, its own eventType, and an optional title.
 // iRacing reports "N/A" as the config for tracks with only one layout; store
 // null so nothing downstream has to special-case it.
 const trackConfig = (c) => (c && !/^n\/?a$/i.test(c.trim()) ? c : null);
 
 export function buildSubsessionDocument(eventResult, opts = {}) {
-  const { seriesSlug = null, round = null, pointsConfig = {}, rawType = null } = opts;
+  const { seriesSlug = null, round = null, eventType = null, title = null, pointsConfig = {}, rawType = null } = opts;
   const track = eventResult.track ?? {};
 
   // iRacing lists every registered entrant in every session, whether or not
@@ -113,6 +115,10 @@ export function buildSubsessionDocument(eventResult, opts = {}) {
     subsessionId: eventResult.subsession_id,
     seriesSlug,
     round,
+    // What this event is (drives its layout), and, for a standalone special,
+    // a human title (falls back to the track name).
+    eventType,
+    title: seriesSlug ? null : (title || track.track_name || null),
     leagueName: eventResult.league_name ?? null,
     seriesName: eventResult.series_name ?? null,
     track: { id: track.track_id ?? null, name: track.track_name ?? null, config: trackConfig(track.config_name) },

@@ -3,7 +3,8 @@ import { ingestEventResult } from '../import/ingest.js';
 import { getSubsessionRaw } from '../api/queries.js';
 import { rescore } from '../scoring/rescore.js';
 import { FORMATS, DEFAULT_FORMAT, pointsConfigFor, validatePointsConfig } from '../scoring/formats.js';
-import { SERIES_TYPES, SERIES_STATUSES, SLUG_RE } from '../series.js';
+import { SERIES_STATUSES, SLUG_RE } from '../series.js';
+import { EVENT_TYPES, DEFAULT_EVENT_TYPE, isEventType, isContainerType, eventTypeOptions, resolveEventType } from '../event-types.js';
 import { UPLOAD_MAX_BYTES } from '../config.js';
 import { readBuffer, boundaryOf, parseMultipart } from './multipart.js';
 import { saveImage, deleteImage, MAX_IMAGE_BYTES } from '../images.js';
@@ -30,9 +31,6 @@ export function readBody(req, max) {
 
 const readJson = async (req, max = 50_000) => JSON.parse(await readBody(req, max));
 
-// Derive a URL slug from a free-text name ("Bathurst 1000" -> "bathurst-1000").
-const slugify = (name) => String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
 // Resync the driver roster from stored results: keep every referenced driver,
 // drop the rest (after a delete or rescore).
 async function resyncDrivers(db) {
@@ -54,6 +52,9 @@ const cleanSchedule = (schedule) => schedule.map((r, i) => ({
   round: Number.isInteger(r?.round) ? r.round : i + 1,
   track: r?.track ? String(r.track) : null,
   date: r?.date ? String(r.date) : null,
+  // A points multiplier for the round (a "double points" finale is 2). Only
+  // values > 1 are stored; anything else means the round scores normally.
+  multiplier: Number(r?.multiplier) > 1 ? Number(r.multiplier) : 1,
 }));
 
 // Handle an /api/admin/* request. Caller has already verified access.
@@ -66,7 +67,10 @@ export async function handleAdminApi(db, req, res, url) {
   // GET /api/admin/formats — the named points presets for the create form.
   if (req.method === 'GET' && sub === 'formats') {
     const list = Object.entries(FORMATS).map(([id, f]) => ({ id, name: f.name, description: f.description, pointsConfig: f.pointsConfig }));
-    return sendJson(res, 200, { default: DEFAULT_FORMAT, formats: list, types: SERIES_TYPES, statuses: SERIES_STATUSES }), true;
+    return sendJson(res, 200, {
+      default: DEFAULT_FORMAT, formats: list, statuses: SERIES_STATUSES,
+      eventTypes: eventTypeOptions(), defaultEventType: DEFAULT_EVENT_TYPE,
+    }), true;
   }
 
   if (req.method === 'GET' && sub === 'series') {
@@ -80,15 +84,21 @@ export async function handleAdminApi(db, req, res, url) {
     try { body = await readJson(req); } catch (e) { return sendJson(res, 400, { error: e.message }), true; }
     const slug = String(body?.slug ?? '').trim();
     const name = String(body?.name ?? '').trim();
-    const type = body?.type;
+    const eventType = body?.eventType;
     if (!SLUG_RE.test(slug) || !name) return sendJson(res, 400, { error: 'slug (kebab-case) and name required' }), true;
-    if (!SERIES_TYPES[type]) return sendJson(res, 400, { error: `type must be one of ${Object.keys(SERIES_TYPES).join(', ')}` }), true;
-    const format = body?.format ?? DEFAULT_FORMAT;
+    if (!isEventType(eventType)) return sendJson(res, 400, { error: `eventType must be one of ${Object.keys(EVENT_TYPES).join(', ')}` }), true;
+    // A series is a container; a one-off-only type (a hosted session) can't be one.
+    if (!isContainerType(eventType)) return sendJson(res, 400, { error: `${EVENT_TYPES[eventType].name} is a one-off event, not a series` }), true;
+    // Default the points format to whatever the event type expects.
+    const format = body?.format ?? resolveEventType(eventType).defaultFormat;
     if (!FORMATS[format]) return sendJson(res, 400, { error: 'unknown format' }), true;
+    // How many of each driver's lowest rounds the championship discards.
+    const dropCount = body?.dropCount == null ? 0 : body.dropCount;
+    if (!Number.isInteger(dropCount) || dropCount < 0) return sendJson(res, 400, { error: 'dropCount must be an integer >= 0' }), true;
     if (await series.findOne({ slug })) return sendJson(res, 409, { error: 'slug already exists' }), true;
-    const rounds = Number.isInteger(body?.rounds) && body.rounds > 0 ? body.rounds : type === 'event' ? 1 : 3;
+    const rounds = Number.isInteger(body?.rounds) && body.rounds > 0 ? body.rounds : 3;
     await series.insertOne({
-      slug, name, type, status: 'upcoming',
+      slug, name, eventType, status: 'upcoming', dropCount,
       schedule: Array.from({ length: rounds }, (_, i) => ({ round: i + 1, track: null, date: null })),
       format, pointsConfig: pointsConfigFor(format),
       createdAt: new Date(),
@@ -105,8 +115,12 @@ export async function handleAdminApi(db, req, res, url) {
     const set = {};
     if (body.name != null) { const n = String(body.name).trim(); if (!n) return sendJson(res, 400, { error: 'name cannot be empty' }), true; set.name = n; }
     if (body.status != null) { if (!SERIES_STATUSES.includes(body.status)) return sendJson(res, 400, { error: `status must be one of ${SERIES_STATUSES.join(', ')}` }), true; set.status = body.status; }
-    if (body.type != null) { if (!SERIES_TYPES[body.type]) return sendJson(res, 400, { error: 'unknown type' }), true; set.type = body.type; }
+    if (body.eventType != null) {
+      if (!isContainerType(body.eventType)) return sendJson(res, 400, { error: 'eventType must be a series-capable event type' }), true;
+      set.eventType = body.eventType;
+    }
     if (body.schedule != null) { if (!Array.isArray(body.schedule)) return sendJson(res, 400, { error: 'schedule must be an array' }), true; set.schedule = cleanSchedule(body.schedule); }
+    if (body.dropCount != null) { if (!Number.isInteger(body.dropCount) || body.dropCount < 0) return sendJson(res, 400, { error: 'dropCount must be an integer >= 0' }), true; set.dropCount = body.dropCount; }
     if (!Object.keys(set).length) return sendJson(res, 400, { error: 'nothing to update' }), true;
     const upd = await series.updateOne({ slug }, { $set: set });
     if (!upd.matchedCount) return sendJson(res, 404, { error: 'series not found' }), true;
@@ -145,42 +159,46 @@ export async function handleAdminApi(db, req, res, url) {
   }
 
   // POST /api/admin/upload — body: iRacing event-result JSON.
-  //   ?series=&round=   file it as a round of an existing series, or
-  //   ?event=<name>     file it as a one-off special event, created on the fly
-  //                     (unscored, single round).
+  //   ?series=&round=            file it as a round of an existing series, or
+  //   ?special=1&eventType=&title=  file it as a standalone special event
+  //                              (no series, unscored, its own event type).
   if (req.method === 'POST' && sub === 'upload') {
-    const eventName = (url.searchParams.get('event') ?? '').trim();
-    let slug = url.searchParams.get('series') || null;
-    let round = url.searchParams.get('round') ? Number(url.searchParams.get('round')) : null;
+    const special = url.searchParams.get('special') === '1';
+    let ingestOpts;
 
-    if (eventName) {
-      // A special event needs no prior setup: name it here and it is created
-      // unscored, with a single round, ready for the result being uploaded.
-      slug = slugify(eventName);
-      if (!slug) return sendJson(res, 400, { error: 'event name must contain letters or numbers' }), true;
-      round = 1;
-      const existing = await series.findOne({ slug });
-      if (existing && existing.type !== 'event') {
-        return sendJson(res, 409, { error: `"${slug}" already exists as a ${existing.type}` }), true;
+    if (special) {
+      const eventType = url.searchParams.get('eventType');
+      if (!isEventType(eventType) || isContainerType(eventType)) {
+        return sendJson(res, 400, { error: 'special events need a one-off (non-series) event type' }), true;
       }
-      if (!existing) {
-        await series.insertOne({
-          slug, name: eventName, type: 'event', status: 'complete',
-          schedule: [{ round: 1, track: null, date: null }],
-          format: 'unscored', pointsConfig: pointsConfigFor('unscored'),
-          createdAt: new Date(),
-        });
-      }
+      ingestOpts = { eventType, title: (url.searchParams.get('title') ?? '').trim() || null };
+    } else {
+      const slug = url.searchParams.get('series') || null;
+      const round = url.searchParams.get('round') ? Number(url.searchParams.get('round')) : null;
+      if (!slug) return sendJson(res, 400, { error: 'series (or special=1) required' }), true;
+      if (!Number.isInteger(round) || round < 1) return sendJson(res, 400, { error: 'round (integer >= 1) required' }), true;
+      ingestOpts = { seriesSlug: slug, round };
     }
 
-    if (!slug) return sendJson(res, 400, { error: 'series or event required' }), true;
-    if (!Number.isInteger(round) || round < 1) return sendJson(res, 400, { error: 'round (integer >= 1) required' }), true;
     let json;
     try { json = await readJson(req, UPLOAD_MAX_BYTES); }
     catch (e) { return sendJson(res, 400, { error: `invalid upload: ${e.message}` }), true; }
     try {
-      const result = await ingestEventResult(db, json, { seriesSlug: slug, round });
-      return sendJson(res, 200, { ok: true, series: slug, ...result }), true;
+      const result = await ingestEventResult(db, json, ingestOpts);
+      // A league round auto-populates its slot in the series schedule, growing
+      // it if needed and filling in the track — so rounds appear without being
+      // pre-created.
+      if (ingestOpts.seriesSlug) {
+        const s = await series.findOne({ slug: ingestOpts.seriesSlug });
+        if (s) {
+          const schedule = s.schedule ?? [];
+          while (schedule.length < ingestOpts.round) schedule.push({ round: schedule.length + 1, track: null, date: null, multiplier: 1 });
+          const row = schedule[ingestOpts.round - 1];
+          if (row && !row.track && result.track) row.track = result.track;
+          await series.updateOne({ slug: ingestOpts.seriesSlug }, { $set: { schedule } });
+        }
+      }
+      return sendJson(res, 200, { ok: true, series: ingestOpts.seriesSlug ?? null, ...result }), true;
     } catch (e) {
       return sendJson(res, 400, { error: `ingest failed: ${e.message}` }), true;
     }

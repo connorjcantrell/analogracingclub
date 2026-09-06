@@ -40,17 +40,18 @@ export const gap = (ticks) => {
 export const session = (sub, kind) => (sub?.simsessions ?? []).find((s) => s.kind === kind);
 export const winner = (sub, kind) => driverName(session(sub, kind)?.results?.find((r) => r.finish === 1)?.displayName);
 
-// Which sessions this event actually ran, in running order. Events differ:
-// a series round is qualifying + sprint + feature, while a special event is
-// often just a feature. Driving the UI from this — rather than from the
-// series type — keeps a page honest about the event in front of it, and means
-// a round that skipped a session simply shows one fewer panel.
-export const SESSION_ORDER = ['qualifying', 'sprint', 'feature'];
-export const sessionsRun = (sub) => SESSION_ORDER.filter((kind) => {
-  const s = session(sub, kind);
-  return !!s?.results?.some((r) => r.finish != null);
-});
-export const ran = (sub, kind) => sessionsRun(sub).includes(kind);
+// What an event looks like is declared by its own event type (see
+// src/event-types.js), read off the event the API sends — each subsession
+// carries an `eventType` descriptor with `sessions` (ordered { kind, label }).
+// The pages render strictly from it: a declared session shows its tab/column
+// even when a round skipped it, and an undeclared one never appears.
+export const eventSessions = (et) => et?.sessions ?? [];
+export const sessionKindsOf = (et) => eventSessions(et).map((s) => s.kind);
+export const sessionLabel = (et, kind) =>
+  eventSessions(et).find((s) => s.kind === kind)?.label ?? kind;
+// The race sessions an event runs (everything but qualifying/practice), in order.
+export const raceSessions = (et) =>
+  eventSessions(et).filter((s) => s.kind !== 'qualifying' && s.kind !== 'practice');
 
 // The scoring qualifiers, in qualifying order. "Fast Four" is a points-format
 // convention, not something the session itself implies: the ARC standard pays
@@ -81,24 +82,35 @@ export const roundTable = (sub) => {
     b.total - a.total || (a.feature?.finish ?? Infinity) - (b.feature?.finish ?? Infinity));
 };
 
-// Series picker for the standings/results pages: ?series= wins, else the first
-// active series. Renders a <select> into `mount` when there is more than one.
-export async function pickSeries(mount, onChange) {
-  const list = await api('/api/series');
-  if (!list.length) return null;
+// The sentinel a picker uses for the single "Special events" collection.
+export const SPECIAL_SLUG = '__special__';
+
+// Series picker for the standings/results pages. Containers (leagues/
+// championships) are the real series; standalone special events are collapsed
+// into one "Special events" entry (results only — they have no standings).
+// ?series= wins, else the first active series. Renders a <select> when there is
+// more than one choice.
+export async function pickSeries(mount, onChange, { includeSpecial = true } = {}) {
+  const containers = await api('/api/series');
+  const specials = includeSpecial ? await api('/api/special-events') : [];
+  const hasSpecial = specials.length > 0;
+  const values = [...containers.map((s) => s.slug), ...(hasSpecial ? [SPECIAL_SLUG] : [])];
+  if (!values.length) return null;
   const want = new URLSearchParams(location.search).get('series');
-  let slug = list.some((s) => s.slug === want) ? want : (list.find((s) => s.status === 'active') ?? list[0]).slug;
-  if (list.length > 1) {
+  const pick = values.includes(want) ? want
+    : (containers.find((s) => s.status === 'active') ?? containers[0])?.slug ?? SPECIAL_SLUG;
+  if (values.length > 1) {
     const sel = el('select', { class: 'series-pick' });
-    for (const s of list) sel.append(el('option', { value: s.slug }, `${s.name} · ${s.typeLabel}${s.status !== 'active' ? ` (${s.status})` : ''}`));
-    sel.value = slug;
+    for (const s of containers) sel.append(el('option', { value: s.slug }, `${s.name} · ${s.typeLabel}${s.status !== 'active' ? ` (${s.status})` : ''}`));
+    if (hasSpecial) sel.append(el('option', { value: SPECIAL_SLUG }, 'Special events'));
+    sel.value = pick;
     sel.addEventListener('change', () => {
       history.replaceState(null, '', `?series=${encodeURIComponent(sel.value)}`);
       onChange(sel.value);
     });
     mount.append(sel);
   }
-  return slug;
+  return pick;
 }
 
 // Gallery of race photos with a click-to-enlarge lightbox. Returns null when

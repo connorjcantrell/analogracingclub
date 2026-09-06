@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Analog Racing Club</title>
   <meta name="description" content="Analog Racing Club — an iRacing league.">
-  <meta name="theme-color" content="#221f20">
+  <meta name="theme-color" content="#121212">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
@@ -15,7 +15,7 @@
 <body>
   <header>
     <a class="brand" href="/" aria-label="Analog Racing Club">
-      <img class="brand-logo" src="/assets/analog_sq.png" alt="Analog Racing Club">
+      <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
     <nav>
       <a href="/standings.html">Standings</a>
@@ -23,9 +23,59 @@
       <a href="/drivers.html">Power Rankings</a>
       <a href="/about.html">About</a>
     </nav>
-    <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
+    <a class="platform" href="https://discord.gg/jpchbxKu76" target="_blank" rel="noopener" aria-label="Join our Discord"><img src="/assets/Discord-Symbol-White.svg" alt="Discord"></a> <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   </header>
-  <main>
+  <main class="home">
+    <section class="lp-section" id="season2">
+      <p class="sched-round">Season 2 · Starts Thursday 9/17</p>
+      <h2 class="lp-h">We're starting back up with Season 2 next Thursday, 9/17!</h2>
+      <p class="lp-sub">For those new to Analog Racing Club: Season 1 was with the Euro NASCAR in intermittent weather. We had enough fun with it that everyone wanted another season in the same car, this time across 6 tracks, each picked by a different one of last season's most active drivers.</p>
+
+      <div class="season-layout">
+        <div class="carousel" id="seasonCarousel" hidden>
+          <div class="carousel-track"></div>
+          <button class="carousel-nav prev" type="button" aria-label="Previous photo">‹</button>
+          <button class="carousel-nav next" type="button" aria-label="Next photo">›</button>
+          <div class="carousel-dots"></div>
+        </div>
+
+        <div class="season-schedule">
+          <div class="sched-card">
+            <p class="sched-round">R1 · 9/17</p>
+            <span class="sched-track">Lime Rock</span>
+            <p class="sched-config">Classic · <a class="link" href="https://discord.com/events/1515054726276976650/1537464221988556871" target="_blank" rel="noopener">RSVP on Discord →</a></p>
+          </div>
+          <div class="sched-card">
+            <p class="sched-round">R2 · 9/24</p>
+            <span class="sched-track">Sebring</span>
+            <p class="sched-config">Club</p>
+          </div>
+          <div class="sched-card">
+            <p class="sched-round">R3 · 10/1</p>
+            <span class="sched-track">New Hampshire</span>
+            <p class="sched-config">Road Course B</p>
+          </div>
+          <div class="sched-card">
+            <p class="sched-round">R4 · 10/8</p>
+            <span class="sched-track">Belle Isle</span>
+          </div>
+          <div class="sched-card">
+            <p class="sched-round">R5 · 10/15</p>
+            <span class="sched-track">Road America</span>
+          </div>
+          <div class="sched-card">
+            <p class="sched-round">R6 · 10/22</p>
+            <span class="sched-track">Knockhill</span>
+            <p class="sched-config">Reverse</p>
+          </div>
+        </div>
+      </div>
+
+      <p class="latest-more"><a class="link" href="/standings.html">See the points format →</a></p>
+
+      <p class="lp-sub" style="margin-bottom:0">Hope to see you at Lime Rock.</p>
+    </section>
+
     <section class="lp-section" id="latest">
       <p class="sched-round" id="latestKicker">Latest event</p>
       <h2 class="lp-h" id="latestTitle">No events yet</h2>
@@ -56,26 +106,21 @@
       </div>
     </section>
 
-    <section class="lp-section" id="seriesSection" hidden>
-      <h2 class="lp-h">On track now</h2>
-      <p class="lp-sub">Special events, seasonal series, and the annual championship run side by side. Each scores under its own points format.</p>
-      <div class="sched-cards" id="seriesCards"></div>
-    </section>
   </main>
   <footer>Analog Racing Club · an iRacing league</footer>
   <script type="module">
-    import { api, el, driverName, fmtDate, gallery, ran, sessionsRun, topQualifiers, trackName, winner, roundTable } from '/app.js';
+    import { api, el, driverName, fmtDate, gallery, sessionKindsOf, sessionLabel, raceSessions, topQualifiers, trackName, winner, roundTable, SPECIAL_SLUG } from '/app.js';
     const $ = (id) => document.getElementById(id);
     const cell = (x) => (x?.finish ? `P${x.finish}` : '—');
 
     const latest = await api('/api/latest');
     if (!latest.error) {
       const { series, subsession: sub } = latest;
-      // A special event is a one-off: it has no round number to show.
-      const oneOff = series?.type === 'event';
+      // A single-round competition (a one-off) has no round number to show.
+      const oneOff = !!series?.singleRound;
       $('latestKicker').textContent = series
         ? [series.typeLabel, series.name, oneOff || sub.round == null ? null : `Round ${sub.round}`].filter(Boolean).join(' · ')
-        : 'Latest event';
+        : 'Special event';
       const hero = sub.featuredImage || sub.images?.[0]?.url;
       if (hero) {
         $('heroImg').src = hero;
@@ -84,12 +129,12 @@
       }
       $('latestTitle').textContent = trackName(sub) || 'Latest event';
       $('latestSub').textContent = fmtDate(sub.startTime);
-      // The qualifying card exists only where the format scores qualifying —
-      // "Fast Four" is the ARC standard's four paying places, not a property
-      // of the session. Four places keeps the name; any other count is
-      // described generically.
+      // The Fast Four card belongs to the event type, not to any format that
+      // happens to pay qualifying places — only show it when the type declares
+      // it (a league round), never for a hosted qual+race.
       const places = series?.qualifyingPlaces ?? 0;
-      const qualifiers = topQualifiers(sub, places);
+      const qualifiers = (sub.eventType?.display?.cards ?? []).includes('fast-four')
+        ? topQualifiers(sub, places) : [];
       if (qualifiers.length) {
         $('qualCardTitle').textContent = places === 4 ? 'Fast Four' : `Top ${places} qualifiers`;
         const list = $('fastFourList');
@@ -99,28 +144,24 @@
         $('fastFour').hidden = false;
       }
 
-      // Winners: only the sessions this event actually ran, and "Overall"
-      // only when there is more than one to combine.
-      const rows = [];
-      if (ran(sub, 'sprint')) rows.push(['Sprint', winner(sub, 'sprint')]);
-      if (ran(sub, 'feature')) rows.push(['Feature', winner(sub, 'feature')]);
+      // Winners: the race sessions the event type declares (by its labels),
+      // and "Overall" only when there is more than one to combine.
+      const rows = raceSessions(sub.eventType).map((s) => [s.label, winner(sub, s.kind)]);
       if (rows.length > 1) rows.push(['Overall', driverName(roundTable(sub)[0]?.name)]);
       const podium = $('podium').querySelector('.card-rows');
       podium.innerHTML = '';
       for (const [label, name] of rows) podium.append(el('div', { class: 'card-row' },
         el('dt', {}, label), el('dd', {}, name || '—')));
       $('podium').hidden = !rows.length;
-      // One column per session the event ran, and Points only when scored —
-      // a feature-only special event gets neither an empty sprint column nor
-      // a column of zeros.
-      const SHORT = { qualifying: 'Qual', sprint: 'Sprint', feature: 'Feature' };
-      const kinds = sessionsRun(sub);
+      // One column per session the event type declares, labelled by the type,
+      // and Points only when scored.
+      const kinds = sessionKindsOf(sub.eventType);
       const table = roundTable(sub);
       const scored = table.some((d) => d.total !== 0);
       $('latestHead').append(
         el('th', { class: 'pos' }, 'Pos'),
         el('th', {}, 'Driver'),
-        ...kinds.map((k) => el('th', { class: 'num' }, SHORT[k])),
+        ...kinds.map((k) => el('th', { class: 'num' }, sessionLabel(sub.eventType, k))),
         ...(scored ? [el('th', { class: 'num' }, 'Points')] : []));
       const tb = $('latestBody');
       table.slice(0, 10).forEach((d, i) => tb.append(el('tr', {},
@@ -128,22 +169,80 @@
         el('td', {}, driverName(d.name)),
         ...kinds.map((k) => el('td', { class: 'num' }, cell(d[k]))),
         ...(scored ? [el('td', { class: 'num total' }, String(d.total))] : []))));
-      if (series) $('latestLink').href = `/results.html?series=${encodeURIComponent(series.slug)}&round=${sub.round ?? ''}`;
+      $('latestLink').href = series
+        ? `/results.html?series=${encodeURIComponent(series.slug)}&round=${sub.round ?? ''}`
+        : `/results.html?series=${encodeURIComponent(SPECIAL_SLUG)}`;
       $('latestTable').hidden = false;
       const shots = gallery(sub);
       if (shots) { $('galleryMount').append(shots); $('gallerySection').hidden = false; }
     }
 
-    const active = await api('/api/series?status=active');
-    if (active.length) {
-      const cards = $('seriesCards');
-      for (const s of active) cards.append(el('div', { class: 'sched-card' },
-        el('p', { class: 'sched-round' }, s.typeLabel),
-        el('a', { class: 'sched-track', href: `/standings.html?series=${encodeURIComponent(s.slug)}` }, s.name),
-        el('p', { class: 'sched-date' }, el('a', { class: 'link', href: `/results.html?series=${encodeURIComponent(s.slug)}` }, 'Results'), ' · ',
-          el('a', { class: 'link', href: `/standings.html?series=${encodeURIComponent(s.slug)}` }, 'Standings'))));
-      $('seriesSection').hidden = false;
-    }
+  </script>
+  <script>
+    // Season photo carousel: the collection of race photos attached to results,
+    // fetched from the API and shuffled for variety on each load.
+    (async () => {
+      const c = document.getElementById('seasonCarousel');
+      if (!c) return;
+      const track = c.querySelector('.carousel-track');
+      const layout = c.closest('.season-layout');
+
+      let photos = [];
+      try { photos = await fetch('/api/photos').then((r) => r.json()); } catch { photos = []; }
+      // No photos yet: drop the carousel and let the schedule take the full width.
+      if (!Array.isArray(photos) || !photos.length) {
+        c.remove();
+        if (layout) layout.classList.add('no-photos');
+        return;
+      }
+
+      for (let i = photos.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [photos[i], photos[j]] = [photos[j], photos[i]];
+      }
+      for (const p of photos) {
+        const img = document.createElement('img');
+        img.className = 'carousel-slide';
+        img.src = p.url;
+        img.loading = 'lazy';
+        img.alt = [p.track, p.config].filter(Boolean).join(' — ');
+        track.append(img);
+      }
+      c.hidden = false;
+
+      const slides = [...track.querySelectorAll('.carousel-slide')];
+      // A single photo needs no controls.
+      if (slides.length < 2) { c.querySelectorAll('.carousel-nav, .carousel-dots').forEach((n) => n.remove()); return; }
+      const dotsWrap = c.querySelector('.carousel-dots');
+      const at = () => Math.round(track.scrollLeft / track.clientWidth);
+      const go = (i) => track.scrollTo({ left: ((i % slides.length) + slides.length) % slides.length * track.clientWidth, behavior: 'smooth' });
+      const dots = slides.map((_, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('aria-label', `Go to photo ${i + 1}`);
+        b.addEventListener('click', () => go(i));
+        dotsWrap.append(b);
+        return b;
+      });
+      const sync = () => { const i = at(); dots.forEach((d, j) => d.classList.toggle('active', j === i)); };
+
+      // Auto-advance every 4.5s; pause on hover/touch, and restart the timer
+      // after any manual navigation so it never jumps right after a click.
+      let timer;
+      const start = () => { timer = setInterval(() => go(at() + 1), 4500); };
+      const stop = () => clearInterval(timer);
+      const restart = () => { stop(); start(); };
+      const nav = (i) => { go(i); restart(); };
+
+      c.querySelector('.carousel-nav.prev').addEventListener('click', () => nav(at() - 1));
+      c.querySelector('.carousel-nav.next').addEventListener('click', () => nav(at() + 1));
+      dots.forEach((d, i) => d.addEventListener('click', restart));
+      c.addEventListener('pointerenter', stop);
+      c.addEventListener('pointerleave', start);
+      track.addEventListener('scroll', () => requestAnimationFrame(sync));
+      sync();
+      start();
+    })();
   </script>
 </body>
 </html>

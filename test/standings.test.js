@@ -30,6 +30,60 @@ test('folds per-round totals, season totals, and win counts', () => {
   assert.deepEqual(standings.map((r) => r.custId), [1, 2]);
 });
 
+test('a round multiplier scales that round and the counted total', () => {
+  const docs = [
+    doc(1, [{ kind: 'feature', results: [res(1, 1, 20), res(2, 2, 18)] }]),
+    doc(2, [{ kind: 'feature', results: [res(1, 2, 18), res(2, 1, 20)] }]),
+  ];
+  const { standings } = foldStandings(docs, { multipliers: { 2: 2 } });
+  const d1 = standings.find((r) => r.custId === 1), d2 = standings.find((r) => r.custId === 2);
+  assert.deepEqual(d1.rounds, { 1: 20, 2: 36 }); // round 2 doubled
+  assert.equal(d1.total, 56);
+  assert.deepEqual(d2.rounds, { 1: 18, 2: 40 });
+  assert.equal(d2.total, 58);
+  assert.deepEqual(standings.map((r) => r.custId), [2, 1]); // double-points finale flips the order
+});
+
+test('a drop count discards each driver’s lowest rounds from the total', () => {
+  // D1 scores 10, 2, 8 across three rounds; D2 scores 5, 6, 7.
+  const docs = [
+    doc(1, [{ kind: 'feature', results: [res(1, 1, 10), res(2, 2, 5)] }]),
+    doc(2, [{ kind: 'feature', results: [res(2, 1, 6), res(1, 2, 2)] }]),
+    doc(3, [{ kind: 'feature', results: [res(1, 1, 8), res(2, 2, 7)] }]),
+  ];
+  const { standings } = foldStandings(docs, { dropCount: 1 });
+  const d1 = standings.find((r) => r.custId === 1), d2 = standings.find((r) => r.custId === 2);
+  assert.equal(d1.total, 18, 'D1 drops its worst round (2), keeps 10 + 8');
+  assert.deepEqual(d1.dropped, [2], 'the dropped round is round 2');
+  assert.equal(d2.total, 13, 'D2 drops its worst round (5), keeps 6 + 7');
+  assert.deepEqual(d2.dropped, [1]);
+});
+
+test('a drop removes missed races before participated ones', () => {
+  // Three rounds ran. D1 raced all three; D2 raced rounds 1 & 2 but missed 3.
+  const docs = [
+    doc(1, [{ kind: 'feature', results: [res(1, 1, 10), res(2, 2, 5)] }]),
+    doc(2, [{ kind: 'feature', results: [res(1, 2, 8), res(2, 1, 6)] }]),
+    doc(3, [{ kind: 'feature', results: [res(1, 1, 9)] }]),
+  ];
+  const { standings } = foldStandings(docs, { dropCount: 1 });
+  const d1 = standings.find((r) => r.custId === 1), d2 = standings.find((r) => r.custId === 2);
+  // D2's absence (round 3 = 0) is dropped, so both real results survive.
+  assert.equal(d2.total, 11, 'missed round dropped, 5 + 6 kept');
+  assert.deepEqual(d2.dropped, [3]);
+  // D1 raced everything, so the drop falls on its lowest real result (8).
+  assert.equal(d1.total, 19);
+  assert.deepEqual(d1.dropped, [2]);
+});
+
+test('a drop count never leaves a driver with nothing', () => {
+  // One round, drop 1 → cannot drop your only round.
+  const docs = [doc(1, [{ kind: 'feature', results: [res(1, 1, 10)] }])];
+  const { standings } = foldStandings(docs, { dropCount: 1 });
+  assert.equal(standings[0].total, 10);
+  assert.deepEqual(standings[0].dropped, []);
+});
+
 test('ties break on feature wins, then sprint wins, then poles', () => {
   const docs = [doc(1, [
     { kind: 'feature', results: [res(1, 1, 10), res(2, 2, 10)] },

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computePower, overallOrder, rankScores, recencyWeight, scaleRating, MAX_RACES, MIN_EVENTS, RATING_FLOOR, RECENT_FULL, WEIGHTS } from '../src/power/index.js';
+import { computePower, computeHeadToHead, rivalries, attachPositionChanges, overallOrder, rankScores, recencyWeight, scaleRating, MAX_RACES, MIN_EVENTS, RATING_FLOOR, WEIGHTS } from '../src/power/index.js';
 
 const driver = (custId, finish, extra = {}) => ({
   custId, displayName: `D${custId}`, finish,
@@ -16,12 +16,12 @@ const event = (startTime, order, extra = () => ({})) => ({
 });
 const find = (rows, id) => rows.find((r) => r.custId === id);
 
-test('recency counts a driver\u2019s last three races in full, then tapers to a cutoff', () => {
-  assert.equal(recencyWeight(0), 1);
-  assert.equal(recencyWeight(RECENT_FULL - 1), 1, 'the third-newest race still counts fully');
-  assert.ok(recencyWeight(RECENT_FULL) < 1, 'the taper starts after that');
+test('recency sheds 10% per race back to a ten-race cutoff', () => {
+  assert.equal(recencyWeight(0), 1, 'the newest race counts in full');
+  assert.ok(Math.abs(recencyWeight(1) - 0.9) < 1e-9, 'one race back loses 10%');
+  assert.ok(Math.abs(recencyWeight(4) - 0.6) < 1e-9);
   assert.ok(recencyWeight(6) < recencyWeight(4), 'older races weigh less');
-  assert.ok(recencyWeight(MAX_RACES - 1) > 0, 'the tenth race still counts for something');
+  assert.ok(Math.abs(recencyWeight(MAX_RACES - 1) - 0.1) < 1e-9, 'the tenth race is worth 10%');
   assert.equal(recencyWeight(MAX_RACES), 0, 'the eleventh is dropped entirely');
   assert.equal(recencyWeight(999), 0);
 });
@@ -195,9 +195,9 @@ test('marginToLeader records the gap that ranking discards', () => {
   assert.equal(find(rows, 3).marginToLeader, 2);
 });
 
-test('every metric is weighted and the weights total 100', () => {
-  assert.deepEqual(Object.keys(WEIGHTS), ['overall', 'gained', 'bestLap', 'avgLap', 'lapsLed', 'finishing']);
-  assert.equal(Object.values(WEIGHTS).reduce((a, b) => a + b, 0), 100);
+test('every metric is weighted; laps-led is removed for now', () => {
+  assert.deepEqual(Object.keys(WEIGHTS), ['overall', 'gained', 'bestLap', 'avgLap', 'finishing']);
+  assert.equal(WEIGHTS.lapsLed, undefined, 'laps led is commented out for now');
   assert.equal(WEIGHTS.pace, undefined, 'pace was replaced by the best-lap placing');
 });
 
@@ -234,10 +234,42 @@ test('races past the ten-race cutoff are excluded from the averages', () => {
   assert.equal(d1.events, 12, 'but they still count as participation');
 });
 
+test('avgIncidents averages per race subsession, recency-weighted, races only', () => {
+  const inc = (id, incidents) => ({ ...driver(id, 1), incidents });
+  // One event: qualifying incidents are ignored; the heat (2) and feature (4)
+  // count as two subsession samples → average 3.
+  const ev = {
+    startTime: '2025-01-01',
+    simsessions: [
+      { kind: 'qualifying', results: [inc(1, 9)] },
+      { kind: 'sprint', results: [inc(1, 2)] },
+      { kind: 'feature', results: [inc(1, 4)] },
+    ],
+  };
+  const d1 = find(computePower([ev], { minEvents: 1 }), 1);
+  assert.equal(d1.avgIncidents, 3, 'mean of the two race subsessions, qualifying excluded');
+  assert.equal(d1.incidentsTotal, 6, 'total counts races only');
+});
+
+test('position change reflects movement since the prior ranking', () => {
+  const drivers = [{ custId: 1, provisional: false }, { custId: 2, provisional: false }, { custId: 3, provisional: false }];
+  const prior = [{ custId: 2, provisional: false }, { custId: 1, provisional: false }, { custId: 3, provisional: false }];
+  attachPositionChanges(drivers, prior);
+  assert.equal(drivers[0].change, 1, 'D1 rose from 2nd to 1st');
+  assert.equal(drivers[1].change, -1, 'D2 slipped from 1st to 2nd');
+  assert.equal(drivers[2].change, 0, 'D3 held station');
+});
+
+test('a newly ranked driver has no position change', () => {
+  const drivers = [{ custId: 1, provisional: false }, { custId: 2, provisional: false }];
+  attachPositionChanges(drivers, [{ custId: 1, provisional: false }]);
+  assert.equal(drivers[1].change, null, 'D2 was not ranked before');
+});
+
 test('races finished is the lightest metric', () => {
   assert.equal(WEIGHTS.finishing, 5);
-  assert.ok(WEIGHTS.finishing < WEIGHTS.lapsLed);
-  assert.equal(Object.values(WEIGHTS).reduce((a, b) => a + b, 0), 100);
+  assert.ok(Object.entries(WEIGHTS).every(([k, w]) => k === 'finishing' || w > WEIGHTS.finishing),
+    'finishing is lighter than every other metric');
 });
 
 test('average lap ranks sustained pace, separately from the single best lap', () => {
@@ -258,6 +290,21 @@ test('average lap ranks sustained pace, separately from the single best lap', ()
   assert.equal(find(rows, 2).components.avgLap, 100, 'D2 is quicker over a run');
   assert.equal(find(rows, 2).avgLapRank, 1);
   assert.equal(find(rows, 1).avgLapRank, 2);
+});
+
+test('avgLap ignores qualifying — it is heats-and-features pace only', () => {
+  const lap = (custId, finish, avg) => ({ ...driver(custId, finish), averageLapTime: avg });
+  const doc = {
+    startTime: '2025-01-01',
+    simsessions: [
+      { kind: 'qualifying', results: [lap(1, 1, 800_000), lap(2, 2, 900_000)] }, // D1 quicker average here
+      { kind: 'feature', results: [lap(1, 2, 900_000), lap(2, 1, 800_000)] },    // D2 quicker over the run
+    ],
+  };
+  const rows = computePower([doc], { minEvents: 1 });
+  // Only the feature counts: were qualifying included, both would average 1.5.
+  assert.equal(find(rows, 1).avgLapRank, 2, 'the quick qualifying average does not lift D1');
+  assert.equal(find(rows, 2).avgLapRank, 1);
 });
 
 test('a driver with no timed average is not penalised for the gap', () => {
@@ -296,5 +343,153 @@ test('the published rating is remapped onto the floor, components stay 0-100', (
       / used.reduce((a, [, w]) => a + w, 0);
     assert.equal(r.rating, Math.round(scaleRating(raw) * 10) / 10,
       `${r.displayName}: rating is the scaled weighted average`);
+  }
+});
+
+test('head-to-head builds a transitive, field-centred order for one event', () => {
+  const rows = computeHeadToHead([event('2025-01-01', [1, 2, 3, 4])], { minEvents: 1 });
+  const o = (id) => find(rows, id).components.overall;
+  assert.ok(o(1) > o(2) && o(2) > o(3) && o(3) > o(4), 'finishing order is preserved');
+  // Colley ratings are centred on 50 (average 0.5), so the field is symmetric.
+  assert.ok(Math.abs((o(1) + o(4)) - 100) < 0.3);
+  assert.ok(Math.abs((o(2) + o(3)) - 100) < 0.3);
+  assert.equal(rows[0].custId, 1);
+});
+
+test('head-to-head ranks drivers who never met through common opponents', () => {
+  const feat = (t, results) => ({ startTime: t, simsessions: [{ kind: 'feature', results }] });
+  const r = (id, finish) => ({ custId: id, displayName: `D${id}`, finish, bestLapTime: 0, averageLapTime: 0, lapsLead: 0, points: { total: 0 } });
+  // D1 beats D2; later D2 beats D3. D1 and D3 never share a race.
+  const rows = computeHeadToHead([
+    feat('2025-01-01', [r(1, 1), r(2, 2)]),
+    feat('2025-02-01', [r(2, 1), r(3, 2)]),
+  ], { minEvents: 1 });
+  const o = (id) => find(rows, id).components.overall;
+  assert.ok(o(1) > o(2) && o(2) > o(3), 'D1 > D2 > D3 by transitivity');
+  assert.equal(rows[0].custId, 1, 'D1 tops despite never racing D3');
+});
+
+test('a driver alone on a metric gets no head-to-head comparison, not a punished score', () => {
+  // Only D1 sets an average lap time, so nobody can be compared on avgLap.
+  const ev = {
+    startTime: '2025-01-01',
+    simsessions: [{
+      kind: 'feature',
+      results: [
+        { custId: 1, displayName: 'D1', finish: 1, bestLapTime: 850_000, averageLapTime: 900_000, lapsLead: 0, points: { total: 0 } },
+        { custId: 2, displayName: 'D2', finish: 2, bestLapTime: 860_000, averageLapTime: 0, lapsLead: 0, points: { total: 0 } },
+      ],
+    }],
+  };
+  const rows = computeHeadToHead([ev], { minEvents: 1 });
+  assert.equal(find(rows, 1).components.avgLap, null, 'no opponent with a time → no score');
+  assert.ok(find(rows, 1).components.overall > 50, 'still ranked on the metrics that do compare');
+});
+
+test('rivalries expose every opponent and record decisive metrics', () => {
+  const rows = rivalries([
+    event('2025-01-01', [1, 2]),
+    event('2025-02-01', [2, 1]),
+    event('2025-03-01', [1, 2]),
+    event('2025-04-01', [1, 3]),
+  ]);
+  const d1 = rows.get(1);
+  const vs2 = d1.opponents.find((o) => o.custId === 2);
+  assert.equal(vs2.meetings, 3);
+  // Overall: D1 finished ahead of D2 in two of the three races.
+  const overall = vs2.record.find((m) => m.metric === 'overall');
+  assert.equal(overall.you, 2);
+  assert.equal(overall.them, 1);
+});
+
+test('the rival is the most evenly split opponent, not the most-raced', () => {
+  // D1 dominates D2 (5-0 over five races) but splits with D3 (2-2 over four).
+  const rows = rivalries([
+    event('2025-01-01', [1, 2]), event('2025-01-02', [1, 2]), event('2025-01-03', [1, 2]),
+    event('2025-01-04', [1, 2]), event('2025-01-05', [1, 2]),
+    event('2025-01-06', [1, 3]), event('2025-01-07', [3, 1]),
+    event('2025-01-08', [1, 3]), event('2025-01-09', [3, 1]),
+  ]);
+  const d1 = rows.get(1);
+  assert.equal(d1.rival, 3, 'a 2-2 split beats a 5-0 record with more races');
+  assert.equal(d1.opponents[0].custId, 3, 'the fiercest rivalry sorts first');
+});
+
+test('a rival needs at least three shared races', () => {
+  // D1 (five races) splits 1-1 with D3 over just two races — too few — so the
+  // rival is D2, whom they met three times.
+  const rows = rivalries([
+    event('2025-01-01', [1, 2]), event('2025-01-02', [2, 1]), event('2025-01-03', [1, 2]),
+    event('2025-01-04', [1, 3]), event('2025-01-05', [3, 1]),
+  ]);
+  assert.equal(rows.get(1).rival, 2, 'D3 with two races is below the minimum');
+});
+
+test('a driver with fewer than three races can still have a rival', () => {
+  // D1 raced only twice, both against D2 → the bar drops to two shared races.
+  const rows = rivalries([
+    event('2025-01-01', [1, 2]), event('2025-01-02', [2, 1]),
+  ]);
+  assert.equal(rows.get(1).rival, 2, 'the 3-race bar relaxes to the driver’s race count');
+});
+
+test('a metric is one head-to-head per event, decided by subsession wins', () => {
+  const r = (id, best) => ({ custId: id, displayName: `D${id}`, finish: 1, bestLapTime: best, averageLapTime: 0, lapsLead: 0, points: { total: 0 } });
+  // One event, three subsessions. Speed: D1 wins qualifying + feature, D2 the
+  // heat → D1 takes the event 2-1 (a single comparison, not three).
+  const ev = {
+    startTime: '2025-01-01',
+    simsessions: [
+      { kind: 'qualifying', number: -4, results: [r(1, 800), r(2, 810)] },
+      { kind: 'sprint', number: -3, results: [r(1, 810), r(2, 800)] },
+      { kind: 'feature', number: 0, results: [r(1, 800), r(2, 810)] },
+    ],
+  };
+  const vs2 = rivalries([ev]).get(1).opponents.find((o) => o.custId === 2);
+  const speed = vs2.record.find((m) => m.metric === 'bestLap');
+  assert.equal(speed.you, 1, 'D1 takes the event on speed');
+  assert.equal(speed.them, 0);
+  assert.equal(vs2.meetings, 1, 'a single shared event');
+});
+
+test('a speed tie is broken by qualifying', () => {
+  const r = (id, best) => ({ custId: id, displayName: `D${id}`, finish: 1, bestLapTime: best, averageLapTime: 0, lapsLead: 0, points: { total: 0 } });
+  // Split 1-1: D1 quickest in qualifying, D2 in the feature → qualifying decides.
+  const ev = {
+    startTime: '2025-01-01',
+    simsessions: [
+      { kind: 'qualifying', number: -4, results: [r(1, 800), r(2, 810)] },
+      { kind: 'feature', number: 0, results: [r(1, 810), r(2, 800)] },
+    ],
+  };
+  const vs2 = rivalries([ev]).get(1).opponents.find((o) => o.custId === 2);
+  const speed = vs2.record.find((m) => m.metric === 'bestLap');
+  assert.equal(speed.you, 1, 'qualifying breaks the speed split for D1');
+  assert.equal(speed.them, 0);
+});
+
+test('a pace tie is broken by the feature', () => {
+  const r = (id, avg) => ({ custId: id, displayName: `D${id}`, finish: 1, bestLapTime: 800, averageLapTime: avg, lapsLead: 0, points: { total: 0 } });
+  // Split over heat + feature; the feature (last race) decides — for D2 here.
+  const ev = {
+    startTime: '2025-01-01',
+    simsessions: [
+      { kind: 'sprint', number: -3, results: [r(1, 800), r(2, 810)] },
+      { kind: 'feature', number: 0, results: [r(1, 810), r(2, 800)] },
+    ],
+  };
+  const vs2 = rivalries([ev]).get(1).opponents.find((o) => o.custId === 2);
+  const pace = vs2.record.find((m) => m.metric === 'avgLap');
+  assert.equal(pace.them, 1, 'the feature breaks the pace split for D2');
+  assert.equal(pace.you, 0);
+});
+
+test('head-to-head reuses the descriptive stats from the rank method', () => {
+  const docs = [event('2025-01-01', [1, 2, 3]), event('2025-02-01', [2, 1, 3])];
+  const h = computeHeadToHead(docs, { minEvents: 1 });
+  const r = computePower(docs, { minEvents: 1 });
+  for (const id of [1, 2, 3]) {
+    assert.equal(find(h, id).wins, find(r, id).wins, `D${id}: same win count`);
+    assert.equal(find(h, id).events, find(r, id).events, `D${id}: same event count`);
   }
 });

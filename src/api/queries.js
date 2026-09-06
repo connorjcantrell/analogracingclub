@@ -39,8 +39,50 @@ export async function listSubsessionsFull(db, { seriesSlug }) {
     .toArray();
 }
 
+// Standalone special events (no series), newest first — full docs minus raw.
+export async function listSpecialEvents(db) {
+  return collections(db)
+    .subsessions.find({ seriesSlug: null }, { projection: { raw: 0 } })
+    .sort({ startTime: -1 })
+    .toArray();
+}
+
 export async function getSubsession(db, id) {
   return collections(db).subsessions.findOne({ _id: id }, { projection: { raw: 0 } });
+}
+
+// Flatten stored subsession docs into a photo collection, each photo carrying
+// its event's track and date for captions. Pure so it can be unit-tested;
+// input order is preserved, so callers sort the rows first.
+export function photosFrom(rows, { limit = 40 } = {}) {
+  const photos = [];
+  for (const s of rows) {
+    for (const img of s.images ?? []) {
+      photos.push({
+        url: img.url,
+        track: s.track?.name ?? null,
+        config: s.track?.config ?? null,
+        startTime: s.startTime ?? null,
+        seriesSlug: s.seriesSlug ?? null,
+        round: s.round ?? null,
+        featured: img.url === s.featuredImage,
+      });
+    }
+  }
+  return photos.slice(0, Math.max(0, limit));
+}
+
+// Every uploaded race photo across all events, newest event first. Powers the
+// homepage carousel, which is simply the collection of photos attached to
+// results.
+export async function listPhotos(db, { limit = 40 } = {}) {
+  const rows = await collections(db)
+    .subsessions.find(
+      { 'images.0': { $exists: true } },
+      { projection: { images: 1, featuredImage: 1, track: 1, startTime: 1, seriesSlug: 1, round: 1 } })
+    .sort({ startTime: -1 })
+    .toArray();
+  return photosFrom(rows, { limit });
 }
 
 // The stored event JSON, reconstructed as the original upload envelope.

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Power Rankings · Analog Racing Club</title>
-  <meta name="theme-color" content="#221f20">
+  <meta name="theme-color" content="#121212">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
@@ -14,7 +14,7 @@
 <body>
   <header>
     <a class="brand" href="/" aria-label="Analog Racing Club">
-      <img class="brand-logo" src="/assets/analog_sq.png" alt="Analog Racing Club">
+      <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
     <nav>
       <a href="/standings.html">Standings</a>
@@ -22,52 +22,273 @@
       <a href="/drivers.html" class="active">Power Rankings</a>
       <a href="/about.html">About</a>
     </nav>
-    <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
+    <a class="platform" href="https://discord.gg/jpchbxKu76" target="_blank" rel="noopener" aria-label="Join our Discord"><img src="/assets/Discord-Symbol-White.svg" alt="Discord"></a> <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   </header>
   <main>
     <h2>Power Rankings</h2>
-    <p class="rank-note">
-      Every driver across every season, rated on recent form.
-      <button class="rank-toggle" type="button" id="explain">How it works</button>
-    </p>
-    <div class="rank-detail" id="rankDetail" hidden></div>
-    <table id="table">
-      <thead>
-        <tr>
-          <th class="pos">#</th>
-          <th>Driver</th>
-          <th class="num">Rating</th>
-        </tr>
-      </thead>
-      <tbody id="body"></tbody>
-    </table>
-    <p class="empty" id="empty" hidden>No results yet — the ranking appears after the first race.</p>
+    <div id="tableView">
+      <p class="rank-note">
+        Every driver across every season, rated on recent form. Select a driver for the full breakdown.
+        <button class="rank-toggle" type="button" id="explain">How it works</button>
+      </p>
+      <div class="rank-detail" id="rankDetail" hidden></div>
+      <table id="table">
+        <thead>
+          <tr>
+            <th class="pos">#</th>
+            <th>Driver</th>
+          </tr>
+        </thead>
+        <tbody id="body"></tbody>
+      </table>
+      <button class="rank-toggle see-more" type="button" id="seeMore" hidden></button>
+      <p class="empty" id="empty" hidden>No results yet — the ranking appears after the first race.</p>
+      <div class="power-cards" id="cards"></div>
+    </div>
+    <section id="detail" hidden></section>
   </main>
   <script type="module">
-    import { api, el, driverName } from '/app.js';
+    import { api, el, driverName, fmtDate } from '/app.js';
     const $ = (id) => document.getElementById(id);
+    let minEvents = 3;
 
-    const { drivers, weights, minEvents } = await api('/api/power');
-    const body = $('body');
+    // The metrics the rating blends, with table-friendly labels.
+    const METRIC_LABELS = { overall: 'Overall', gained: 'Overtakes', bestLap: 'Speed', avgLap: 'Pace', /* lapsLed: 'Laps led', */ finishing: 'Finishes' };
+    const METRIC_COLS = [['overall', 'Overall'], ['bestLap', 'Speed'], ['avgLap', 'Pace'], ['gained', 'Overtakes'], ['finishing', 'Finishes']];
+    // 1 → 1st, 2 → 2nd, 3 → 3rd …
+    const ordinal = (n) => { const t = n % 100; return `${n}${(t >= 11 && t <= 13) ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] || 'th')}`; };
+    // The qualifying (non-provisional) field — the only drivers that define the
+    // category ranks (set on every render).
+    let qualifiers = [];
 
-    for (const [i, d] of drivers.entries()) {
-      const name = el('td', {}, driverName(d.displayName));
-      if (d.provisional) name.append(el('span', { class: 'tag' }, 'Provisional'));
-      body.append(el('tr', {},
-        el('td', { class: 'pos' }, d.provisional ? '—' : String(i + 1)),
-        name,
-        el('td', { class: 'num total' }, d.rating.toFixed(1))));
+    // Each driver's opponents and their direct 1v1 record (with the most evenly
+    // split as the default rival), plus the field's featured rivalry. Method-
+    // independent, so fetched once.
+    const rivalData = await api('/api/power/rivals');
+    const rivals = new Map();
+    for (const r of rivalData.rivals) rivals.set(r.custId, r);
+    const featured = rivalData.featured;
+
+    // The per-metric record for one matchup: decisive wins in direct meetings.
+    function matchupTable(d, opp) {
+      const rows = opp.record.filter((m) => m.you + m.them > 0);
+      if (!rows.length) return el('p', { class: 'rival-empty' }, 'Only ties so far — no decisive metric yet.');
+      const head = el('tr', {},
+        el('th', {}, 'Metric'),
+        el('th', { class: 'num' }, driverName(d.displayName)),
+        el('th', { class: 'num' }, driverName(opp.displayName)));
+      // Green for the winner of a metric, red for the loser, cream for a tie.
+      const cls = (a, b) => `num${a > b ? ' rival-win' : a < b ? ' rival-loss' : ''}`;
+      const body = rows.map((m) => el('tr', {},
+        el('td', {}, METRIC_LABELS[m.metric] ?? m.metric),
+        el('td', { class: cls(m.you, m.them) }, String(m.you)),
+        el('td', { class: cls(m.them, m.you) }, String(m.them))));
+      return el('table', { class: 'rival-table' }, el('thead', {}, head), el('tbody', {}, ...body));
     }
 
-    if (!drivers.length) { $('empty').hidden = false; $('table').hidden = true; }
+    // A context line above the record: races shared, whether it's the rival, the
+    // overall (whole-event) tally, and who leads on categories.
+    function rivalSummary(d, opp, isRival) {
+      const won = opp.record.filter((m) => m.you > m.them).length;
+      const lost = opp.record.filter((m) => m.them > m.you).length;
+      const overall = opp.record.find((m) => m.metric === 'overall');
+      const lead = won > lost ? `${driverName(d.displayName)} leads categories ${won}–${lost}`
+        : won < lost ? `${driverName(opp.displayName)} leads categories ${lost}–${won}`
+        : `level on categories ${won}–${lost}`;
+      const parts = [
+        `${opp.meetings} race${opp.meetings === 1 ? '' : 's'} together`,
+        isRival ? 'their rival' : null,
+        overall && overall.you + overall.them > 0 ? `overall ${overall.you}–${overall.them}` : null,
+        lead,
+      ].filter(Boolean);
+      return el('p', { class: 'rival-summary' }, parts.join(' · '));
+    }
+
+    // Every event the two drivers shared, with each one's overall placing and
+    // who finished ahead — the concrete results behind the aggregate record.
+    function raceByRace(d, opp, events) {
+      if (!events.length) return el('div', {});
+      const head = el('tr', {},
+        el('th', {}, 'Race'),
+        el('th', { class: 'num' }, driverName(d.displayName)),
+        el('th', { class: 'num' }, driverName(opp.displayName)));
+      const rows = events.map((e) => el('tr', {},
+        el('td', {}, [fmtDate(e.startTime), e.track].filter(Boolean).join(' · ') || '—'),
+        el('td', { class: `num${e.aAhead ? ' rival-win' : ' rival-loss'}` }, `P${e.aOverall}`),
+        el('td', { class: `num${e.aAhead ? ' rival-loss' : ' rival-win'}` }, `P${e.bOverall}`)));
+      return el('div', { class: 'matchup-events' },
+        el('h5', { class: 'matchup-events-title' }, 'Race by race'),
+        el('table', { class: 'rival-table' }, el('thead', {}, head), el('tbody', {}, ...rows)));
+    }
+
+    // The panel: pick any opponent (defaulting to the rival), summarise the
+    // matchup, show the per-category record, and load the race-by-race results.
+    function rivalPanel(d) {
+      const info = rivals.get(d.custId);
+      if (!info || !info.opponents.length) return el('p', { class: 'rival-empty' }, 'No head-to-head record yet.');
+      const sel = el('select', { class: 'rival-pick' });
+      for (const opp of info.opponents) {
+        sel.append(el('option', { value: String(opp.custId) },
+          `${driverName(opp.displayName)} · ${opp.meetings} race${opp.meetings === 1 ? '' : 's'}${opp.custId === info.rival ? ' (rival)' : ''}`));
+      }
+      sel.value = String(info.rival ?? info.opponents[0].custId);
+      const slot = el('div', { class: 'rival-record' });
+      let seq = 0;
+      const draw = async () => {
+        const my = ++seq;
+        slot.innerHTML = '';
+        const opp = info.opponents.find((o) => String(o.custId) === sel.value);
+        const races = el('div', { class: 'matchup-events' }, el('p', { class: 'rival-empty' }, 'Loading races…'));
+        slot.append(rivalSummary(d, opp, opp.custId === info.rival), matchupTable(d, opp), races);
+        try {
+          const m = await api(`/api/power/matchup?a=${d.custId}&b=${opp.custId}`);
+          if (my === seq) races.replaceWith(raceByRace(d, opp, m.events));
+        } catch { if (my === seq) races.remove(); }
+      };
+      sel.addEventListener('change', draw);
+      draw();
+      return el('div', { class: 'rival' },
+        el('label', { class: 'rival-head' }, 'Head-to-head vs ', sel),
+        slot);
+    }
+
+    // Featured cards below the table. The rivalry of the season is the field's
+    // most evenly split matchup; Mr. Clean is the driver with the fewest
+    // incidents per race (recency-weighted, minimum three races).
+    function featuredCard() {
+      if (!featured) return null;
+      return el('div', { class: 'power-card' },
+        el('h3', { class: 'power-card-title' }, 'Rivalry'),
+        el('p', { class: 'power-card-sub' }, `${driverName(featured.a.displayName)} vs ${driverName(featured.b.displayName)} · ${featured.meetings} races`),
+        matchupTable(featured.a, { displayName: featured.b.displayName, record: featured.record }));
+    }
+    function cleanCard(drivers) {
+      const eligible = drivers.filter((d) => d.events >= 3 && d.avgIncidents != null);
+      if (!eligible.length) return null;
+      const clean = eligible.reduce((best, d) => (d.avgIncidents < best.avgIncidents ? d : best));
+      return el('div', { class: 'power-card' },
+        el('h3', { class: 'power-card-title' }, 'Mr. Clean'),
+        el('p', { class: 'power-card-sub' }, 'Fewest incidents per race'),
+        el('p', { class: 'power-card-driver' }, driverName(clean.displayName)),
+        el('p', { class: 'power-card-stat' }, `${clean.avgIncidents} inc / race`));
+    }
+    function renderCards(drivers) {
+      const box = $('cards');
+      box.innerHTML = '';
+      for (const c of [featuredCard(), cleanCard(drivers)]) if (c) box.append(c);
+    }
+
+    // A driver's rank in one metric, measured ONLY against qualifying drivers:
+    // one plus the number of qualifiers with a better component (ties share a
+    // place). Works for a provisional driver too — it shows where they would
+    // slot among the qualifiers — without counting them in the field.
+    function rankOf(d, key) {
+      const v = d.components[key];
+      if (v == null) return null;
+      return qualifiers.filter((q) => q.components[key] != null && q.components[key] > v).length + 1;
+    }
+
+    // The full driver breakdown that replaces the table when one is selected:
+    // where they rank in each category, their season line, and the head-to-head
+    // record against any rival.
+    function statRow(label, val) {
+      return el('div', { class: 'stat-row' }, el('dt', {}, label), el('dd', {}, val == null ? '—' : String(val)));
+    }
+    function showDetail(d, position) {
+      const box = $('detail');
+      box.innerHTML = '';
+      const back = el('button', { class: 'rank-toggle detail-back', type: 'button' }, '← Back to rankings');
+      back.addEventListener('click', hideDetail);
+
+      const head = el('div', { class: 'detail-head' },
+        el('span', { class: 'detail-pos' }, d.provisional ? 'Provisional' : ordinal(position)),
+        el('span', { class: 'detail-name' }, driverName(d.displayName)));
+      if (!d.provisional && d.change) {
+        const up = d.change > 0;
+        head.append(el('span', { class: `chg ${up ? 'chg-up' : 'chg-down'}` }, `${up ? '▲' : '▼'}${Math.abs(d.change)} since last event`));
+      }
+
+      const season = el('dl', { class: 'detail-stats' },
+        statRow('Races', d.events),
+        statRow('Wins', d.wins),
+        statRow('Podiums', d.podiums),
+        statRow('Avg finish', d.avgFinish),
+        statRow('Avg overall', d.avgOverall),
+        statRow('Incidents / race', d.avgIncidents));
+
+      const cats = el('div', { class: 'detail-cats' }, ...METRIC_COLS.map(([key, label]) => {
+        const p = rankOf(d, key);
+        return el('div', { class: 'stat-row' }, el('dt', {}, label), el('dd', {}, p == null ? '—' : ordinal(p)));
+      }));
+
+      box.append(back, head,
+        el('div', { class: 'detail-grid' },
+          el('div', {}, el('h4', {}, 'Season'), season),
+          el('div', {}, el('h4', {}, 'Category ranks'), cats)),
+        el('div', { class: 'detail-h2h' }, el('h4', {}, 'Head-to-head'), rivalPanel(d)));
+
+      $('tableView').hidden = true;
+      box.hidden = false;
+      window.scrollTo({ top: 0 });
+    }
+    function hideDetail() {
+      $('detail').hidden = true;
+      $('tableView').hidden = false;
+    }
+
+    // The ranking is built head-to-head: each driver's record against everyone
+    // they raced, blended into a transitive order over the same metrics.
+    async function render() {
+      const data = await api('/api/power');
+      minEvents = data.minEvents;
+      qualifiers = data.drivers.filter((d) => !d.provisional);
+      hideDetail();
+      const body = $('body');
+      body.innerHTML = '';
+
+      const LIMIT = 10;
+      const extra = []; // rows beyond the top 10, hidden until "See more"
+      for (const [i, d] of data.drivers.entries()) {
+        const name = el('td', {}, driverName(d.displayName));
+        if (d.provisional) name.append(el('span', { class: 'tag' }, 'Provisional'));
+        // Rise/fall in position since the last event.
+        const posCell = el('td', { class: 'pos' }, d.provisional ? '—' : String(i + 1));
+        if (!d.provisional && d.change) {
+          const up = d.change > 0;
+          posCell.append(el('span', { class: `chg ${up ? 'chg-up' : 'chg-down'}` }, `${up ? '▲' : '▼'}${Math.abs(d.change)}`));
+        }
+        const row = el('tr', { class: `rank-row${d.provisional ? ' provisional' : ''}` }, posCell, name);
+        row.addEventListener('click', () => showDetail(d, i + 1));
+        if (i >= LIMIT) { row.hidden = true; extra.push(row); }
+        body.append(row);
+      }
+
+      // Collapse to the top 10 with a toggle to reveal the rest.
+      const btn = $('seeMore');
+      if (extra.length) {
+        let expanded = false;
+        const label = () => { btn.textContent = expanded ? 'Show top 10' : `See all ${data.drivers.length} drivers`; };
+        btn.hidden = false;
+        label();
+        btn.onclick = () => { expanded = !expanded; for (const row of extra) row.hidden = !expanded; label(); };
+      } else {
+        btn.hidden = true;
+      }
+
+      renderCards(data.drivers);
+      $('empty').hidden = data.drivers.length > 0;
+      $('table').hidden = !data.drivers.length;
+    }
+
+    await render();
 
     $('explain').addEventListener('click', () => {
       const box = $('rankDetail');
       if (!box.childElementCount) {
         box.append(
-          el('p', {}, 'A driver\u2019s rating weighs up how they finished overall, how many cars they passed, how their quickest lap and their pace over a full run compared with the rest of the field, how long they spent in front, and how often they saw the flag.'),
-          el('p', {}, 'Each of those is measured against everyone else who raced, so a good result in a big field counts for more than the same placing in a small one, and no single category can run away with the rating.'),
-          el('p', {}, `A driver\u2019s last three races carry full weight, the seven before that count for steadily less, and anything further back than ten races is left out. Drivers with fewer than ${minEvents} races are shown as provisional and listed last.`));
+          el('p', {}, 'The order is built from who beat whom, race by race: every driver\u2019s record against everyone they shared a grid with, judged on how they finished overall, their speed over one lap, their pace over a full run, how many cars they passed, and how often they saw the flag.'),
+          el('p', {}, 'Beating a strong field counts for more than beating a weak one, and two drivers who never met are still placed through the opponents they share. Select a driver for their full breakdown and record against any rival.'),
+          el('p', {}, `The newest race counts in full and each older one loses ten percent, out to the last ten. Drivers with fewer than ${minEvents} races are shown as provisional and listed last.`));
       }
       box.hidden = !box.hidden;
       $('explain').textContent = box.hidden ? 'How it works' : 'Hide';

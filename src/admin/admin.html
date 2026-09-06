@@ -55,7 +55,7 @@
 <body>
   <header>
     <a class="brand" href="/" aria-label="Analog Racing Club">
-      <img class="brand-logo" src="/assets/analog_sq.png" alt="Analog Racing Club">
+      <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
     <nav>
       <a href="/standings.html">Standings</a>
@@ -72,26 +72,19 @@
     </div>
 
     <section class="panel">
-      <h3>Upload results</h3>
-      <p class="desc">Upload an iRacing event-result JSON (the file iRacing downloads from a session's results page), then say what it was. Re-uploading the same session to the same series replaces it. An event that counts toward two series (a season round that is also a championship round) is uploaded to each, and scored under each one's format.</p>
+      <h3>Upload result</h3>
+      <p class="desc">Choose an iRacing event-result JSON, then say where it belongs.</p>
       <div class="row" style="margin-bottom:0.8rem">
         <input type="file" id="file" accept="application/json,.json">
+        <label class="field"><input type="checkbox" id="isSpecial"> Special event</label>
       </div>
-      <div class="row" style="margin-bottom:0.8rem">
-        <label class="field">This was a
-          <select id="uploadKind">
-            <option value="round">round of a series</option>
-            <option value="event">one-off special event</option>
-          </select>
-        </label>
+      <div class="row" id="leagueFields">
+        <label class="field">Series <select id="leagueSeries"></select></label>
+        <label class="field">Round <input type="number" id="leagueRound" min="1" value="1"></label>
       </div>
-      <div class="row" id="roundFields">
-        <label class="field">Series <select id="uploadSeries"></select></label>
-        <label class="field">Round <input type="number" id="round" min="1" value="1"></label>
-      </div>
-      <div class="row" id="eventFields" hidden>
-        <label class="field">Event name <input type="text" id="eventName" placeholder="Bathurst 1000" size="22"></label>
-        <span class="desc" style="margin:0">No points, no schedule — it appears on the site like any other race.</span>
+      <div class="row" id="specialFields" hidden>
+        <label class="field" id="specialTypeField" hidden>Type <select id="specialType"></select></label>
+        <label class="field">Event name <input type="text" id="specialName" placeholder="Bathurst 1000" size="22"></label>
       </div>
       <div class="row" style="margin-top:0.8rem">
         <button class="btn primary" id="upload">Upload &amp; score</button>
@@ -107,15 +100,16 @@
 
     <section class="panel">
       <h3>Series</h3>
-      <p class="desc">Special events, seasonal series, and the annual championship can all run at once. Active series are listed on the site; complete ones stay browsable.</p>
+      <p class="desc">Each series has an event type (which sets its structure and layout) and a points format. Several can run at once; active series are listed on the site, complete ones stay browsable.</p>
       <div id="seriesList"><p class="empty">Loading…</p></div>
 
       <h4>New series</h4>
       <div class="row">
-        <label class="field">Type <select id="newType"></select></label>
+        <label class="field">Event type <select id="newEventType"></select></label>
         <label class="field">Slug <input type="text" id="newSlug" placeholder="fall-2026" size="12"></label>
         <label class="field">Name <input type="text" id="newName" placeholder="Fall 2026" size="16"></label>
         <label class="field" id="newRoundsField">Rounds <input type="number" id="newRounds" min="1" value="3"></label>
+        <label class="field" title="Discard each driver's lowest N rounds from the championship total">Drop <input type="number" id="newDrop" min="0" value="0"></label>
         <label class="field" id="newFormatField">Points <select id="newFormat"></select></label>
         <button class="btn primary" id="createSeries">Create</button>
       </div>
@@ -129,6 +123,7 @@
         <label class="field">Series <select id="seriesSel"></select></label>
         <label class="field">Name <input type="text" id="editName" size="18"></label>
         <label class="field">Status <select id="editStatus"></select></label>
+        <label class="field" title="Discard each driver's lowest N rounds from the championship total">Drop <input type="number" id="editDrop" min="0" value="0"></label>
         <button class="btn primary" id="saveSeries">Save</button>
         <button class="btn danger sm" id="deleteSeries">Delete</button>
       </div>
@@ -170,24 +165,36 @@
 
     const meta = await api('/api/admin/formats');
     const formatOpts = meta.formats.map((f) => [f.id, f.name]);
-    fill($('newType'), Object.entries(meta.types), 'season');
+    const eventTypeName = (id) => meta.eventTypes.find((t) => t.id === id)?.name ?? id;
+    // A series is a container: only container-capable types can back one.
+    const seriesTypes = meta.eventTypes.filter((t) => t.container);
+    fill($('newEventType'), seriesTypes.map((t) => [t.id, t.name]), seriesTypes[0]?.id ?? meta.defaultEventType);
     fill($('newFormat'), formatOpts, meta.default);
     fill($('editFormat'), formatOpts, meta.default);
     fill($('editStatus'), meta.statuses.map((s) => [s, s]));
 
     let series = [];
-    const seriesSel = $('seriesSel'), uploadSeries = $('uploadSeries');
+    const seriesSel = $('seriesSel');
     const selected = () => series.find((x) => x.slug === seriesSel.value);
 
-    const scheduleRow = (r) => el('div', { class: 'row' },
-      el('span', { class: 'rn' }, `R${r.round}`),
-      el('input', { type: 'text', 'data-k': 'track', placeholder: 'Track', value: r.track ?? '' }),
-      el('input', { type: 'text', 'data-k': 'date', placeholder: 'Date (e.g. Thu Oct 2)', value: r.date ?? '' }));
+    const scheduleRow = (r) => {
+      const row = el('div', { class: 'row', 'data-round': String(r.round) },
+        el('span', { class: 'rn' }, `R${r.round}`),
+        el('input', { type: 'text', 'data-k': 'track', placeholder: 'Track', value: r.track ?? '' }),
+        el('input', { type: 'text', 'data-k': 'date', placeholder: 'Date (e.g. Thu Oct 2)', value: r.date ?? '' }),
+        el('label', { class: 'field', title: 'Double points for this round' }, '2×',
+          el('input', { type: 'checkbox', 'data-k': 'double', ...(Number(r.multiplier) > 1 ? { checked: 'checked' } : {}) })));
+      const del = el('button', { class: 'btn danger sm', type: 'button', title: 'Remove this round from the schedule' }, '×');
+      del.addEventListener('click', () => row.remove());
+      row.append(del);
+      return row;
+    };
 
     function renderEditor() {
       const s = selected();
       $('editName').value = s?.name ?? '';
       $('editStatus').value = s?.status ?? 'upcoming';
+      $('editDrop').value = s?.dropCount ?? 0;
       const box = $('sched'); box.innerHTML = '';
       for (const r of s?.schedule ?? []) box.append(scheduleRow(r));
       if (s && meta.formats.some((f) => f.id === s.format)) $('editFormat').value = s.format;
@@ -198,10 +205,10 @@
     function renderSeriesList() {
       const box = $('seriesList'); box.innerHTML = '';
       if (!series.length) { box.append(el('p', { class: 'empty' }, 'No series yet — create one below.')); return; }
-      const head = el('tr', {}, ...['Name', 'Type', 'Status', 'Rounds', 'Points', 'Slug'].map((h) => el('th', {}, h)));
+      const head = el('tr', {}, ...['Name', 'Event type', 'Status', 'Rounds', 'Points', 'Slug'].map((h) => el('th', {}, h)));
       const rows = series.map((s) => el('tr', {},
         el('td', {}, s.name),
-        el('td', { class: 'muted' }, meta.types[s.type] ?? s.type),
+        el('td', { class: 'muted' }, eventTypeName(s.eventType)),
         el('td', {}, el('span', { class: `badge ${s.status}` }, s.status)),
         el('td', { class: 'num' }, String(s.schedule?.length ?? 0)),
         el('td', { class: 'muted' }, meta.formats.find((f) => f.id === s.format)?.name ?? s.format),
@@ -211,45 +218,91 @@
 
     async function loadSeries() {
       series = await api('/api/admin/series');
-      const keep = seriesSel.value, keepUp = uploadSeries.value;
-      const opts = series.map((s) => [s.slug, `${s.name} — ${meta.types[s.type] ?? s.type} (${s.status})`]);
+      const keep = seriesSel.value, keepLeague = $('leagueSeries').value;
+      const opts = series.map((s) => [s.slug, `${s.name} — ${eventTypeName(s.eventType)} (${s.status})`]);
       fill(seriesSel, opts, series.some((s) => s.slug === keep) ? keep : series[0]?.slug);
-      fill(uploadSeries, opts, series.some((s) => s.slug === keepUp) ? keepUp : (series.find((s) => s.status === 'active') ?? series[0])?.slug);
+      // A league round is filed into an active series, which encodes its format.
+      // You can file rounds into any series that is still open (upcoming or
+      // active), not just active — a just-created series is upcoming.
+      const open = series.filter((s) => s.status !== 'complete');
+      fill($('leagueSeries'), open.map((s) => [s.slug, `${s.name}${s.status !== 'active' ? ` (${s.status})` : ''}`]), open.some((s) => s.slug === keepLeague) ? keepLeague : open[0]?.slug);
       renderSeriesList();
       renderEditor();
-      syncUploadFields();
+      syncLeagueRound();
     }
 
-    // The kind picker decides which half of the form applies: a series round
-    // needs series + round, a one-off needs only a name.
-    function syncUploadFields() {
-      const oneOff = $('uploadKind').value === 'event';
-      $('roundFields').hidden = oneOff;
-      $('eventFields').hidden = !oneOff;
-    }
-    $('uploadKind').addEventListener('change', syncUploadFields);
+    // Upload flow: the "Special event" checkbox splits a league round (filed
+    // into an active series, which already encodes its Fast Four format) from a
+    // standalone special event (a one-off type like Hosted qual+race). Special
+    // types are exactly the non-container event types; Fast Four is never one.
+    const specialTypes = meta.eventTypes.filter((t) => !t.container);
+    fill($('specialType'), specialTypes.map((t) => [t.id, t.name]));
+    $('specialTypeField').hidden = specialTypes.length <= 1;
 
-    // A special event is a single, unscored race: it has no round schedule and
-    // no points format, so those inputs are hidden when it is selected.
-    const syncTypeFields = () => {
-      const oneOff = $('newType').value === 'event';
-      $('newRoundsField').hidden = oneOff;
-      $('newFormatField').hidden = oneOff;
-      if (oneOff) $('newRounds').value = 1;
-      $('newFormatDesc').textContent = oneOff
-        ? 'A one-off race. No points are awarded and no schedule is needed \u2014 just upload the result JSON below and it appears on the site like any other race.'
-        : (meta.formats.find((f) => f.id === $('newFormat').value)?.description ?? '');
+    function syncUploadKind() {
+      const special = $('isSpecial').checked;
+      $('leagueFields').hidden = special;
+      $('specialFields').hidden = !special;
+    }
+    $('isSpecial').addEventListener('change', syncUploadKind);
+    syncUploadKind();
+
+    // The result JSON carries the track; seed a special event's name from it.
+    $('file').addEventListener('change', async () => {
+      const f = $('file').files[0];
+      if (!f || $('specialName').value.trim()) return;
+      try {
+        const parsed = JSON.parse(await f.text());
+        const t = (parsed?.data ?? parsed)?.track ?? {};
+        $('specialName').value = [t.track_name, trackConfig(t.config_name)].filter(Boolean).join(' — ');
+      } catch { /* leave blank on unreadable files */ }
+    });
+
+    $('upload').addEventListener('click', async () => {
+      const msg = $('uploadMsg');
+      const f = $('file').files[0];
+      if (!f) return setMsg(msg, 'Choose a file first.', 'err');
+      let q;
+      if ($('isSpecial').checked) {
+        const name = $('specialName').value.trim();
+        if (!specialTypes.length) return setMsg(msg, 'No special event type is configured.', 'err');
+        if (!name) return setMsg(msg, 'Name the event first.', 'err');
+        q = new URLSearchParams({ special: '1', eventType: $('specialType').value || specialTypes[0].id, title: name });
+      } else {
+        if (!$('leagueSeries').value) return setMsg(msg, 'No series yet — create one first, or upload as a special event.', 'err');
+        q = new URLSearchParams({ series: $('leagueSeries').value, round: $('leagueRound').value });
+      }
+      setMsg(msg, 'Uploading…');
+      const res = await fetch(`/api/admin/upload?${q}`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: await f.text(),
+      }).then((r) => r.json());
+      if (!res.ok) return setMsg(msg, `Error: ${res.error}`, 'err');
+      setMsg(msg, `Saved ${res.subsessionId} to ${res.series ?? 'special events'}: ${res.drivers} drivers, ${res.results} results.`, 'ok');
+      $('file').value = ''; $('specialName').value = '';
+      await loadSeries();
+      await loadResults();
+    });
+
+    // The format description tracks the chosen preset. (A one-off, unscored
+    // special event is created straight from the upload panel below, not here.)
+    const showFormatDesc = () => {
+      $('newFormatDesc').textContent = meta.formats.find((f) => f.id === $('newFormat').value)?.description ?? '';
     };
-    $('newType').addEventListener('change', syncTypeFields);
-    $('newFormat').addEventListener('change', syncTypeFields);
-    syncTypeFields();
+    // Picking an event type defaults the points format to what it expects.
+    $('newEventType').addEventListener('change', () => {
+      const et = meta.eventTypes.find((t) => t.id === $('newEventType').value);
+      if (et?.defaultFormat && meta.formats.some((f) => f.id === et.defaultFormat)) $('newFormat').value = et.defaultFormat;
+      showFormatDesc();
+    });
+    $('newFormat').addEventListener('change', showFormatDesc);
+    showFormatDesc();
 
     $('createSeries').addEventListener('click', async () => {
-      const oneOff = $('newType').value === 'event';
       const res = await post('/api/admin/series', {
-        slug: $('newSlug').value.trim(), name: $('newName').value.trim(), type: $('newType').value,
-        rounds: oneOff ? 1 : (Number($('newRounds').value) || 1),
-        format: oneOff ? 'unscored' : $('newFormat').value,
+        slug: $('newSlug').value.trim(), name: $('newName').value.trim(), eventType: $('newEventType').value,
+        rounds: Number($('newRounds').value) || 1,
+        dropCount: Number($('newDrop').value) || 0,
+        format: $('newFormat').value,
       });
       setMsg($('newMsg'), res.ok ? `Created ${res.slug}. Set its status to active when it starts.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
       if (res.ok) { $('newSlug').value = ''; $('newName').value = ''; }
@@ -258,7 +311,7 @@
     });
 
     $('saveSeries').addEventListener('click', async () => {
-      const res = await post('/api/admin/series-update', { slug: seriesSel.value, name: $('editName').value, status: $('editStatus').value });
+      const res = await post('/api/admin/series-update', { slug: seriesSel.value, name: $('editName').value, status: $('editStatus').value, dropCount: Number($('editDrop').value) || 0 });
       setMsg($('seriesMsg'), res.ok ? 'Saved.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
       await loadSeries();
     });
@@ -270,13 +323,19 @@
       await loadSeries();
     });
 
-    $('addRound').addEventListener('click', () => $('sched').append(scheduleRow({ round: $('sched').children.length + 1 })));
+    $('addRound').addEventListener('click', () => {
+      const rounds = [...$('sched').children].map((row) => Number(row.dataset.round));
+      $('sched').append(scheduleRow({ round: (rounds.length ? Math.max(...rounds) : 0) + 1 }));
+    });
     $('saveSched').addEventListener('click', async () => {
-      const schedule = [...$('sched').children].map((row, i) => ({
-        round: i + 1,
+      // Keep each row's own round number (so a deleted round leaves the rest
+      // untouched rather than renumbering and breaking uploaded results).
+      const schedule = [...$('sched').children].map((row) => ({
+        round: Number(row.dataset.round),
         track: row.querySelector('[data-k=track]').value.trim() || null,
         date: row.querySelector('[data-k=date]').value.trim() || null,
-      }));
+        multiplier: row.querySelector('[data-k=double]').checked ? 2 : 1,
+      })).sort((a, b) => a.round - b.round);
       const res = await post('/api/admin/series-update', { slug: seriesSel.value, schedule });
       setMsg($('schedMsg'), res.ok ? 'Schedule saved.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
       await loadSeries();
@@ -298,37 +357,29 @@
       await loadSeries();
     });
 
-    $('upload').addEventListener('click', async () => {
-      const f = $('file').files[0];
-      const msg = $('uploadMsg');
-      if (!f) { setMsg(msg, 'Choose a file first.', 'err'); return; }
-      if ($('uploadKind').value === 'round' && !uploadSeries.value) { setMsg(msg, 'Create a series first, or upload this as a one-off special event.', 'err'); return; }
-      setMsg(msg, 'Uploading…');
-      const oneOff = $('uploadKind').value === 'event';
-      if (oneOff && !$('eventName').value.trim()) return setMsg(msg, 'Name the event first.', 'err');
-      const q = oneOff
-        ? new URLSearchParams({ event: $('eventName').value.trim() })
-        : new URLSearchParams({ series: uploadSeries.value, round: $('round').value });
-      const res = await fetch(`/api/admin/upload?${q}`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: await f.text(),
-      }).then((r) => r.json());
-      if (res.ok) {
-        setMsg(msg, `Saved ${res.subsessionId} to ${res.series}: ${res.drivers} drivers, ${res.results} results.`, 'ok');
-        $('eventName').value = '';
-      } else setMsg(msg, `Error: ${res.error}`, 'err');
-      await loadSeries();
-      await loadResults();
-    });
+
+    // The stored results drive the upload panel's round auto-increment: the next
+    // round for a series is one past the highest round already uploaded to it.
+    let storedSubs = [];
+    function syncLeagueRound() {
+      const slug = $('leagueSeries').value;
+      const rounds = storedSubs.filter((s) => s.seriesSlug === slug && s.round != null).map((s) => s.round);
+      $('leagueRound').value = String((rounds.length ? Math.max(...rounds) : 0) + 1);
+    }
+    $('leagueSeries').addEventListener('change', syncLeagueRound);
 
     const resultsEl = $('resultsList');
     async function loadResults() {
       resultsEl.innerHTML = '<p class="empty">Loading…</p>';
-      const subs = await api('/api/subsessions');
+      storedSubs = await api('/api/subsessions');
+      syncLeagueRound();
       resultsEl.innerHTML = '';
-      if (!subs.length) { resultsEl.append(el('p', { class: 'empty' }, 'No results uploaded yet.')); return; }
+      if (!storedSubs.length) { resultsEl.append(el('p', { class: 'empty' }, 'No results uploaded yet.')); return; }
       const head = el('tr', {}, ...['Series', 'Round', 'Track', 'Date', 'Sessions', ''].map((h) => el('th', {}, h)));
-      const rows = subs.map((s) => el('tr', {},
-        el('td', {}, series.find((x) => x.slug === s.seriesSlug)?.name ?? s.seriesSlug ?? '—'),
+      const rows = storedSubs.map((s) => el('tr', {},
+        el('td', {}, s.seriesSlug
+          ? (series.find((x) => x.slug === s.seriesSlug)?.name ?? s.seriesSlug)
+          : el('span', { class: 'muted' }, s.title || 'Special event')),
         el('td', { class: 'pos' }, s.round == null ? '—' : String(s.round)),
         el('td', {}, [s.track?.name, trackConfig(s.track?.config)].filter(Boolean).join(' — ') || '—'),
         el('td', {}, fmtDate(s.startTime)),
@@ -339,7 +390,7 @@
           delButton(s)))));
       // Each result row is trailed by a collapsed photo panel.
       const body = [];
-      subs.forEach((s, i) => { body.push(rows[i], photoPanel(s)); });
+      storedSubs.forEach((s, i) => { body.push(rows[i], photoPanel(s)); });
       resultsEl.append(el('table', {}, el('thead', {}, head), el('tbody', {}, ...body)));
     }
     // Race photos come off phones and cameras at 10-25 MB, well past what the

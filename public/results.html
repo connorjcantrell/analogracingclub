@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Results · Analog Racing Club</title>
-  <meta name="theme-color" content="#221f20">
+  <meta name="theme-color" content="#121212">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
@@ -14,7 +14,7 @@
 <body>
   <header>
     <a class="brand" href="/" aria-label="Analog Racing Club">
-      <img class="brand-logo" src="/assets/analog_sq.png" alt="Analog Racing Club">
+      <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
     <nav>
       <a href="/standings.html">Standings</a>
@@ -22,7 +22,7 @@
       <a href="/drivers.html">Power Rankings</a>
       <a href="/about.html">About</a>
     </nav>
-    <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
+    <a class="platform" href="https://discord.gg/jpchbxKu76" target="_blank" rel="noopener" aria-label="Join our Discord"><img src="/assets/Discord-Symbol-White.svg" alt="Discord"></a> <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   </header>
   <main>
     <div class="page-head">
@@ -45,6 +45,7 @@
     <p class="empty" id="empty" hidden>No races run yet — results appear after the first round.</p>
     <section id="detail" hidden>
       <h2 class="detail-title" id="detailTitle"></h2>
+      <div class="cards" id="cards" hidden></div>
       <div class="tabs" id="tabs" role="tablist"></div>
       <div id="tabPanel"></div>
       <div class="gallery-section" id="gallerySection" hidden>
@@ -54,27 +55,31 @@
     </section>
   </main>
   <script type="module">
-    import { api, el, driverName, fmtDate, gallery, gap, lapTime, roundTable, session, sessionsRun, trackName, winner, pickSeries } from '/app.js';
+    import { api, el, driverName, fmtDate, gallery, gap, lapTime, roundTable, session, sessionKindsOf, sessionLabel, raceSessions, topQualifiers, trackName, winner, pickSeries, SPECIAL_SLUG } from '/app.js';
     const cell = (x) => (x?.finish ? `P${x.finish}` : '—');
     const $ = (id) => document.getElementById(id);
-    const TITLES = { qualifying: 'Qualifying', sprint: 'Sprint', feature: 'Feature' };
+    // The series in view (a container, or the synthetic "Special events"
+    // collection). Each event's layout comes from its own sub.eventType.
+    let series = null;
+    // The points multiplier of the round being shown (2 for a double-points
+    // round), so the results tables display the same points the standings do.
+    let currentMult = 1;
 
-    // Tabs follow the sessions this event actually ran. A special event that
-    // is only a feature gets one tab, not three with two empty.
-    function viewsFor(sub) {
-      const kinds = sessionsRun(sub);
-      // "Overall" only says something extra when more than one session ran.
-      return (kinds.length > 1 ? [['overall', 'Overall']] : [])
-        .concat(kinds.map((k) => [k, TITLES[k]]));
+    // Tabs are declared by the event's own type — strictly. A declared session
+    // shows its tab even when a round skipped it (the table then shows a
+    // placeholder), and "Overall" appears when the type combines >1 session.
+    function viewsFor(et) {
+      const kinds = sessionKindsOf(et);
+      const overall = et?.display?.overall && kinds.length > 1;
+      return (overall ? [['overall', 'Overall']] : [])
+        .concat(kinds.map((k) => [k, sessionLabel(et, k)]));
     }
 
-    // Combined standings for the round: position per session plus points total.
-    const SHORT = { qualifying: 'Qual', sprint: 'Sprint', feature: 'Feature' };
-
     function overallTable(sub) {
-      // One column per session the event ran, so a round without a sprint
-      // does not carry an empty sprint column.
-      const kinds = sessionsRun(sub);
+      // One column per declared session, labelled by the event type (so a
+      // league round reads Heat, a hosted round reads Race).
+      const et = sub.eventType;
+      const kinds = sessionKindsOf(et);
       const table = roundTable(sub);
       const scored = table.some((d) => d.total !== 0);
       const body = el('tbody', {});
@@ -82,13 +87,13 @@
         el('td', { class: 'pos' }, String(i + 1)),
         el('td', {}, driverName(d.name)),
         ...kinds.map((k) => el('td', { class: 'num' }, cell(d[k]))),
-        ...(scored ? [el('td', { class: 'num total' }, String(d.total))] : []))));
+        ...(scored ? [el('td', { class: 'num total' }, String(d.total * currentMult))] : []))));
       return el('table', {},
         el('thead', {}, el('tr', {},
           el('th', { class: 'pos' }, 'Pos'),
           el('th', {}, 'Driver'),
-          ...kinds.map((k) => el('th', { class: 'num' }, SHORT[k])),
-          ...(scored ? [el('th', { class: 'num' }, 'Points')] : []))),
+          ...kinds.map((k) => el('th', { class: 'num' }, sessionLabel(et, k))),
+          ...(scored ? [el('th', { class: 'num' }, currentMult > 1 ? 'Points 2×' : 'Points')] : []))),
         body);
     }
 
@@ -159,22 +164,57 @@
           el('td', { class: 'pos' }, x.finish == null ? '—' : String(x.finish)),
           el('td', {}, driverName(x.displayName)),
           ...extra,
-          ...(scored ? [el('td', { class: 'num total' }, String(x.points?.total ?? 0))] : [])));
+          ...(scored ? [el('td', { class: 'num total' }, String((x.points?.total ?? 0) * currentMult))] : [])));
       }
       return el('table', {},
         el('thead', {}, el('tr', {},
           el('th', { class: 'pos' }, 'Pos'),
           el('th', {}, 'Driver'),
           ...cols.map((c) => el('th', { class: 'num' }, c.head)),
-          ...(scored ? [el('th', { class: 'num' }, 'Points')] : []))),
+          ...(scored ? [el('th', { class: 'num' }, currentMult > 1 ? 'Points 2×' : 'Points')] : []))),
         body);
     }
 
     const renderView = (sub, view) =>
       view === 'overall' ? overallTable(sub) : sessionTable(sub, view);
 
+    // Summary cards, keyed by the ids the event type declares. Each returns a
+    // card element (or null to skip). The backend owns which cards appear; the
+    // frontend owns how they look.
+    const cardEl = (title, ...rows) =>
+      el('div', { class: 'card' }, el('h3', { class: 'card-title' }, title),
+        el('dl', { class: 'card-rows' }, ...rows));
+    const cardRow = (dt, dd) => el('div', { class: 'card-row' }, el('dt', {}, dt), el('dd', {}, dd || '—'));
+    const CARD_RENDERERS = {
+      // Who made the Fast Four — the qualifying places the format pays. Four
+      // places keeps the name; any other count is described generically.
+      'fast-four': (sub) => {
+        const places = series?.qualifyingPlaces ?? 0;
+        const qualifiers = topQualifiers(sub, places);
+        if (!qualifiers.length) return null;
+        return cardEl(places === 4 ? 'Fast Four' : `Top ${places} qualifiers`,
+          ...qualifiers.map((q) => cardRow(`Q${q.finish}`, q.name)));
+      },
+      // The winner of each race the event ran, by the event type's labels.
+      'heat-feature-winners': (sub) => {
+        const rows = raceSessions(sub.eventType).map((s) => cardRow(s.label, winner(sub, s.kind)));
+        return rows.length ? cardEl('Winners', ...rows) : null;
+      },
+    };
+
+    function renderCards(sub) {
+      const mount = $('cards');
+      mount.innerHTML = '';
+      const cards = (sub.eventType?.display?.cards ?? [])
+        .map((id) => CARD_RENDERERS[id]?.(sub))
+        .filter(Boolean);
+      for (const c of cards) mount.append(c);
+      mount.hidden = !cards.length;
+    }
+
     function showRound(r) {
       const sub = r.subsessions[0];
+      currentMult = r.multiplier || 1;
       const tabs = $('tabs'), panel = $('tabPanel');
       tabs.innerHTML = '';
       const select = (view) => {
@@ -186,15 +226,17 @@
           b.setAttribute('aria-selected', String(on));
         }
       };
-      for (const [view, title] of viewsFor(sub)) {
+      for (const [view, title] of viewsFor(sub.eventType)) {
         const btn = el('button', { class: 'tab', type: 'button', role: 'tab' }, title);
         btn.dataset.view = view;
         btn.addEventListener('click', () => select(view));
         tabs.append(btn);
       }
       select(tabs.firstElementChild?.dataset.view ?? 'overall');
+      renderCards(sub);
       $('detailTitle').textContent = [
         oneOff ? null : `Round ${r.round}`,
+        r.multiplier > 1 ? `${r.multiplier}× points` : null,
         trackName(sub),
         sub.cars?.length ? sub.cars.join(' · ') : null,
       ].filter(Boolean).join(' · ');
@@ -208,19 +250,24 @@
 
     let oneOff = false;
     async function load(slug) {
-      const data = await api(`/api/results?series=${encodeURIComponent(slug)}`);
-      oneOff = data.series?.type === 'event';
+      // The "Special events" collection is a sentinel, not a real series slug.
+      const data = await api(slug === SPECIAL_SLUG
+        ? '/api/results?special=1'
+        : `/api/results?series=${encodeURIComponent(slug)}`);
+      series = data.series;
+      // A single-round competition (or the specials list) has no round number.
+      oneOff = !!series?.singleRound;
       const body = $('body'); body.innerHTML = '';
-      // A one-off has a single race, so the round column carries no meaning.
       for (const cell of document.querySelectorAll('#table thead .round-col')) cell.hidden = oneOff;
-      // With one session per round the feature winner and the overall winner
-      // are always the same person, so show a single "Winner" column.
-      const single = data.rounds.every((r) => {
-        const sub = r.subsessions[0];
-        return !sub || sessionsRun(sub).length <= 1;
-      });
+      // The winner-column label/collapse follows the events' type. A container
+      // is homogeneous, so the first event that ran is representative.
+      const et = data.rounds.map((r) => r.subsessions[0]).find(Boolean)?.eventType;
+      const single = sessionKindsOf(et).length <= 1;
       $('overallCol').textContent = single ? 'Winner' : 'Overall winner';
-      for (const cell of document.querySelectorAll('#table thead .feature-col')) cell.hidden = single;
+      for (const cell of document.querySelectorAll('#table thead .feature-col')) {
+        cell.hidden = single;
+        cell.textContent = `${sessionLabel(et, 'feature')} winner`;
+      }
       $('detail').hidden = true;
       $('seriesName').textContent = `${data.series.name} · ${data.series.typeLabel}`;
       let anyRun = false;
@@ -229,7 +276,8 @@
         const track = sub ? trackName(sub) : r.track;
         const m = (v) => (v ? {} : { class: 'muted' });
         const row = el('tr', {},
-          el('td', { class: 'pos round-col', ...(oneOff ? { hidden: 'hidden' } : {}) }, String(r.round)),
+          el('td', { class: 'pos round-col', ...(oneOff ? { hidden: 'hidden' } : {}) },
+            r.round == null ? '' : String(r.round), ...(r.multiplier > 1 ? [el('span', { class: 'mult-badge' }, `${r.multiplier}×`)] : [])),
           el('td', m(track),
             el('span', { class: 'track-name' }, track || '—'),
             ...(sub?.cars?.length ? [el('span', { class: 'track-cars' }, sub.cars.join(' · '))] : [])),

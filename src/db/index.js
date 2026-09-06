@@ -16,9 +16,9 @@ export async function getDb() {
 
 /** Collection accessors. */
 export const collections = (db) => ({
-  // A series is any scored competition: a special event, a seasonal series, or
-  // an annual championship. Several can be active at once; each has its own
-  // points format.
+  // A series is any competition (see src/event-types.js for its event type,
+  // which sets structure + layout). Several can be active at once; each has its
+  // own points format.
   series: db.collection('series'),
   drivers: db.collection('drivers'),
   subsessions: db.collection('subsessions'),
@@ -29,7 +29,7 @@ async function ensureIndexes(db) {
   // _id on subsessions is `<seriesSlug>:<subsession_id>`; _id on drivers is cust_id.
   await subsessions.createIndex({ seriesSlug: 1, round: 1 });
   await series.createIndex({ slug: 1 }, { unique: true });
-  await series.createIndex({ status: 1, type: 1 });
+  await series.createIndex({ status: 1, eventType: 1 });
 }
 
 export async function closeDb() {

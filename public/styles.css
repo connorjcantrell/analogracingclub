@@ -1,13 +1,13 @@
 :root {
-  --bg: #221f20;
+  --bg: #121212;
   --panel: #2b2728;
   --border: #413c3d;
-  --text: #faebd7;
+  --text: #d0c1a2;
   --muted: #a9a094;
   --accent: #f4a102;
   --accent-soft: #ffc24d;
   --accent-dim: rgba(244, 161, 2, 0.14);
-  --on-accent: #221f20;
+  --on-accent: #121212;
   --green: #7fb069;
   --red: #d98b73;
 
@@ -37,7 +37,7 @@ header {
   display: flex; align-items: center; gap: 0.65rem 1rem; flex-wrap: wrap;
 }
 header .brand { display: flex; align-items: center; text-decoration: none; line-height: 0; }
-header .brand-logo { height: calc(34px + 2.2rem); margin: -1.1rem 0; width: auto; display: block; }
+header .brand-logo { height: 39px; width: auto; display: block; }
 nav { margin-left: 2.5rem; display: flex; gap: 1.75rem; }
 nav a {
   color: var(--muted); text-decoration: none;
@@ -48,10 +48,46 @@ nav a {
 nav a:hover { color: var(--text); }
 nav a.active { color: var(--accent); }
 header .platform { margin-left: auto; line-height: 0; opacity: 0.7; transition: opacity 0.15s; }
+/* A second right-side icon (e.g. iRacing after Discord) sits beside the first. */
+header .platform + .platform { margin-left: 1rem; }
 header .platform:hover { opacity: 1; }
 header .platform img { height: 20px; width: auto; display: block; }
 
 main { max-width: 1040px; margin: 0 auto; padding: 3rem var(--gutter) 4rem; }
+/* The homepage runs wider than the rest of the site. */
+main.home { max-width: 1248px; }
+
+/* Section masthead logo (e.g. above the Standings title). */
+.page-logo { height: 56px; width: auto; display: block; margin: 0 0 1.5rem; }
+
+/* Format definition below the standings table. */
+.format-note { margin: 3rem 0 0; padding-top: 1.6rem; border-top: var(--rule); }
+.format-note h3 { color: var(--accent); font-size: 1.2rem; letter-spacing: 0.14em; margin: 0 0 0.8rem; }
+.format-note h4 {
+  color: var(--accent); font-size: 1.05rem; letter-spacing: 0.1em;
+  margin: 0 0 0.8rem;
+}
+/* Session blocks: three side by side on wide screens, stacked on mobile. */
+.format-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2.2rem 4rem; align-items: start; margin-top: 1.9rem;
+}
+/* Tables fill their column so the header/points span the block width. */
+.format-grid .format-table { max-width: none; }
+.format-grid .format-table td.num, .format-grid .format-table th.num { text-align: right; }
+.format-lead { color: var(--text); font-size: 0.98rem; line-height: 1.55; margin: 0 0 0.6rem; max-width: 52ch; }
+/* Intro paragraphs above the session grid run the full width. */
+.format-note > .format-lead { max-width: none; }
+.format-lead strong { color: var(--accent); font-weight: 500; }
+.format-foot { color: var(--muted); font-size: 0.85rem; margin: 0.7rem 0 0; }
+.format-table, .invert-table { max-width: 360px; }
+/* Position badge in the inversion table. */
+.pos-chip {
+  display: inline-block; font-family: var(--display); font-size: 0.78rem;
+  padding: 0.05rem 0.4rem; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); letter-spacing: 0.04em;
+}
+.pos-chip.start { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 
 /* ---------- Tables ---------- */
 table { width: 100%; border-collapse: collapse; }
@@ -66,6 +102,11 @@ tbody tr:hover td { color: var(--accent); }
 td { color: var(--text); font-weight: 400; }
 td.num, th.num { text-align: left; font-variant-numeric: tabular-nums; }
 .total { font-family: var(--display); font-weight: 500; color: var(--accent); }
+/* A standings round discarded by the series' drop rule. */
+.dropped { color: var(--muted); text-decoration: line-through; }
+/* Round-column headers deep-link to that round on the results page. */
+.round-link { color: inherit; text-decoration: none; }
+.round-link:hover { color: var(--accent); text-decoration: underline; }
 .pos {
   font-family: var(--display); color: var(--muted);
   width: 3rem; font-variant-numeric: tabular-nums;
@@ -88,6 +129,59 @@ a.link:hover { color: var(--accent-soft); }
 .lp-h { font-size: clamp(1.6rem, 3.4vw, 2.1rem); font-weight: 500; margin: 0; }
 .lp-sub { color: var(--muted); font-size: 1.02rem; line-height: 1.55; max-width: 52ch; margin: 0.6rem 0 2.5rem; }
 
+/* Season announcement photo carousel. */
+.carousel { position: relative; margin: 0 0 2.5rem; }
+.carousel-track {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+  scroll-behavior: smooth; scrollbar-width: none;
+}
+.carousel-track::-webkit-scrollbar { display: none; }
+.carousel-slide {
+  flex: 0 0 100%; width: 100%; aspect-ratio: 16 / 9;
+  object-fit: cover; display: block; scroll-snap-align: center;
+  filter: saturate(0.9);
+}
+.carousel-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 2.6rem; height: 2.6rem; display: flex; align-items: center; justify-content: center;
+  background: rgba(20, 18, 19, 0.55); border: 0; cursor: pointer;
+  color: var(--text); font-family: var(--display); font-size: 2rem; line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+.carousel-nav:hover { background: rgba(20, 18, 19, 0.82); color: var(--accent); }
+.carousel-nav.prev { left: 0.6rem; }
+.carousel-nav.next { right: 0.6rem; }
+.carousel-dots {
+  position: absolute; bottom: 0.7rem; left: 0; right: 0;
+  display: flex; justify-content: center; gap: 0.5rem;
+}
+.carousel-dots button {
+  width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45); cursor: pointer; transition: background 0.15s;
+}
+.carousel-dots button.active { background: var(--accent); }
+
+/* Carousel beside the round schedule; the schedule matches the carousel height. */
+.season-layout {
+  display: grid; grid-template-columns: 1.7fr 1fr;
+  gap: 1.75rem; align-items: stretch; margin: 0 0 2.5rem;
+}
+.season-layout .carousel { margin: 0; }
+/* No race photos yet: the schedule takes the full width. */
+.season-layout.no-photos { grid-template-columns: 1fr; }
+/* Intro/outro copy runs the full content width, matching the layout below. */
+#season2 .lp-sub { max-width: none; }
+/* Six equal rows that together fill the carousel's height; each row is inline. */
+.season-schedule { display: flex; flex-direction: column; border-top: var(--rule); }
+.season-schedule .sched-card {
+  flex: 1 1 0; min-height: 0;
+  display: flex; align-items: center; column-gap: 0.7rem;
+  padding: 0.4rem 0; border-bottom: var(--rule);
+}
+.season-schedule .sched-round { flex: 0 0 5.75rem; letter-spacing: 0.1em; font-size: 0.95rem; }
+.season-schedule .sched-track { font-size: 1.2rem; }
+.season-schedule .sched-config { margin: 0 0 0 auto; text-align: right; }
+
 /* Series list — stacked entries, not cards. */
 .sched-cards { display: grid; gap: 0; border-top: var(--rule); }
 .sched-card {
@@ -101,7 +195,7 @@ a.link:hover { color: var(--accent-soft); }
   color: var(--text); text-decoration: none; transition: color 0.15s;
 }
 .sched-track:hover { color: var(--accent); }
-.sched-config { margin: 0; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.78rem; }
+.sched-config { grid-column: 1; margin: 0.15rem 0 0; font-family: var(--display); color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.95rem; }
 .sched-date { grid-column: 2; grid-row: 1 / span 2; margin: 0; color: var(--muted); align-self: center; text-align: right; }
 
 /* Session/points rows */
@@ -198,7 +292,7 @@ footer a:hover { color: var(--accent-soft); }
 @media (max-width: 640px) {
   :root { --gutter: 1.2rem; }
   header { padding: 0.9rem var(--gutter); gap: 0.6rem 1rem; }
-  header .brand-logo { height: calc(28px + 1.8rem); margin: -0.9rem 0; }
+  header .brand-logo { height: 32px; }
   nav { margin-left: 0; width: 100%; flex-wrap: wrap; gap: 0.25rem 1.3rem; order: 2; }
   header .platform { order: 1; }
   header .platform img { height: 17px; }
@@ -208,6 +302,9 @@ footer a:hover { color: var(--accent-soft); }
   .cards { grid-template-columns: 1fr; gap: 1rem; }
   .sched-card { grid-template-columns: 1fr; }
   .sched-date { grid-column: 1; grid-row: auto; text-align: left; }
+  .format-grid { grid-template-columns: 1fr; }
+  .season-layout { grid-template-columns: 1fr; gap: 1.5rem; }
+  .season-schedule .sched-card { flex: 0 0 auto; padding: 1.1rem 0; }
   table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   th, td { padding: 0.55rem 0.9rem 0.55rem 0; white-space: nowrap; }
 }
@@ -231,6 +328,12 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 
 /* Track cell: car(s) listed beneath the circuit name. */
 .track-name { display: block; }
+/* Marks a double-points round in the results round column. */
+.mult-badge {
+  margin-left: 0.4rem; padding: 0.05rem 0.35rem; border-radius: 999px;
+  border: 1px solid var(--accent); color: var(--accent);
+  font-family: var(--display); font-size: 0.62rem; letter-spacing: 0.08em; vertical-align: middle;
+}
 .track-cars {
   display: block; margin-top: 0.15rem;
   font-family: var(--display); color: var(--muted);
@@ -323,6 +426,87 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
   border-bottom: 1px solid transparent; transition: border-color 0.15s;
 }
 .rank-toggle:hover { border-bottom-color: var(--accent); }
+/* Power table: a row expands to its driver-vs-rival 1v1 record. */
+.rank-row { cursor: pointer; }
+/* Provisional drivers are greyed out, matching the Provisional badge. */
+.rank-row.provisional { color: var(--muted); }
+/* Rise/fall in position since the last event. */
+.chg { margin-left: 0.4rem; font-size: 0.68rem; font-family: var(--display); }
+.chg-up { color: var(--green); }
+.chg-down { color: var(--red); }
+.rank-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.rival { padding: 0.4rem 0 1rem; }
+.rival-head {
+  margin: 0 0 0.6rem; font-family: var(--display); color: var(--accent);
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.14em;
+}
+.rival-table { max-width: 26rem; }
+.rival-table th { color: var(--muted); font-weight: 500; }
+.rival-win { color: var(--green); font-weight: 600; }
+.rival-loss { color: var(--red); }
+.rival-empty { color: var(--muted); font-size: 0.9rem; margin: 0.4rem 0 1rem; }
+
+/* "See all drivers" toggle under the table. */
+.see-more { margin: 1rem 0 0; }
+
+/* Driver breakdown that replaces the table when a driver is selected. */
+.detail-back { display: inline-block; margin: 0 0 1.4rem; }
+.detail-head { display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap; margin: 0 0 1.6rem; }
+.detail-pos {
+  font-family: var(--display); color: var(--accent); font-size: 1.1rem;
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+.detail-name { font-family: var(--display); font-size: 1.9rem; font-weight: 500; }
+.detail-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1.5rem 2.5rem; margin: 0 0 2rem; max-width: 640px;
+}
+.detail-grid h4 {
+  color: var(--accent); font-size: 0.72rem; font-weight: 500;
+  letter-spacing: 0.18em; text-transform: uppercase; margin: 0 0 0.7rem;
+}
+.detail-stats, .detail-cats { margin: 0; }
+.stat-row {
+  display: flex; justify-content: space-between; gap: 1rem;
+  padding: 0.5rem 0; border-top: var(--rule);
+}
+.stat-row:first-child { border-top: 0; }
+.stat-row dt { color: var(--muted); margin: 0; }
+.stat-row dd { margin: 0; font-family: var(--display); font-weight: 500; }
+.detail-h2h h4 {
+  color: var(--accent); font-size: 0.72rem; font-weight: 500;
+  letter-spacing: 0.18em; text-transform: uppercase; margin: 0 0 0.7rem;
+}
+
+/* Featured cards below the power table (rivalry of the season, Mr. Clean). */
+.power-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1.5rem; align-items: start; margin: 2.5rem 0 0; max-width: 760px;
+}
+.power-card { border: 1px solid var(--border); padding: 1.25rem 1.4rem; }
+.power-card-title {
+  color: var(--accent); font-size: 0.72rem; font-weight: 500;
+  letter-spacing: 0.18em; text-transform: uppercase; margin: 0 0 0.3rem;
+}
+.power-card-sub { color: var(--muted); font-size: 0.88rem; margin: 0 0 0.9rem; }
+.power-card-driver {
+  font-family: var(--display); font-size: 1.6rem; font-weight: 500;
+  color: var(--text); margin: 0.4rem 0 0.2rem;
+}
+.power-card-stat { color: var(--muted); font-size: 0.9rem; margin: 0; }
+.rival-pick {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.2rem 0.4rem; font: inherit; font-size: 0.85rem;
+  text-transform: none; letter-spacing: normal;
+}
+.rival-record { margin-top: 0.8rem; }
+.rival-summary { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.9rem; }
+.matchup-events { margin-top: 1.4rem; }
+.matchup-events-title {
+  color: var(--muted); font-family: var(--display); font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.14em; font-weight: 500; margin: 0 0 0.5rem;
+}
+
 .rank-detail {
   border: 1px solid var(--border); padding: 1.25rem 1.4rem;
   margin: 0 0 2rem; max-width: 62ch; color: var(--muted); font-size: 0.95rem;

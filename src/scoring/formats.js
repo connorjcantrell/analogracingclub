@@ -11,8 +11,8 @@
 const scale = (pts) => Object.fromEntries(pts.map((p, i) => [i + 1, p]));
 
 export const FORMATS = {
-  'arc-standard': {
-    name: 'ARC standard',
+  'fast-four': {
+    name: 'Fast Four',
     description: 'Qualifying 7-5-3-1 · Feature 20-18-16-14-12-11-10-9-8-7-6-5-4-3-2-1 · 1 pt for leading a lap in the sprint or feature (once per round)',
     pointsConfig: {
       qualifying: { base: scale([7, 5, 3, 1]) },
@@ -43,7 +43,7 @@ export const FORMATS = {
   },
 };
 
-export const DEFAULT_FORMAT = 'arc-standard';
+export const DEFAULT_FORMAT = 'fast-four';
 export const KINDS = ['qualifying', 'sprint', 'feature', 'practice'];
 
 // Deep copy so a series never shares an object with the preset.
