@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computePower, computeHeadToHead, rivalries, attachPositionChanges, overallOrder, rankScores, recencyWeight, scaleRating, MAX_RACES, MIN_EVENTS, RATING_FLOOR, WEIGHTS } from '../src/power/index.js';
+import { computePower, computeHeadToHead, rivalries, attachPositionChanges, overallOrder, rankScores, recencyWeight, scaleRating, MAX_RACES, MIN_EVENTS, RATING_FLOOR, WEIGHTS } from '../src/lib/server/power/index.js';
 
 const driver = (custId, finish, extra = {}) => ({
   custId, displayName: `D${custId}`, finish,

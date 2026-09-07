@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
-import { IMAGES_DIR, deleteImagesFor } from '../src/images.js';
+import { IMAGES_DIR, deleteImagesFor } from '../src/lib/server/images.js';
 
 const exists = (p) => access(p).then(() => true, () => false);
 

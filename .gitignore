@@ -4,6 +4,12 @@ node_modules/
 .claude/settings.local.json
 .DS_Store
 
+# SvelteKit / Vite output
+.svelte-kit/
+build/
+dist/
+vite.config.js.timestamp-*
+
 # Local dev-only Docker overrides (must not reach deploys)
 docker-compose.override.yml
 

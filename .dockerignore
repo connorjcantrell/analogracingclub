@@ -1,5 +1,8 @@
 node_modules
 .git
+.svelte-kit
+build
+public
 data
 scripts
 test

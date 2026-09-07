@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { photosFrom } from '../src/api/queries.js';
+import { photosFrom } from '../src/lib/server/api/queries.js';
 
 test('photosFrom flattens images with event context and marks the featured one', () => {
   const rows = [
