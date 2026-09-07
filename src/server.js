@@ -11,7 +11,7 @@ import { computeStandings } from './standings/index.js';
 import { computePowerRanking, computeRivals, computeMatchup } from './power/index.js';
 import { publicDescriptor } from './event-types.js';
 import {
-  requireAdmin, checkPassword, issueSession, sessionCookie, clearCookie,
+  requireAdmin, accessConfigured, checkPassword, issueSession, sessionCookie, clearCookie,
   clientIp, loginLocked, recordLogin,
 } from './admin/auth.js';
 import { handleAdminApi, readBody } from './admin/routes.js';
@@ -59,8 +59,10 @@ const publicSeries = (s) => {
 };
 
 // Resolve a stored event's eventType id to its descriptor, so the frontend
-// reads the type off the event it is showing.
-const withEventType = (doc) => ({ ...doc, eventType: publicDescriptor(doc.eventType) });
+// reads the type off the event it is showing. A round filed in a series takes
+// the series' type (the container is the source of truth; rounds ingested
+// before event types existed carry none of their own).
+const withEventType = (doc, containerType = null) => ({ ...doc, eventType: publicDescriptor(containerType ?? doc.eventType) });
 
 // A series' rounds: schedule merged with the stored results for each round.
 async function seriesRounds(db, s) {
@@ -70,7 +72,7 @@ async function seriesRounds(db, s) {
   for (const d of docs) {
     const key = d.round ?? d._id;
     if (!byRound.has(key)) byRound.set(key, { round: key, track: null, date: null, multiplier: 1, subsessions: [] });
-    byRound.get(key).subsessions.push(withEventType(d));
+    byRound.get(key).subsessions.push(withEventType(d, s.eventType));
   }
   return [...byRound.values()].sort((a, b) => a.round - b.round);
 }
@@ -134,14 +136,14 @@ async function handleApi(db, res, url) {
   }
   // Every race photo attached to a result, for the homepage carousel.
   if (seg[1] === 'photos') {
-    return sendJson(res, 200, await listPhotos(db, { limit: q.get('limit') ? Number(q.get('limit')) : undefined })), true;
+    return sendJson(res, 200, await listPhotos(db, { limit: q.get('limit') ? Number(q.get('limit')) : undefined, league: q.get('league') === '1' })), true;
   }
   if (seg[1] === 'latest') {
     // The most recently run event, league round or special, for the homepage.
     const doc = await collections(db).subsessions.find({}, { projection: { raw: 0 } }).sort({ startTime: -1 }).limit(1).next();
     if (!doc) return sendJson(res, 404, { error: 'no events yet' }), true;
     const s = doc.seriesSlug ? await getSeries(db, doc.seriesSlug) : null;
-    return sendJson(res, 200, { series: s ? publicSeries(s) : null, subsession: withEventType(doc) }), true;
+    return sendJson(res, 200, { series: s ? publicSeries(s) : null, subsession: withEventType(doc, s?.eventType) }), true;
   }
   return false;
 }
@@ -151,6 +153,8 @@ async function handleAdminPages(db, req, res, url) {
   const p = url.pathname.replace(/\/+$/, '') || '/';
 
   if (p === '/admin/login') {
+    // Under Cloudflare Access the edge owns login; the form is never shown.
+    if (accessConfigured()) return redirect(res, '/admin'), true;
     if (req.method === 'POST') {
       const ip = clientIp(req);
       if (loginLocked(ip)) return redirect(res, '/admin/login?error=locked'), true;
@@ -160,15 +164,17 @@ async function handleAdminPages(db, req, res, url) {
       if (!ok) return redirect(res, '/admin/login?error=1'), true;
       return redirect(res, '/admin', { 'set-cookie': sessionCookie(issueSession(), req) }), true;
     }
-    if (requireAdmin(req).ok) return redirect(res, '/admin'), true;
+    if ((await requireAdmin(req)).ok) return redirect(res, '/admin'), true;
     await sendHtml(res, 'login.html');
     return true;
   }
   if (p === '/admin/logout' && req.method === 'POST') {
+    // Access sessions end at the edge (Cloudflare's logout endpoint on this host).
+    if (accessConfigured()) return redirect(res, '/cdn-cgi/access/logout'), true;
     return redirect(res, '/admin/login', { 'set-cookie': clearCookie() }), true;
   }
   if (p === '/admin') {
-    const gate = requireAdmin(req);
+    const gate = await requireAdmin(req);
     if (gate.ok) { await sendHtml(res, 'admin.html'); return true; }
     if (gate.status === 401) return redirect(res, '/admin/login'), true;
     res.writeHead(gate.status, { 'content-type': 'text/plain' }).end(gate.error);
@@ -198,7 +204,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
   try {
     if (url.pathname.startsWith('/api/admin/')) {
-      const gate = requireAdmin(req);
+      const gate = await requireAdmin(req);
       if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
       if (!(await handleAdminApi(db, req, res, url))) sendJson(res, 404, { error: 'unknown admin endpoint' });
       return;

@@ -72,13 +72,13 @@ export function photosFrom(rows, { limit = 40 } = {}) {
   return photos.slice(0, Math.max(0, limit));
 }
 
-// Every uploaded race photo across all events, newest event first. Powers the
-// homepage carousel, which is simply the collection of photos attached to
-// results.
-export async function listPhotos(db, { limit = 40 } = {}) {
+// Every uploaded race photo, newest event first. Powers the homepage carousel.
+// `league` restricts it to rounds filed in a series, leaving out standalone
+// special/hosted events (a league-season promo shouldn't show a one-off).
+export async function listPhotos(db, { limit = 40, league = false } = {}) {
   const rows = await collections(db)
     .subsessions.find(
-      { 'images.0': { $exists: true } },
+      { 'images.0': { $exists: true }, ...(league ? { seriesSlug: { $ne: null } } : {}) },
       { projection: { images: 1, featuredImage: 1, track: 1, startTime: 1, seriesSlug: 1, round: 1 } })
     .sort({ startTime: -1 })
     .toArray();

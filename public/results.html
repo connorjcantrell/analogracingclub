@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <script src="/nav.js" defer></script>
   <link rel="icon" href="/assets/analog_sq.png" type="image/png">
 </head>
 <body>
@@ -16,7 +17,8 @@
     <a class="brand" href="/" aria-label="Analog Racing Club">
       <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
-    <nav>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="siteNav"><span></span><span></span><span></span></button>
+    <nav id="siteNav">
       <a href="/standings.html">Standings</a>
       <a href="/results.html" class="active">Results</a>
       <a href="/drivers.html">Power Rankings</a>
@@ -36,6 +38,7 @@
           <th class="round-col">Round</th>
           <th>Track</th>
           <th>Date</th>
+          <th class="qual-col">Fast qualifier</th>
           <th class="feature-col">Feature winner</th>
           <th id="overallCol">Overall winner</th>
         </tr>
@@ -263,7 +266,10 @@
       // is homogeneous, so the first event that ran is representative.
       const et = data.rounds.map((r) => r.subsessions[0]).find(Boolean)?.eventType;
       const single = sessionKindsOf(et).length <= 1;
+      // Pole only means something when the event type runs a qualifying session.
+      const hasQual = sessionKindsOf(et).includes('qualifying');
       $('overallCol').textContent = single ? 'Winner' : 'Overall winner';
+      for (const cell of document.querySelectorAll('#table thead .qual-col')) cell.hidden = !hasQual;
       for (const cell of document.querySelectorAll('#table thead .feature-col')) {
         cell.hidden = single;
         cell.textContent = `${sessionLabel(et, 'feature')} winner`;
@@ -282,6 +288,7 @@
             el('span', { class: 'track-name' }, track || '—'),
             ...(sub?.cars?.length ? [el('span', { class: 'track-cars' }, sub.cars.join(' · '))] : [])),
           el('td', m(sub), sub ? fmtDate(sub.startTime) : r.date || 'TBD'),
+          el('td', { class: sub ? 'qual-col' : 'qual-col muted', ...(hasQual ? {} : { hidden: 'hidden' }) }, winner(sub, 'qualifying') || '—'),
           el('td', { class: sub ? 'feature-col' : 'feature-col muted', ...(single ? { hidden: 'hidden' } : {}) }, winner(sub, 'feature') || '—'),
           el('td', m(sub), overallWinner(sub) || '—'));
         if (sub) {

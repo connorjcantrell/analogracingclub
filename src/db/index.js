@@ -11,7 +11,20 @@ export async function getDb() {
   await _client.connect();
   _db = _client.db(MONGO_DB);
   await ensureIndexes(_db);
+  await backfillEventTypes(_db);
   return _db;
+}
+
+// Rounds ingested before event types existed have no `eventType`; stamp each
+// with its series' type so they render (Heat tab, cards) like newer rounds.
+// Idempotent — a no-op once every round is stamped.
+async function backfillEventTypes(db) {
+  const { series, subsessions } = collections(db);
+  for await (const s of series.find({}, { projection: { slug: 1, eventType: 1 } })) {
+    if (!s.eventType) continue;
+    const r = await subsessions.updateMany({ seriesSlug: s.slug, eventType: null }, { $set: { eventType: s.eventType } });
+    if (r.modifiedCount) console.log(`backfilled eventType=${s.eventType} on ${r.modifiedCount} round(s) of ${s.slug}`);
+  }
 }
 
 /** Collection accessors. */

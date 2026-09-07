@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <script src="/nav.js" defer></script>
   <link rel="icon" href="/assets/analog_sq.png" type="image/png">
 </head>
 <body>
@@ -16,7 +17,8 @@
     <a class="brand" href="/" aria-label="Analog Racing Club">
       <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
-    <nav>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="siteNav"><span></span><span></span><span></span></button>
+    <nav id="siteNav">
       <a href="/standings.html">Standings</a>
       <a href="/results.html">Results</a>
       <a href="/drivers.html" class="active">Power Rankings</a>

@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <script src="/nav.js" defer></script>
   <link rel="icon" href="/assets/analog_sq.png" type="image/png">
 </head>
 <body>
@@ -16,7 +17,8 @@
     <a class="brand" href="/" aria-label="Analog Racing Club">
       <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
-    <nav>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="siteNav"><span></span><span></span><span></span></button>
+    <nav id="siteNav">
       <a href="/standings.html">Standings</a>
       <a href="/results.html">Results</a>
       <a href="/drivers.html">Power Rankings</a>
@@ -31,6 +33,19 @@
     <p class="lede">A sim racing community built around analog cars (no TC, ESC, or ABS)
     on technical tracks, in challenging conditions, or both. Stock cars, vintage GT and
     formula, Australian Supercars. Mostly road courses, with occasional ovals.</p>
+
+    <h3 id="join">How to join</h3>
+    <dl class="join-id">
+      <div><dt>League name</dt><dd>Analog Racing Club</dd></div>
+      <div><dt>League ID</dt><dd>#12980</dd></div>
+    </dl>
+    <ol class="join-steps">
+      <li>In the iRacing membersite, go to <strong>Racing → Leagues → Find a League</strong>.</li>
+      <li>Search for <strong>Analog Racing Club</strong> or League ID <strong>12980</strong>.</li>
+      <li>Open the league page and click <strong>Request to Join</strong>.</li>
+    </ol>
+    <p>Then say hello on <a class="link" href="https://discord.gg/jpchbxKu76" target="_blank" rel="noopener">Discord</a>,
+    where race-night RSVPs and announcements live.</p>
   </main>
   <footer>Analog Racing Club · an iRacing league</footer>
 </body>

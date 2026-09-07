@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { mkdir, writeFile, unlink } from 'node:fs/promises';
+import { mkdir, writeFile, unlink, readdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -60,4 +60,17 @@ export async function deleteImage(url) {
   const target = join(IMAGES_DIR, rel);
   if (!target.startsWith(IMAGES_DIR)) return false;
   try { await unlink(target); return true; } catch { return false; }
+}
+
+/**
+ * Remove every stored photo for a subsession (its whole round folder), for use
+ * when the result itself is deleted. Returns the number of files removed.
+ */
+export async function deleteImagesFor(subsessionId) {
+  const folder = join(IMAGES_DIR, folderFor(subsessionId));
+  if (!folder.startsWith(IMAGES_DIR + '/')) return 0;
+  let count = 0;
+  try { count = (await readdir(folder)).length; } catch { return 0; }
+  await rm(folder, { recursive: true, force: true });
+  return count;
 }

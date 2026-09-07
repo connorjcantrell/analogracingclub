@@ -7,7 +7,7 @@ import { SERIES_STATUSES, SLUG_RE } from '../series.js';
 import { EVENT_TYPES, DEFAULT_EVENT_TYPE, isEventType, isContainerType, eventTypeOptions, resolveEventType } from '../event-types.js';
 import { UPLOAD_MAX_BYTES } from '../config.js';
 import { readBuffer, boundaryOf, parseMultipart } from './multipart.js';
-import { saveImage, deleteImage, MAX_IMAGE_BYTES } from '../images.js';
+import { saveImage, deleteImage, deleteImagesFor, MAX_IMAGE_BYTES } from '../images.js';
 
 const sendJson = (res, status, body) => {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -46,6 +46,18 @@ async function resyncDrivers(db) {
   }
   const removed = await drivers.deleteMany({ _id: { $nin: [...names.keys()] } });
   return { kept: names.size, removed: removed.deletedCount };
+}
+
+// Remove stored results matching `filter`, their photo folders on disk, and
+// any drivers no longer referenced. Returns counts for the caller's response.
+async function removeSubsessions(db, filter) {
+  const { subsessions } = collections(db);
+  const ids = (await subsessions.find(filter, { projection: { _id: 1 } }).toArray()).map((d) => d._id);
+  let photos = 0;
+  for (const id of ids) photos += await deleteImagesFor(id);
+  const del = ids.length ? await subsessions.deleteMany({ _id: { $in: ids } }) : { deletedCount: 0 };
+  const drivers = await resyncDrivers(db);
+  return { results: del.deletedCount, photos, drivers };
 }
 
 const cleanSchedule = (schedule) => schedule.map((r, i) => ({
@@ -124,6 +136,8 @@ export async function handleAdminApi(db, req, res, url) {
     if (!Object.keys(set).length) return sendJson(res, 400, { error: 'nothing to update' }), true;
     const upd = await series.updateOne({ slug }, { $set: set });
     if (!upd.matchedCount) return sendJson(res, 404, { error: 'series not found' }), true;
+    // Rounds carry their container's type; keep them in step.
+    if (set.eventType) await subsessions.updateMany({ seriesSlug: slug }, { $set: { eventType: set.eventType } });
     return sendJson(res, 200, { ok: true, slug, updated: Object.keys(set) }), true;
   }
 
@@ -149,13 +163,21 @@ export async function handleAdminApi(db, req, res, url) {
     return sendJson(res, 200, { ok: true, slug, format: set.format, rescored: updated }), true;
   }
 
-  // DELETE /api/admin/series/:slug — only when it has no stored results.
+  // DELETE /api/admin/series/:slug?confirm=<slug> — remove the series AND
+  // every result filed under it, photos included. The confirm param must echo
+  // the slug: without it the call is a dry run that reports what would go
+  // (409 + counts), which the admin page uses to build its confirmation prompt.
   if (req.method === 'DELETE' && sub === 'series' && seg[3]) {
     const slug = decodeURIComponent(seg[3]);
-    if (await subsessions.countDocuments({ seriesSlug: slug })) return sendJson(res, 409, { error: 'delete its results first' }), true;
-    const del = await series.deleteOne({ slug });
-    if (!del.deletedCount) return sendJson(res, 404, { error: 'series not found' }), true;
-    return sendJson(res, 200, { ok: true, deleted: slug }), true;
+    const found = await series.findOne({ slug }, { projection: { _id: 0, slug: 1, name: 1 } });
+    if (!found) return sendJson(res, 404, { error: 'series not found' }), true;
+    const results = await subsessions.countDocuments({ seriesSlug: slug });
+    if (url.searchParams.get('confirm') !== slug) {
+      return sendJson(res, 409, { error: `confirmation required: pass ?confirm=${slug}`, slug, name: found.name, results }), true;
+    }
+    const removed = await removeSubsessions(db, { seriesSlug: slug });
+    await series.deleteOne({ slug });
+    return sendJson(res, 200, { ok: true, deleted: slug, ...removed }), true;
   }
 
   // POST /api/admin/upload — body: iRacing event-result JSON.
@@ -219,13 +241,12 @@ export async function handleAdminApi(db, req, res, url) {
     return true;
   }
 
-  // DELETE /api/admin/subsessions/:id — remove a stored result.
+  // DELETE /api/admin/subsessions/:id — remove a stored result and its photos.
   if (req.method === 'DELETE' && sub === 'subsessions' && seg[3] && !seg[4]) {
     const id = decodeURIComponent(seg[3]);
-    const del = await subsessions.deleteOne({ _id: id });
-    if (!del.deletedCount) return sendJson(res, 404, { error: 'subsession not found' }), true;
-    const roster = await resyncDrivers(db);
-    return sendJson(res, 200, { ok: true, deleted: id, drivers: roster }), true;
+    if (!(await subsessions.countDocuments({ _id: id }))) return sendJson(res, 404, { error: 'subsession not found' }), true;
+    const removed = await removeSubsessions(db, { _id: id });
+    return sendJson(res, 200, { ok: true, deleted: id, ...removed }), true;
   }
 
   // POST /api/admin/subsessions/:id/images — multipart upload of race photos.

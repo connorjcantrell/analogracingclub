@@ -52,6 +52,8 @@ header .platform { margin-left: auto; line-height: 0; opacity: 0.7; transition: 
 header .platform + .platform { margin-left: 1rem; }
 header .platform:hover { opacity: 1; }
 header .platform img { height: 20px; width: auto; display: block; }
+/* Mobile menu button (see nav.js); hidden on wide screens where the links show inline. */
+.nav-toggle { display: none; }
 
 main { max-width: 1040px; margin: 0 auto; padding: 3rem var(--gutter) 4rem; }
 /* The homepage runs wider than the rest of the site. */
@@ -78,6 +80,7 @@ main.home { max-width: 1248px; }
 .format-lead { color: var(--text); font-size: 0.98rem; line-height: 1.55; margin: 0 0 0.6rem; max-width: 52ch; }
 /* Intro paragraphs above the session grid run the full width. */
 .format-note > .format-lead { max-width: none; }
+.format-grid + .format-lead { margin-top: 1.4rem; padding-top: 1.2rem; border-top: var(--rule); }
 .format-lead strong { color: var(--accent); font-weight: 500; }
 .format-foot { color: var(--muted); font-size: 0.85rem; margin: 0.7rem 0 0; }
 .format-table, .invert-table { max-width: 360px; }
@@ -180,7 +183,7 @@ a.link:hover { color: var(--accent-soft); }
 }
 .season-schedule .sched-round { flex: 0 0 5.75rem; letter-spacing: 0.1em; font-size: 0.95rem; }
 .season-schedule .sched-track { font-size: 1.2rem; }
-.season-schedule .sched-config { margin: 0 0 0 auto; text-align: right; }
+.season-schedule .sched-config { margin: 0; text-align: left; }
 
 /* Series list — stacked entries, not cards. */
 .sched-cards { display: grid; gap: 0; border-top: var(--rule); }
@@ -293,8 +296,22 @@ footer a:hover { color: var(--accent-soft); }
   :root { --gutter: 1.2rem; }
   header { padding: 0.9rem var(--gutter); gap: 0.6rem 1rem; }
   header .brand-logo { height: 32px; }
-  nav { margin-left: 0; width: 100%; flex-wrap: wrap; gap: 0.25rem 1.3rem; order: 2; }
-  header .platform { order: 1; }
+  /* Page links collapse behind a hamburger; the brand and platform icons stay
+     on the top row with the button at the far right. */
+  header .platform { order: 0; }
+  .nav-toggle {
+    display: flex; flex-direction: column; justify-content: center; gap: 5px; order: 1;
+    width: 40px; height: 36px; padding: 0 9px; margin-left: 0.6rem;
+    background: none; border: 0; cursor: pointer;
+  }
+  .nav-toggle span { display: block; height: 2px; background: var(--text); transition: transform 0.2s, opacity 0.2s; }
+  header.nav-open .nav-toggle span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  header.nav-open .nav-toggle span:nth-child(2) { opacity: 0; }
+  header.nav-open .nav-toggle span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+  nav { display: none; order: 2; width: 100%; margin: 0.4rem 0 0; flex-direction: column; gap: 0; border-top: var(--rule); }
+  header.nav-open nav { display: flex; }
+  nav a { padding: 0.8rem 0; border-bottom: var(--rule); font-size: 1rem; }
+  nav a:last-child { border-bottom: 0; }
   header .platform img { height: 17px; }
   main { padding: 2rem var(--gutter) 3rem; }
   .lp-section { padding: 2.5rem 0; }
@@ -325,6 +342,14 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
   font-size: clamp(1.25rem, 2.6vw, 1.6rem); line-height: 1.35;
   letter-spacing: 0.01em; color: var(--text); margin: 0 0 1.75rem;
 }
+
+/* About: how-to-join block. */
+.join-id { margin: 0 0 1.5rem; padding: 1rem 1.2rem; border: var(--rule); display: grid; gap: 0.5rem; }
+.join-id div { display: grid; grid-template-columns: 8rem 1fr; gap: 1rem; align-items: baseline; }
+.join-id dt { margin: 0; color: var(--muted); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.8rem; }
+.join-id dd { margin: 0; font-family: var(--display); font-size: 1.15rem; font-weight: 500; }
+.join-steps { padding-left: 1.4rem; margin: 0 0 1.25rem; }
+.join-steps li { margin: 0.45rem 0; }
 
 /* Track cell: car(s) listed beneath the circuit name. */
 .track-name { display: block; }
@@ -522,4 +547,4 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 
 /* Columns the results page hides for single-session events. Table cells set
    their own display, so the hidden attribute needs this guard to win. */
-.round-col[hidden], .feature-col[hidden] { display: none; }
+.round-col[hidden], .qual-col[hidden], .feature-col[hidden] { display: none; }

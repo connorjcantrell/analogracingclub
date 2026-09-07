@@ -8,18 +8,20 @@ export async function rescore(db, { seriesSlug = null } = {}) {
   const { subsessions, series } = collections(db);
   const match = seriesSlug == null ? {} : { seriesSlug };
   const cache = new Map();
-  const configFor = async (slug) => {
-    if (!cache.has(slug)) {
-      const s = slug ? await series.findOne({ slug }) : null;
-      cache.set(slug, s?.pointsConfig ?? DEFAULT_POINTS_CONFIG);
-    }
+  const seriesFor = async (slug) => {
+    if (!cache.has(slug)) cache.set(slug, slug ? await series.findOne({ slug }) : null);
     return cache.get(slug);
   };
   let updated = 0;
   for await (const doc of subsessions.find(match)) {
     if (!doc.raw) continue;
+    const s = await seriesFor(doc.seriesSlug);
     const rebuilt = buildSubsessionDocument(doc.raw, {
-      seriesSlug: doc.seriesSlug, round: doc.round, pointsConfig: await configFor(doc.seriesSlug), rawType: doc.rawType,
+      seriesSlug: doc.seriesSlug, round: doc.round, rawType: doc.rawType,
+      pointsConfig: s?.pointsConfig ?? DEFAULT_POINTS_CONFIG,
+      // A league round carries its container's type; a special keeps its own.
+      eventType: doc.seriesSlug ? (s?.eventType ?? doc.eventType) : doc.eventType,
+      title: doc.title,
     });
     // Photos are curated in the admin, not derived from the result JSON, so
     // they must survive a rebuild.

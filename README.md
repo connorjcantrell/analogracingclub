@@ -19,7 +19,8 @@ cp .env.example .env            # fill in ADMIN_PASSWORD (+ SESSION_SECRET: open
 docker compose up -d --build    # app on :8004 + mongo
 ```
 
-Then open `/admin`, create a series, and upload a result. A sample iRacing file lives in
+Then open `/admin`, create a series, and upload a result (see [Admin auth](#admin-auth) for
+how the area is protected in production). A sample iRacing file lives in
 `data/eventresult-86498933.json`; from the CLI:
 
 ```sh
@@ -158,6 +159,42 @@ leaving a broken hero; with none set, the home page falls back to the round's fi
 Files are stored under `public/assets/rounds/<subsession>/`, named by content hash (so
 re-uploading the same file is a no-op) and kept in the `round-images` volume.
 
+### Deleting a series
+
+The **Delete** button in the *Edit series* panel removes the series **and every result filed
+under it**, including uploaded photos, then drops drivers no longer referenced by any result.
+It asks you to type the series slug before doing anything. The API mirrors that:
+`DELETE /api/admin/series/:slug` without `?confirm=<slug>` is a dry run that answers 409 with the
+result count; with it, the cascade runs and the response reports how many results and photos
+went. Deleting a single result (`DELETE /api/admin/subsessions/:id`) also removes its photos.
+
+## Admin auth
+
+`/admin` and `/api/admin/*` are gated by `requireAdmin` (`src/admin/auth.js`), which picks a
+mode from the environment:
+
+1. **Cloudflare Access** (production — same scheme as league): set `CF_ACCESS_TEAM_DOMAIN` and
+   `CF_ACCESS_AUD`. Access challenges the visitor at the edge (GitHub via the Zero Trust identity
+   provider) and forwards a signed JWT; the origin verifies it against the team JWKS (signature,
+   audience, issuer, expiry — fail-closed, `src/admin/access.js`). The password form is bypassed
+   and "Log out" goes to Cloudflare's `/cdn-cgi/access/logout`.
+2. **Password form**: `ADMIN_PASSWORD` set, Access unset. A signed, expiring cookie
+   (`SESSION_SECRET`) keeps you logged in; 10 failed attempts lock an IP for 15 minutes.
+3. **Dev mode**: nothing set — admin works only from loopback.
+
+### Cloudflare Access setup
+
+1. Zero Trust dashboard → **Access → Applications → Add an application → Self-hosted**.
+   Domain `analogracingclub.com`, and add the paths `/admin` and `/api/admin`
+   (each as its own public hostname entry, path prefix). The identity provider (GitHub) and
+   team domain already exist from the league app; reuse them.
+2. **Policy**: Allow, include your GitHub login / email (copy league's policy).
+3. Copy the application's **Audience (AUD) tag** into `.env` alongside the team domain
+   (`connorcantrell.cloudflareaccess.com`), then `docker compose up -d`.
+4. Verify: `/admin` in a fresh browser triggers the GitHub login; `curl https://analogracingclub.com/api/admin/series`
+   with no token gets a Cloudflare login redirect at the edge, and hitting the origin directly
+   (`curl -H 'Host: analogracingclub.com' localhost/api/admin/series`) is refused with 403.
+
 ## Deploy (behind the connorcantrell.com foundation)
 
 Runs as a Docker Compose stack on the Orange Pi; Cloudflare Tunnel → Caddy → `localhost:8004`.
@@ -168,7 +205,8 @@ Runs as a Docker Compose stack on the Orange Pi; Cloudflare Tunnel → Caddy →
 ./scripts/add-route.sh   # tunnel ingress + Caddy block + DNS instructions for analogracingclub.com
 ```
 
-`deploy.sh` refuses to run without an `ADMIN_PASSWORD` in the deploy dir's `.env`.
+`deploy.sh` refuses to run unless the deploy dir's `.env` configures admin auth (the
+`CF_ACCESS_*` pair, or `ADMIN_PASSWORD`).
 `add-route.sh` adds `analogracingclub.com` + `www` to the tunnel ingress (repo template and
 `/etc/cloudflared/config.yml`), a Caddy site block (www → apex redirect), reloads both, then
 creates the zone's CNAMEs via `cloudflared tunnel route dns` or prints the two records to add

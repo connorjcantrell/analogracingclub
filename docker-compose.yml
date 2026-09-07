@@ -10,8 +10,12 @@ services:
       PORT: 8004
       MONGO_URL: mongodb://mongo:27017
       MONGO_DB: ${MONGO_DB:-arc}
-      # Admin login. With ADMIN_PASSWORD empty the admin area is loopback-only
-      # (dev mode) — which, from inside a container, means it is unreachable.
+      # Admin auth. Cloudflare Access (GitHub login at the edge) when both
+      # CF_ACCESS_* are set; otherwise password login. With everything empty
+      # the admin area is loopback-only (dev mode) — which, from inside a
+      # container, means it is unreachable.
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # Signs the admin session cookie. Leave empty to generate one per boot
       # (every restart logs the admin out).

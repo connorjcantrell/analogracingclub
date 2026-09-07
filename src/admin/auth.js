@@ -1,12 +1,17 @@
 import crypto from 'node:crypto';
 import { ADMIN_PASSWORD, SESSION_SECRET, SESSION_TTL_MS } from '../config.js';
+import { accessConfigured, requireAccess } from './access.js';
 
 // Password login for the admin area. A successful login sets a signed, expiring
 // session cookie (HMAC over the expiry; no server-side session store). Fails
 // closed: any malformed or expired cookie is treated as logged out.
 //
-// Dev mode: when ADMIN_PASSWORD is unset, admin routes are allowed ONLY for
-// loopback requests, so the page is testable locally without a password.
+// When Cloudflare Access is configured (CF_ACCESS_*), it takes precedence:
+// the edge authenticates the visitor and the origin verifies the forwarded
+// JWT (see access.js); the password form is bypassed entirely.
+//
+// Dev mode: when neither is set, admin routes are allowed ONLY for loopback
+// requests, so the page is testable locally without a password.
 
 export const COOKIE_NAME = 'arc_admin';
 
@@ -63,12 +68,16 @@ function isLoopback(req) {
   return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
 }
 
+export { accessConfigured };
+
 /**
  * Gate an admin request. Returns { ok: true } when allowed, or { ok: false,
- * status, error }. Configured → require a valid session cookie (401 otherwise).
- * Unconfigured (dev) → allow loopback only (503 otherwise).
+ * status, error }. Access configured → verify the Access JWT (403 otherwise).
+ * Password configured → require a valid session cookie (401 otherwise).
+ * Neither (dev) → allow loopback only (503 otherwise).
  */
-export function requireAdmin(req) {
+export async function requireAdmin(req) {
+  if (accessConfigured()) return requireAccess(req);
   if (!configured()) {
     if (isLoopback(req)) return { ok: true, dev: true };
     return { ok: false, status: 503, error: 'admin login not configured (set ADMIN_PASSWORD)' };

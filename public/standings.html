@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <script src="/nav.js" defer></script>
   <link rel="icon" href="/assets/analog_sq.png" type="image/png">
 </head>
 <body>
@@ -16,7 +17,8 @@
     <a class="brand" href="/" aria-label="Analog Racing Club">
       <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
-    <nav>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="siteNav"><span></span><span></span><span></span></button>
+    <nav id="siteNav">
       <a href="/standings.html" class="active">Standings</a>
       <a href="/results.html">Results</a>
       <a href="/drivers.html">Power Rankings</a>
@@ -38,7 +40,7 @@
     <section class="format-note">
       <h3>Fast Four · Format</h3>
       <p class="format-lead">Each round is three sessions: <strong>Open Qualifying</strong> (10 min), a <strong>Heat Race</strong> (10 min), and the <strong>Feature</strong> (30 min).</p>
-      <p class="format-lead">The &ldquo;Fast Four&rdquo; qualifiers earn bonus points for how many positions they're inverted. For example, top qualifier is inverted from 1st to 8th, or 7 positions in total translating to 7 bonus points.</p>
+      <p class="format-lead">The Heat grid is set by <strong>inverting the top eight qualifiers</strong>: the fastest four are sent to the back of that group, so P1 starts 8th, P2 starts 7th, and so on. Those &ldquo;Fast Four&rdquo; earn bonus points equal to the positions they gave up. The top qualifier drops from 1st to 8th, seven positions, and so gets 7 bonus points.</p>
 
       <div class="format-grid">
         <div class="format-block">
@@ -56,7 +58,7 @@
 
         <div class="format-block">
           <h4>Heat</h4>
-          <p class="format-lead">Your finishing position in the Heat is your starting position in the Feature. <strong>+1</strong> for leading a lap.</p>
+          <p class="format-lead">Your finishing position in the Heat is your starting position in the Feature.</p>
         </div>
 
         <div class="format-block">
@@ -72,9 +74,11 @@
               <tr><td>6th–16th</td><td class="num">11 → 1</td></tr>
             </tbody>
           </table>
-          <p class="format-lead">+1 for leading a lap, if you didn't already earn it in the Heat. The winner of the Feature isn't necessarily the winner of the round.</p>
+          <p class="format-lead">The winner of the Feature isn't necessarily the winner of the round. To win a round, you'll need to qualify in the Fast Four and work your way back to the front.</p>
         </div>
       </div>
+
+      <p class="format-lead"><strong>+1 pt for leading a lap</strong> in either the Heat or the Feature. It's awarded once per round, so leading in both races still earns a single point.</p>
     </section>
   </main>
   <script type="module">

@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@300;400;500&display=swap">
   <link rel="stylesheet" href="/styles.css">
+  <script src="/nav.js" defer></script>
   <link rel="icon" href="/assets/analog_sq.png" type="image/png">
   <style>
     .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 1.4rem 1.6rem; margin-bottom: 1.4rem; }
@@ -57,7 +58,8 @@
     <a class="brand" href="/" aria-label="Analog Racing Club">
       <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
     </a>
-    <nav>
+    <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="siteNav"><span></span><span></span><span></span></button>
+    <nav id="siteNav">
       <a href="/standings.html">Standings</a>
       <a href="/results.html">Results</a>
       <a href="/drivers.html">Power Rankings</a>
@@ -125,7 +127,7 @@
         <label class="field">Status <select id="editStatus"></select></label>
         <label class="field" title="Discard each driver's lowest N rounds from the championship total">Drop <input type="number" id="editDrop" min="0" value="0"></label>
         <button class="btn primary" id="saveSeries">Save</button>
-        <button class="btn danger sm" id="deleteSeries">Delete</button>
+        <button class="btn danger sm" id="deleteSeries" title="Delete this series and every result filed under it (asks you to type the slug)">Delete</button>
       </div>
       <p id="seriesMsg" class="msg"></p>
 
@@ -317,10 +319,22 @@
     });
     $('deleteSeries').addEventListener('click', async () => {
       const s = selected(); if (!s) return;
-      if (!confirm(`Delete series ${s.slug}? Only possible when it has no stored results.`)) return;
-      const res = await post(`/api/admin/series/${encodeURIComponent(s.slug)}`, null, 'DELETE');
-      setMsg($('seriesMsg'), res.ok ? `Deleted ${res.deleted}.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+      const path = `/api/admin/series/${encodeURIComponent(s.slug)}`;
+      // Dry run first: the server reports how many results would go with it.
+      const dry = await post(path, null, 'DELETE');
+      if (dry.ok || typeof dry.results !== 'number') { setMsg($('seriesMsg'), `Error: ${dry.error ?? 'unexpected response'}`, 'err'); return; }
+      const n = dry.results;
+      const typed = prompt(
+        `Delete series "${s.name}" and its ${n} stored result${n === 1 ? '' : 's'} (photos included)?\n`
+        + `This cannot be undone. Type the slug to confirm:\n\n${s.slug}`);
+      if (typed === null) return;
+      if (typed.trim() !== s.slug) { setMsg($('seriesMsg'), 'Not deleted — the slug did not match.', 'err'); return; }
+      const res = await post(`${path}?confirm=${encodeURIComponent(s.slug)}`, null, 'DELETE');
+      setMsg($('seriesMsg'), res.ok
+        ? `Deleted ${res.deleted}: ${res.results} result${res.results === 1 ? '' : 's'}, ${res.photos} photo${res.photos === 1 ? '' : 's'} removed.`
+        : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
       await loadSeries();
+      await loadResults();
     });
 
     $('addRound').addEventListener('click', () => {
