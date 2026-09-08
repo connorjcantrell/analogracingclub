@@ -1,6 +1,7 @@
 <script>
   import ResultPost from '$lib/ResultPost.svelte';
   import SchedulePost from '$lib/SchedulePost.svelte';
+  import Sidebar from '$lib/Sidebar.svelte';
   import { api } from '$lib/api.js';
 
   let { data } = $props();
@@ -34,6 +35,7 @@
   <meta name="description" content="Analog Racing Club — an iRacing league.">
 </svelte:head>
 
+<div class="home-grid">
 <div class="feed">
   {#if !posts.length}
     <section class="lp-section">
@@ -59,4 +61,6 @@
       <button class="btn" type="button" disabled={loading} onclick={loadMore}>{loading ? 'Loading…' : 'Load more'}</button>
     </div>
   {/if}
+</div>
+  <Sidebar sidebar={data.sidebar} />
 </div>

@@ -50,6 +50,12 @@ export const cleanSchedule = (schedule) => schedule.map((r, i) => ({
   round: Number.isInteger(r?.round) ? r.round : i + 1,
   track: r?.track ? String(r.track) : null,
   date: r?.date ? String(r.date) : null,
+  // The round's event page (a Discord event, say): the homepage's "Next round"
+  // links there, falling back to the Discord invite when absent. And an
+  // optional 2:1 image for that card, uploaded through the round-image route
+  // (only a stored upload path is accepted).
+  link: /^https?:\/\//i.test(String(r?.link ?? '').trim()) ? String(r.link).trim() : null,
+  image: String(r?.image ?? '').startsWith('/assets/rounds/') ? String(r.image) : null,
   // A points multiplier for the round (a "double points" finale is 2). Only
   // values > 1 are stored; anything else means the round scores normally.
   multiplier: Number(r?.multiplier) > 1 ? Number(r.multiplier) : 1,

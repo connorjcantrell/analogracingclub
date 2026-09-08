@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { collections } from '$lib/server/db/index.js';
 import { removeSubsessions } from '$lib/server/admin/ops.js';
+import { deleteImagesFor } from '$lib/server/images.js';
+import { roundImageKey } from '$lib/server/admin/round-image.js';
 
 // DELETE /api/admin/series/:slug?confirm=<slug> — remove the series AND every
 // result filed under it, photos included. The confirm param must echo the
@@ -16,6 +18,8 @@ export async function DELETE({ locals, params, url }) {
     return json({ error: `confirmation required: pass ?confirm=${slug}`, slug, name: found.name, results }, { status: 409 });
   }
   const removed = await removeSubsessions(locals.db, { seriesSlug: slug });
+  const full = await series.findOne({ slug }, { projection: { schedule: 1 } });
+  for (const r of full?.schedule ?? []) if (r.image) removed.photos += await deleteImagesFor(roundImageKey(slug, r.round));
   await series.deleteOne({ slug });
   return json({ ok: true, deleted: slug, ...removed });
 }

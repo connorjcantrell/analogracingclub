@@ -4,6 +4,7 @@
   import PhotoPicker from '$lib/PhotoPicker.svelte';
   import PageTitle from '$lib/PageTitle.svelte';
   import { post } from '$lib/api.js';
+  import { compress } from '$lib/compress.js';
   import { fmtDate, realConfig } from '$lib/format.js';
 
   let { data } = $props();
@@ -131,7 +132,7 @@
     editName = s?.name ?? '';
     editStatus = s?.status ?? 'upcoming';
     editDrop = s?.dropCount ?? 0;
-    sched = (s?.schedule ?? []).map((r) => ({ round: r.round, track: r.track ?? '', date: r.date ?? '', double: Number(r.multiplier) > 1 }));
+    sched = (s?.schedule ?? []).map((r) => ({ round: r.round, track: r.track ?? '', date: r.date ?? '', link: r.link ?? '', image: r.image ?? null, double: Number(r.multiplier) > 1 }));
     editFormat = s && meta.formats.some((f) => f.id === s.format) ? s.format : meta.default;
     pointsJson = s ? JSON.stringify(s.pointsConfig, null, 2) : '';
   }
@@ -169,11 +170,31 @@
   // rest untouched rather than renumbering and breaking uploaded results.
   function addRound() {
     const rounds = sched.map((r) => r.round);
-    sched.push({ round: (rounds.length ? Math.max(...rounds) : 0) + 1, track: '', date: '', double: false });
+    sched.push({ round: (rounds.length ? Math.max(...rounds) : 0) + 1, track: '', date: '', link: '', image: null, double: false });
+  }
+  // A round's 2:1 card image is stored as soon as it is chosen (the schedule
+  // row is updated server-side), so it doesn't depend on Save schedule.
+  async function uploadRoundImage(r, e) {
+    const f = e.currentTarget.files?.[0];
+    if (!f) return;
+    schedMsg.set(`Uploading image for R${r.round}…`);
+    const form = new FormData();
+    form.append('image', await compress(f), f.name);
+    const res = await fetch(`/api/admin/series/${encodeURIComponent(editSlug)}/round-image?round=${r.round}`, { method: 'POST', body: form }).then((x) => x.json());
+    e.currentTarget.value = '';
+    if (!res.ok) return schedMsg.set(`Error: ${res.error}`, 'err');
+    r.image = res.image;
+    schedMsg.set(`Image set for R${r.round}.`, 'ok');
+  }
+  async function clearRoundImage(r) {
+    const res = await post(`/api/admin/series/${encodeURIComponent(editSlug)}/round-image?round=${r.round}`, null, 'DELETE');
+    if (!res.ok) return schedMsg.set(`Error: ${res.error}`, 'err');
+    r.image = null;
+    schedMsg.set(`Image removed from R${r.round}.`, 'ok');
   }
   async function saveSchedule() {
     const schedule = sched.map((r) => ({
-      round: r.round, track: r.track.trim() || null, date: r.date.trim() || null, multiplier: r.double ? 2 : 1,
+      round: r.round, track: r.track.trim() || null, date: r.date.trim() || null, link: r.link.trim() || null, image: r.image || null, multiplier: r.double ? 2 : 1,
     })).sort((a, b) => a.round - b.round);
     const res = await post('/api/admin/series-update', { slug: editSlug, schedule });
     schedMsg.set(res.ok ? 'Schedule saved.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
@@ -463,8 +484,19 @@
         <span class="rn">R{r.round}</span>
         <input type="text" placeholder="Track" bind:value={r.track}>
         <input type="text" placeholder="Date (e.g. Thu Oct 2)" bind:value={r.date}>
+        <input type="url" placeholder="Event link (optional)" title="The round's event page, e.g. a Discord event; the homepage's Next round links here" bind:value={r.link}>
         <label class="field" title="Double points for this round">2× <input type="checkbox" bind:checked={r.double}></label>
         <button class="btn danger sm" type="button" title="Remove this round from the schedule" onclick={() => sched.splice(i, 1)}>×</button>
+      </div>
+      <!-- Optional 2:1 image for the homepage's Next round card. -->
+      <div class="row sched-image">
+        <span class="rn"></span>
+        {#if r.image}
+          <img class="sched-thumb" src={r.image} alt={`Round ${r.round}`}>
+          <button class="btn sm danger" type="button" onclick={() => clearRoundImage(r)}>Remove image</button>
+        {:else}
+          <label class="field">Image (2:1, optional) <input type="file" accept="image/*" onchange={(e) => uploadRoundImage(r, e)}></label>
+        {/if}
       </div>
     {/each}
   </div>
