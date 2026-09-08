@@ -15,7 +15,7 @@
     <p class="sched-round">Up next</p>
     <a class="up-next-media" href={href} target="_blank" rel="noopener" aria-label={`${meta} — ${next.track ?? 'Track TBA'}`}>
       <img class="up-next-image" src={next.image} alt="">
-      <span class="link up-next-cta">RSVP on Discord →</span>
+      <span class="up-next-cta">RSVP on Discord →</span>
     </a>
   {:else}
     <p class="sched-round">Up next · {meta}</p>
