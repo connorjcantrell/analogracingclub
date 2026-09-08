@@ -22,7 +22,7 @@
   <tbody>
     {#each rows as d, i (d.custId)}
       <tr>
-        <td class="pos">{i + 1}</td>
+        <td class="pos"><span class="pos-box">{i + 1}</span></td>
         <td>{driverName(d.name)}</td>
         {#each kinds as k (k)}<td class="num">{posCell(d[k])}</td>{/each}
         {#if scored}<td class="num total">{d.total * mult}</td>{/if}

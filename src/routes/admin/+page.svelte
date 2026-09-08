@@ -1,6 +1,7 @@
 <script>
   import { invalidateAll } from '$app/navigation';
   import PhotoPanel from '$lib/PhotoPanel.svelte';
+  import PageTitle from '$lib/PageTitle.svelte';
   import { post } from '$lib/api.js';
   import { fmtDate, realConfig } from '$lib/format.js';
 
@@ -210,7 +211,7 @@
 </svelte:head>
 
 <div class="topbar">
-  <h2>Admin</h2>
+  <PageTitle inline>Admin</PageTitle>
   <button class="btn sm" type="button" onclick={refresh}>↻ Refresh</button>
 </div>
 

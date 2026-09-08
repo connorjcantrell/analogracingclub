@@ -2,7 +2,7 @@
   // Photo panel for one stored result: upload new shots, pick the featured
   // one, remove existing ones. Keeps its own copy of the image list and
   // refreshes it from the server after each change.
-  import { api, post } from './api.js';
+  import { api, post, readJson } from './api.js';
 
   let { sub } = $props();
   // Seeded from the row, then owned here (refresh() re-reads the server).
@@ -61,7 +61,7 @@
     say(`Uploading${shrunk ? ` (${shrunk} resized)` : ''}…`);
     const r = await fetch(`/api/admin/subsessions/${encodeURIComponent(sub._id)}/images`, { method: 'POST', body: form });
     if (r.status === 401) return (location.href = '/admin/login');
-    const res = await r.json();
+    const res = await readJson(r);
     const failed = (res.failed ?? []).map((f) => `${f.name}: ${f.error}`).join('; ');
     say(res.ok
       ? `Added ${res.added.length}${shrunk ? ` (${shrunk} resized)` : ''}.${failed ? ` Skipped — ${failed}` : ''}`

@@ -29,11 +29,34 @@ export async function computeStandings(db, { seriesSlug }) {
   const docs = await subsessions.find({ seriesSlug }, { projection: { raw: 0 } }).toArray();
   // Per-round points multipliers (a double-points finale scores 2×).
   const multipliers = Object.fromEntries((s?.schedule ?? []).map((r) => [r.round, r.multiplier ?? 1]));
-  const out = foldStandings(docs, { eventType: s?.eventType, multipliers, dropCount: s?.dropCount ?? 0 });
+  const opts = { eventType: s?.eventType, multipliers, dropCount: s?.dropCount ?? 0 };
+  const out = foldStandings(docs, opts);
   // Show every scheduled round (even ones not yet run), plus any extra rounds seen.
   const scheduled = (s?.schedule ?? []).map((r) => r.round);
   out.rounds = [...new Set([...scheduled, ...out.rounds])].sort((a, b) => a - b);
+
+  // Movement since the previous round: re-fold the standings without the most
+  // recent round and compare each driver's rank. Drivers not ranked before (or
+  // when there is no prior round) get null — no arrow.
+  const times = docs.map((d) => new Date(d.startTime ?? 0).getTime());
+  const lastTime = times.length ? Math.max(...times) : null;
+  const lastRound = lastTime == null ? null
+    : docs.find((d) => new Date(d.startTime ?? 0).getTime() === lastTime)?.round;
+  const priorDocs = lastRound == null ? [] : docs.filter((d) => (d.round ?? d._id) !== lastRound);
+  const prior = priorDocs.length ? foldStandings(priorDocs, opts).standings : [];
+  attachStandingsChanges(out.standings, prior);
   return out;
+}
+
+// Attach `change` to each standings row: how far the driver rose (+) or fell
+// (−) versus a prior ranking. A driver absent from the prior ranking gets null.
+export function attachStandingsChanges(standings, prior) {
+  const prevPos = new Map(prior.map((row, i) => [row.custId, i + 1]));
+  standings.forEach((row, i) => {
+    const before = prevPos.get(row.custId);
+    row.change = before == null ? null : before - (i + 1);
+  });
+  return standings;
 }
 
 export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0 } = {}) {

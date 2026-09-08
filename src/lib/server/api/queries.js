@@ -15,6 +15,18 @@ export async function getSeries(db, slug) {
   return collections(db).series.findOne({ slug }, { projection: PUBLIC_SERIES });
 }
 
+// Most recent race start time per series slug, so the standings/results pages
+// can default to the season that raced most recently. Standalone specials
+// (seriesSlug null) are excluded. startTime is an ISO-8601 string, so $max and
+// string comparison are both chronological.
+export async function latestRaceBySeries(db) {
+  const rows = await collections(db).subsessions.aggregate([
+    { $match: { seriesSlug: { $ne: null } } },
+    { $group: { _id: '$seriesSlug', latest: { $max: '$startTime' } } },
+  ]).toArray();
+  return new Map(rows.map((r) => [r._id, r.latest]));
+}
+
 export async function listDrivers(db) {
   return collections(db)
     .drivers.find({}, { projection: { custId: '$_id', displayName: 1, _id: 0 } })

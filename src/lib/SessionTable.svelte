@@ -28,7 +28,7 @@
     <tbody>
       {#each rows as x (x.custId)}
         <tr>
-          <td class="pos">{x.finish == null ? '—' : x.finish}</td>
+          <td class="pos"><span class="pos-box">{x.finish == null ? '—' : x.finish}</span></td>
           <td>{driverName(x.displayName)}</td>
           {#each cols as c (c.head)}
             {@const v = c.cell(x, all)}

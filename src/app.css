@@ -92,29 +92,41 @@ main.home { max-width: 1248px; }
 }
 .pos-chip.start { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 
-/* ---------- Tables ---------- */
+/* ---------- Tables (timing-screen treatment) ---------- */
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 0.65rem 0.9rem 0.65rem 0; border-bottom: var(--rule); }
+th, td { text-align: left; padding: 0.55rem 0.75rem; border-bottom: var(--rule); }
+/* Dark header bar with amber micro-labels — the broadcast timing look. */
 th {
-  color: var(--muted); font-weight: 400; font-size: 0.74rem;
-  text-transform: uppercase; letter-spacing: 0.16em;
-  border-bottom-color: var(--muted); padding-bottom: 0.5rem;
+  background: #0c0c0c; color: var(--accent);
+  font-family: var(--display); font-weight: 500; font-size: 0.68rem;
+  text-transform: uppercase; letter-spacing: 0.18em;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
 }
+tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.018); }
 tbody tr:last-child td { border-bottom: none; }
-tbody tr:hover td { color: var(--accent); }
+/* Amber lane on hover. */
+tbody tr:hover td { background: var(--accent-dim); color: var(--accent-soft); }
 td { color: var(--text); font-weight: 400; }
-td.num, th.num { text-align: left; font-variant-numeric: tabular-nums; }
-.total { font-family: var(--display); font-weight: 500; color: var(--accent); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.total { font-family: var(--display); font-weight: 700; font-style: italic; color: var(--accent); }
 /* A standings round discarded by the series' drop rule. */
 .dropped { color: var(--muted); text-decoration: line-through; }
 /* Round-column headers deep-link to that round on the results page. */
 .round-link { color: inherit; text-decoration: none; }
-.round-link:hover { color: var(--accent); text-decoration: underline; }
+.round-link:hover { color: var(--accent-soft); text-decoration: underline; }
 .pos {
   font-family: var(--display); color: var(--muted);
-  width: 3rem; font-variant-numeric: tabular-nums;
+  width: 3.3rem; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-tbody tr:hover .pos { color: var(--accent); }
+/* Boxed, slanted position number — the timing-screen signature. */
+.pos-box {
+  display: inline-block; min-width: 1.75rem; text-align: center;
+  font-family: var(--display); font-weight: 700; font-style: italic;
+  font-size: 0.95rem; font-variant-numeric: tabular-nums;
+  padding: 0.05rem 0.35rem; transform: skewX(-11deg);
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+}
+tbody tr:hover .pos-box { border-color: var(--accent-soft); color: var(--accent-soft); }
 
 a.link {
   color: var(--accent); text-decoration: none;
@@ -226,10 +238,12 @@ a.link:hover { color: var(--accent-soft); }
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem; align-items: start; margin: 0 0 2.5rem; max-width: 760px;
 }
-.card { border: 1px solid var(--border); padding: 1.25rem 1.4rem; min-width: 0; }
+.card { border: 1px solid var(--border); padding: 0 1.4rem 1.25rem; min-width: 0; background: rgba(255, 255, 255, 0.015); }
 .card-title {
-  color: var(--accent); font-size: 0.72rem; font-weight: 500;
-  letter-spacing: 0.18em; margin: 0 0 0.9rem;
+  color: var(--accent); font-family: var(--display); font-size: 0.72rem; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.18em;
+  margin: 0 -1.4rem 1rem; padding: 0.45rem 1.4rem;
+  background: #0c0c0c; border-bottom: 1px solid var(--border);
 }
 .card-rows { margin: 0; display: grid; }
 .card-row {
@@ -249,7 +263,9 @@ a.link:hover { color: var(--accent-soft); }
 }
 
 /* ---------- Prose / rules ---------- */
-.prose { max-width: 66ch; margin-inline: auto; font-size: 1.05rem; }
+/* Same content width as every other page (main caps at 1040px); prose only
+   adds the slightly larger reading size and the section-rule styling below. */
+.prose { font-size: 1.05rem; }
 .prose h3 {
   margin: 3rem 0 0.8rem; padding-top: 2rem; border-top: var(--rule);
   color: var(--accent); font-size: 1.15rem; font-weight: 500; letter-spacing: 0.16em;
@@ -274,8 +290,9 @@ footer a:hover { color: var(--accent-soft); }
 }
 
 /* ---------- Series picker ---------- */
-.page-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
-.page-head h2 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+/* Header row pairing a page title with a picker/button. The title itself is
+   the PageTitle component (styles live there). */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
 .series-pick {
   background: transparent; color: var(--text); border: 0; border-bottom: 1px solid var(--border);
   border-radius: 0; padding: 0.35rem 0.2rem; font-family: var(--display);
@@ -355,9 +372,11 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 .track-name { display: block; }
 /* Marks a double-points round in the results round column. */
 .mult-badge {
-  margin-left: 0.4rem; padding: 0.05rem 0.35rem; border-radius: 999px;
+  display: inline-block; margin-left: 0.5rem; padding: 0.05rem 0.4rem;
   border: 1px solid var(--accent); color: var(--accent);
-  font-family: var(--display); font-size: 0.62rem; letter-spacing: 0.08em; vertical-align: middle;
+  font-family: var(--display); font-style: italic; font-weight: 600;
+  font-size: 0.62rem; letter-spacing: 0.06em; vertical-align: middle;
+  transform: skewX(-11deg);
 }
 .track-cars {
   display: block; margin-top: 0.15rem;
@@ -455,8 +474,8 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 .rank-row { cursor: pointer; }
 /* Provisional drivers are greyed out, matching the Provisional badge. */
 .rank-row.provisional { color: var(--muted); }
-/* Rise/fall in position since the last event. */
-.chg { margin-left: 0.4rem; font-size: 0.68rem; font-family: var(--display); }
+/* Rise/fall in position, shown to the right of the position number. */
+.chg { display: inline-block; vertical-align: middle; margin-left: 0.4rem; font-size: 0.68rem; font-family: var(--display); }
 .chg-up { color: var(--green); }
 .chg-down { color: var(--red); }
 .rank-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
@@ -508,10 +527,12 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
   display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 1.5rem; align-items: start; margin: 2.5rem 0 0; max-width: 760px;
 }
-.power-card { border: 1px solid var(--border); padding: 1.25rem 1.4rem; }
+.power-card { border: 1px solid var(--border); padding: 0 1.4rem 1.25rem; background: rgba(255, 255, 255, 0.015); }
 .power-card-title {
-  color: var(--accent); font-size: 0.72rem; font-weight: 500;
-  letter-spacing: 0.18em; text-transform: uppercase; margin: 0 0 0.3rem;
+  color: var(--accent); font-family: var(--display); font-size: 0.72rem; font-weight: 500;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  margin: 0 -1.4rem 0.9rem; padding: 0.45rem 1.4rem;
+  background: #0c0c0c; border-bottom: 1px solid var(--border);
 }
 .power-card-sub { color: var(--muted); font-size: 0.88rem; margin: 0 0 0.9rem; }
 .power-card-driver {
@@ -539,10 +560,10 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 .rank-detail p { margin: 0 0 1rem; }
 .rank-detail p:last-child { margin-bottom: 0; }
 .tag {
-  margin-left: 0.6rem; font-family: var(--display);
-  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.14em;
+  display: inline-block; margin-left: 0.6rem; font-family: var(--display); font-style: italic;
+  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.12em;
   color: var(--muted); border: 1px solid var(--border);
-  padding: 0.1rem 0.45rem; white-space: nowrap;
+  padding: 0.1rem 0.5rem; white-space: nowrap; transform: skewX(-11deg);
 }
 
 /* Columns the results page hides for single-session events. Table cells set
@@ -581,7 +602,7 @@ label.field { display: inline-flex; align-items: center; gap: 0.5rem; color: var
 .sched .row input[type="text"] { flex: 1; min-width: 10rem; }
 .sched .rn { color: var(--muted); width: 2.2rem; }
 .panel table { font-size: 0.92rem; }
-.badge { display: inline-block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+.badge { display: inline-block; font-family: var(--display); font-style: italic; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1rem 0.5rem; border: 1px solid var(--border); color: var(--muted); transform: skewX(-11deg); }
 .badge.active { color: var(--green); border-color: var(--green); }
 .badge.upcoming { color: var(--accent); border-color: var(--accent); }
 .shot-admin { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 1rem 0 0; }

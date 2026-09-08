@@ -49,19 +49,19 @@ export const RIVAL_MIN_RACES = 3;
 // the league calendar. A driver returning after a break is judged on their own
 // last few outings instead of being decayed for the rounds they missed.
 //
-// The last ten races count, each older one losing ten percentage points:
+// The last five races count, each older one losing twenty percentage points:
 //
 //   race 1 (newest)  1.00
-//   race 2           0.90
-//   race 5           0.60
-//   race 10          0.10
-//   race 11+         dropped entirely
-export const MAX_RACES = 10; // races beyond the last ten do not count
+//   race 2           0.80
+//   race 3           0.60
+//   race 5           0.20
+//   race 6+          dropped entirely
+export const MAX_RACES = 5; // races beyond the last five do not count
 
 // `age` is 0 for a driver's most recent race, 1 for the one before, and so on.
-// Each step back sheds 10% until the tenth race is worth 0.10; the eleventh and
+// Each step back sheds 20% until the fifth race is worth 0.20; the sixth and
 // anything older weigh nothing.
-export const recencyWeight = (age) => Math.max(0, 1 - 0.1 * age);
+export const recencyWeight = (age) => Math.max(0, 1 - 0.2 * age);
 
 // "Overall" means the result of the weekend as a whole, and what that means
 // depends on the event. A scored series round is won on total points across

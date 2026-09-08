@@ -1,7 +1,10 @@
+<script>
+  import PageTitle from '$lib/PageTitle.svelte';
+</script>
+
 <svelte:head><title>About · Analog Racing Club</title></svelte:head>
 
-<img class="page-logo" src="/assets/logo_cream.png" alt="Analog Racing Club">
-<h2>About</h2>
+<PageTitle>About</PageTitle>
 
 <p class="lede">A sim racing community built around analog cars (no TC, ESC, or ABS)
 on technical tracks, in challenging conditions, or both. Stock cars, vintage GT and

@@ -1,6 +1,7 @@
 <script>
   import MatchupTable from '$lib/MatchupTable.svelte';
   import RivalPanel from '$lib/RivalPanel.svelte';
+  import PageTitle from '$lib/PageTitle.svelte';
   import { driverName, ordinal } from '$lib/format.js';
   import { METRIC_COLS } from '$lib/power.js';
 
@@ -42,7 +43,7 @@
 
 <svelte:head><title>Power Rankings · Analog Racing Club</title></svelte:head>
 
-<h2>Power Rankings</h2>
+<PageTitle>Power Rankings</PageTitle>
 {#if detail}
   {@const d = detail.driver}
   <section>
@@ -83,14 +84,14 @@
 {:else}
   <div>
     <p class="rank-note">
-      Every driver across every season, rated on recent form. Select a driver for the full breakdown.
+      Every driver across every season, rated on their last five races. Select a driver for the full breakdown.
       <button class="rank-toggle" type="button" onclick={() => (explain = !explain)}>{explain ? 'Hide' : 'How it works'}</button>
     </p>
     {#if explain}
       <div class="rank-detail">
         <p>The order is built from who beat whom, race by race: every driver’s record against everyone they shared a grid with, judged on how they finished overall, their speed over one lap, their pace over a full run, how many cars they passed, and how often they saw the flag.</p>
         <p>Beating a strong field counts for more than beating a weak one, and two drivers who never met are still placed through the opponents they share. Select a driver for their full breakdown and record against any rival.</p>
-        <p>The newest race counts in full and each older one loses ten percent, out to the last ten. Drivers with fewer than {minEvents} races are shown as provisional and listed last.</p>
+        <p>The newest race counts in full and each older one loses twenty percent, out to the last five. Drivers with fewer than {minEvents} races are shown as provisional and listed last.</p>
       </div>
     {/if}
     {#if drivers.length}
@@ -101,7 +102,7 @@
             {#if expanded || i < LIMIT}
               <tr class={['rank-row', { provisional: d.provisional }]} onclick={() => select(d, i + 1)}>
                 <!-- Rise/fall in position since the last event. -->
-                <td class="pos">{d.provisional ? '—' : i + 1}{#if !d.provisional && d.change}<span class={['chg', d.change > 0 ? 'chg-up' : 'chg-down']}>{d.change > 0 ? '▲' : '▼'}{Math.abs(d.change)}</span>{/if}</td>
+                <td class="pos"><span class="pos-box">{d.provisional ? '—' : i + 1}</span>{#if !d.provisional && d.change}<span class={['chg', d.change > 0 ? 'chg-up' : 'chg-down']}>{d.change > 0 ? '▲' : '▼'}{Math.abs(d.change)}</span>{/if}</td>
                 <td>{driverName(d.displayName)}{#if d.provisional}<span class="tag">Provisional</span>{/if}</td>
               </tr>
             {/if}

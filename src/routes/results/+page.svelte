@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import { page } from '$app/state';
   import SeriesPicker from '$lib/SeriesPicker.svelte';
+  import PageTitle from '$lib/PageTitle.svelte';
   import Gallery from '$lib/Gallery.svelte';
   import OverallTable from '$lib/OverallTable.svelte';
   import SessionTable from '$lib/SessionTable.svelte';
@@ -61,7 +62,7 @@
 <svelte:head><title>Results · Analog Racing Club</title></svelte:head>
 
 <div class="page-head">
-  <h2>Results</h2>
+  <PageTitle inline>Results</PageTitle>
   <div><SeriesPicker containers={data.pick.containers} hasSpecial={data.pick.hasSpecial} value={data.pick.slug} /></div>
 </div>
 {#if !d}
