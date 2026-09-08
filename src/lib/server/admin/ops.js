@@ -46,6 +46,15 @@ export async function removeSubsessions(db, filter) {
   return { results: del.deletedCount, photos, drivers };
 }
 
+// A pasted event link: http(s) as given; a bare "discord.com/events/…" gets
+// https; anything else (a javascript: URL, say) is dropped.
+const webUrl = (v) => {
+  const t = String(v ?? '').trim();
+  if (!t) return null;
+  if (/^https?:\/\//i.test(t)) return t;
+  return /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(t) ? `https://${t}` : null;
+};
+
 export const cleanSchedule = (schedule) => schedule.map((r, i) => ({
   round: Number.isInteger(r?.round) ? r.round : i + 1,
   track: r?.track ? String(r.track) : null,
@@ -54,7 +63,7 @@ export const cleanSchedule = (schedule) => schedule.map((r, i) => ({
   // links there, falling back to the Discord invite when absent. And an
   // optional 2:1 image for that card, uploaded through the round-image route
   // (only a stored upload path is accepted).
-  link: /^https?:\/\//i.test(String(r?.link ?? '').trim()) ? String(r.link).trim() : null,
+  link: webUrl(r?.link),
   image: String(r?.image ?? '').startsWith('/assets/rounds/') ? String(r.image) : null,
   // A points multiplier for the round (a "double points" finale is 2). Only
   // values > 1 are stored; anything else means the round scores normally.

@@ -1,19 +1,25 @@
 <script>
-  // Banner above the feed for the next scheduled round: the 2:1 picture (when
-  // the round has one) above a strip with the details.
+  // "Up next": the next scheduled round, styled like the other feed posts.
+  // With an image, the picture stands alone with the RSVP link overlaid in
+  // its lower-left corner; without one, the round's details are written out.
+  // The link goes to the round's event page, or the Discord invite.
   import { DISCORD_URL } from './links.js';
 
   let { next } = $props();
   const href = $derived(next.link || DISCORD_URL);
-  const cta = $derived(next.link ? 'Event details →' : 'RSVP on Discord →');
   const meta = $derived([next.series.name, `Round ${next.round}`, next.date, next.multiplier > 1 ? `${next.multiplier}× points` : null].filter(Boolean).join(' · '));
 </script>
 
-<a class={['up-next', { 'has-image': !!next.image }]} href={href} target="_blank" rel="noopener">
-  {#if next.image}<img class="up-next-image" src={next.image} alt="">{/if}
-  <div class="up-next-body">
-    <p class="up-next-kicker">Up next · {meta}</p>
-    <p class="up-next-track">{next.track ?? 'Track TBA'}</p>
-    <span class="link">{cta}</span>
-  </div>
-</a>
+<article class="post up-next">
+  {#if next.image}
+    <p class="sched-round">Up next</p>
+    <a class="up-next-media" href={href} target="_blank" rel="noopener" aria-label={`${meta} — ${next.track ?? 'Track TBA'}`}>
+      <img class="up-next-image" src={next.image} alt="">
+      <span class="link up-next-cta">RSVP on Discord →</span>
+    </a>
+  {:else}
+    <p class="sched-round">Up next · {meta}</p>
+    <h2 class="lp-h">{next.track ?? 'Track TBA'}</h2>
+    <p class="latest-more"><a class="link" href={href} target="_blank" rel="noopener">RSVP on Discord →</a></p>
+  {/if}
+</article>

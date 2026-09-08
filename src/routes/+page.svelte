@@ -38,7 +38,7 @@
 <div class="feed">
   <!-- The next scheduled round, as a banner ahead of the posts. -->
   {#if data.upNext}
-    <UpNext next={data.upNext} />
+    <section class="lp-section"><UpNext next={data.upNext} /></section>
   {/if}
   {#if !posts.length}
     <section class="lp-section">
