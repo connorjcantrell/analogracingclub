@@ -39,6 +39,7 @@
   <p class="sched-round">Special event</p>
   <h2 class="lp-h">{post.title}</h2>
   <p class="lp-sub">{[track, fmtDate(sub.startTime)].filter(Boolean).join(' · ')}</p>
+  {#if post.body}<p class="post-body">{post.body}</p>{/if}
 
   {#if hero}
     <figure class="hero-shot"><img src={hero} alt={sub.title || track || ''}></figure>

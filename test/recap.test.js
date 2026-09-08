@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resultPostTitle } from '../src/lib/server/recap.js';
+import { resultPostTitle, lastName } from '../src/lib/server/recap.js';
 import { publicDescriptor } from '../src/lib/server/event-types.js';
 
 // Minimal fixtures — the title only reads simsessions, eventType, and track/title.
@@ -27,14 +27,14 @@ const leagueSeries = { slug: 'season-2', name: 'Season 2', typeLabel: 'League', 
 test('a league title names the round winner and the feature winner when they differ', () => {
   assert.equal(
     resultPostTitle(leagueSeries, leagueSub()),
-    'Andrew Bowman wins round with Chris Dodd taking the feature win at WeatherTech Raceway at Laguna Seca');
+    'Bowman wins round with Dodd taking the feature win at WeatherTech Raceway at Laguna Seca');
 });
 
 test('a league title omits the feature winner when it is the round winner', () => {
   const sub = leagueSub();
   // Give Andrew the feature win too (but not the most laps led — no lap data).
   sub.simsessions[2].results = [row(1, 'Andrew Bowman', 1, 20), row(3, 'Chris Dodd', 2, 18), row(2, 'Ben Carter', 3, 14)];
-  assert.equal(resultPostTitle(leagueSeries, sub), 'Andrew Bowman wins round at WeatherTech Raceway at Laguna Seca');
+  assert.equal(resultPostTitle(leagueSeries, sub), 'Bowman wins round at WeatherTech Raceway at Laguna Seca');
 });
 
 test('a round + feature win with the most laps led reads "dominates"', () => {
@@ -45,7 +45,7 @@ test('a round + feature win with the most laps led reads "dominates"', () => {
     row(3, 'Chris Dodd', 2, 18, { lapsLead: 2 }),
     row(2, 'Ben Carter', 3, 14),
   ];
-  assert.equal(resultPostTitle(leagueSeries, sub), 'Andrew Bowman dominates at WeatherTech Raceway at Laguna Seca');
+  assert.equal(resultPostTitle(leagueSeries, sub), 'Bowman dominates at WeatherTech Raceway at Laguna Seca');
 });
 
 // A one-off special: no series, so the simple "<name> wins <event>" form.
@@ -61,5 +61,13 @@ const specialSub = () => ({
 });
 
 test('a special event is titled "<name> wins <event>"', () => {
-  assert.equal(resultPostTitle(null, specialSub()), 'Andrew Bowman wins Bathurst 1000');
+  assert.equal(resultPostTitle(null, specialSub()), 'Bowman wins Bathurst 1000');
+});
+
+test('lastName takes the surname and drops the iRacing duplicate suffix', () => {
+  assert.equal(lastName('Andrew Bowman4'), 'Bowman');
+  assert.equal(lastName('Sage Callahan'), 'Callahan');
+  assert.equal(lastName('Jean-Éric Vergne'), 'Vergne');
+  assert.equal(lastName('Madonna'), 'Madonna');
+  assert.equal(lastName(null), '');
 });

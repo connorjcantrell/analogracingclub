@@ -8,13 +8,12 @@
   let posts = $state(data.posts);
   let hasMore = $state(data.hasMore);
   let loading = $state(false);
-  let sentinel = $state(null);
 
   // Re-seed from the server load on navigation / invalidateAll.
   $effect(() => { posts = data.posts; hasMore = data.hasMore; });
 
   // Posts page newest-first and stable, so the next offset is simply how many
-  // we already hold.
+  // we already hold. Each click fetches the next page (three posts).
   async function loadMore() {
     if (loading || !hasMore) return;
     loading = true;
@@ -28,16 +27,6 @@
     loading = false;
   }
 
-  // Auto-load as the sentinel nears the viewport. Only mounted while there is
-  // more to fetch, so it stops cleanly at the end.
-  $effect(() => {
-    if (!sentinel) return;
-    const io = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) loadMore(); },
-      { rootMargin: '600px' });
-    io.observe(sentinel);
-    return () => io.disconnect();
-  });
 </script>
 
 <svelte:head>
@@ -64,8 +53,10 @@
     {/each}
   {/if}
 
+  <!-- The next three posts come on request, not on scroll. -->
   {#if hasMore}
-    <div class="feed-sentinel" bind:this={sentinel} aria-hidden="true"></div>
-    {#if loading}<p class="feed-loading">Loading…</p>{/if}
+    <div class="feed-more">
+      <button class="btn" type="button" disabled={loading} onclick={loadMore}>{loading ? 'Loading…' : 'Load more'}</button>
+    </div>
   {/if}
 </div>

@@ -30,6 +30,7 @@
   <p class="sched-round">{kicker}</p>
   <h2 class="lp-h">{post.title}</h2>
   <p class="lp-sub">{fmtDate(sub.startTime)}</p>
+  {#if post.body}<p class="post-body">{post.body}</p>{/if}
 
   {#if fastFour.length}
     <p class="fast-four-inline">
@@ -71,6 +72,6 @@
         {/each}
       </tbody>
     </table>
-    <p class="latest-more"><a class="link" href={resultsLink}>Full results and standings →</a></p>
+    <p class="latest-more"><a class="link" href={resultsLink}>Full results →</a></p>
   </div>
 </article>

@@ -184,8 +184,6 @@ a.link:hover { color: var(--accent-soft); }
 .season-layout .carousel { margin: 0; }
 /* No race photos yet: the schedule takes the full width. */
 .season-layout.no-photos { grid-template-columns: 1fr; }
-/* Intro/outro copy runs the full content width, matching the layout below. */
-#season2 .lp-sub { max-width: none; }
 /* Six equal rows that together fill the carousel's height; each row is inline. */
 .season-schedule { display: flex; flex-direction: column; border-top: var(--rule); }
 .season-schedule .sched-card {
@@ -462,9 +460,15 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 /* Each post sits in its own .lp-section (which supplies the padding + divider);
    .post just resets the article's default margins. */
 .post { margin: 0; }
-/* A result post's title, photo, and table share one column width. */
-.result-post { max-width: 760px; }
-.result-post .latest-table { max-width: none; }
+/* Every post's title, paragraph, photos and table share one column width —
+   a schedule post's carousel runs the full column with the rounds beneath. */
+.post { max-width: 760px; }
+.post .lp-sub { max-width: none; }
+.post .latest-table { max-width: none; }
+.post .season-layout { grid-template-columns: 1fr; gap: 1.5rem; }
+.post .season-layout .sched-card { flex: 0 0 auto; padding: 0.7rem 0; }
+/* A post's paragraph, written in the admin; keeps typed line breaks. */
+.post-body { color: var(--text); font-size: 1.02rem; line-height: 1.6; white-space: pre-line; margin: -1.6rem 0 2.2rem; }
 /* Feed titles run smaller than a full page heading. */
 .post .lp-h { margin-top: 0.3rem; font-size: clamp(1.25rem, 2.6vw, 1.65rem); }
 /* The Fast Four, inline above a league round's table. */
@@ -524,8 +528,9 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
   opacity: 1; visibility: visible; transform: translateY(0);
 }
 /* Off-screen tripwire that auto-loads the next page as it nears the viewport. */
-.feed-sentinel { height: 1px; }
-.feed-loading { color: var(--muted); text-align: center; padding: 1.5rem 0; }
+.feed-more { display: flex; justify-content: center; padding: 2rem 0 0.5rem; }
+.feed-more .btn { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.85rem; padding: 0.6rem 1.4rem; }
+.feed-more .btn:disabled { opacity: 0.6; cursor: default; }
 
 /* ---------- Driver power ranking ---------- */
 .rank-note {

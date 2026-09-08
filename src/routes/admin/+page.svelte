@@ -197,6 +197,21 @@
 
   // ---- Stored results -------------------------------------------------------
   let openPanels = $state({});
+  // Inline editor for a result's feed post: a headline that replaces the
+  // automatic one, and a paragraph under it. Keyed by result id.
+  let openPost = $state({});
+  let postEdits = $state({});
+  let resultPostMsg = $state({});
+  function togglePostEditor(s) {
+    openPost[s._id] = !openPost[s._id];
+    if (openPost[s._id]) postEdits[s._id] = { postTitle: s.postTitle ?? '', postBody: s.postBody ?? '' };
+  }
+  async function saveResultPost(s) {
+    const e = postEdits[s._id] ?? {};
+    const res = await post(`/api/admin/subsessions/${encodeURIComponent(s._id)}`, { postTitle: e.postTitle ?? '', postBody: e.postBody ?? '' }, 'PATCH');
+    resultPostMsg[s._id] = res.ok ? { text: 'Post saved.', kind: 'ok' } : { text: `Error: ${res.error}`, kind: 'err' };
+    await refresh();
+  }
   async function deleteResult(s) {
     if (!confirm(`Delete ${s._id}? This removes the stored result.`)) return;
     const res = await post(`/api/admin/subsessions/${encodeURIComponent(s._id)}`, null, 'DELETE');
@@ -232,16 +247,42 @@
     const rounds = postRounds.map((r) => r.round);
     postRounds.push({ round: (rounds.length ? Math.max(...rounds) : 0) + 1, track: '', config: '', date: '' });
   }
+  // The same form edits an existing post: Edit loads it in, Save patches it.
+  let editingPost = $state(null);
+  const postRows = () => postRounds.map((r) => ({
+    round: r.round, track: r.track.trim() || null, config: r.config.trim() || null, date: r.date.trim() || null,
+  }));
+  function editSchedulePost(p) {
+    editingPost = p;
+    postSeries = p.seriesSlug;
+    postTitle = p.title ?? '';
+    postIntro = p.intro ?? '';
+    postRounds = (p.rounds ?? []).map((r) => ({ round: r.round, track: r.track ?? '', config: r.config ?? '', date: r.date ?? '' }));
+    postPhotos = (p.photos ?? []).map((x) => x.url);
+    postMsg.set(`Editing "${p.title}".`);
+    document.getElementById('postForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function cancelEditPost() {
+    editingPost = null;
+    postTitle = ''; postIntro = ''; postRounds = []; postPhotos = [];
+    postMsg.set('');
+  }
   async function createSchedulePost() {
     if (!postSeries) return postMsg.set('Pick a season first.', 'err');
-    const rounds = postRounds.map((r) => ({
-      round: r.round, track: r.track.trim() || null, config: r.config.trim() || null, date: r.date.trim() || null,
-    }));
     const res = await post('/api/admin/posts', {
-      seriesSlug: postSeries, title: postTitle.trim(), intro: postIntro.trim(), rounds, photos: postPhotos,
+      seriesSlug: postSeries, title: postTitle.trim(), intro: postIntro.trim(), rounds: postRows(), photos: postPhotos,
     });
     postMsg.set(res.ok ? 'Published to the feed.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
     if (res.ok) { postIntro = ''; postPhotos = []; }
+    await refresh();
+  }
+  async function saveSchedulePost() {
+    if (!editingPost) return;
+    const res = await post(`/api/admin/posts/${encodeURIComponent(editingPost._id)}`, {
+      title: postTitle.trim(), intro: postIntro.trim(), rounds: postRows(), photos: postPhotos,
+    }, 'PATCH');
+    postMsg.set(res.ok ? 'Post updated.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+    if (res.ok) editingPost = null;
     await refresh();
   }
   async function deleteSchedulePost(p) {
@@ -319,6 +360,7 @@
               <div class="row">
                 <a class="btn sm" href={`/api/admin/subsessions/${encodeURIComponent(s._id)}/download`}>↓ JSON</a>
                 <button class="btn sm" type="button" onclick={() => (openPanels[s._id] = !openPanels[s._id])}>Photos</button>
+                <button class="btn sm" type="button" title="Headline and paragraph for this result's post on the homepage" onclick={() => togglePostEditor(s)}>Post</button>
                 <button class="btn sm danger" type="button" onclick={() => deleteResult(s)}>Delete</button>
               </div>
             </td>
@@ -326,6 +368,21 @@
           <!-- Each result row is trailed by a collapsed photo panel. -->
           {#if openPanels[s._id]}
             <tr><td colspan="6"><PhotoPanel sub={s} /></td></tr>
+          {/if}
+          {#if openPost[s._id]}
+            <tr><td colspan="6">
+              <div class="row">
+                <label class="field">Headline <input type="text" size="48" placeholder="Leave blank for the automatic headline" bind:value={postEdits[s._id].postTitle}></label>
+              </div>
+              <label class="field intro-field">Paragraph
+                <textarea class="intro" placeholder="Optional write-up shown under the headline." bind:value={postEdits[s._id].postBody}></textarea>
+              </label>
+              <div class="row">
+                <button class="btn sm primary" type="button" onclick={() => saveResultPost(s)}>Save post</button>
+                <button class="btn sm" type="button" onclick={() => (openPost[s._id] = false)}>Close</button>
+              </div>
+              <p class={['msg', resultPostMsg[s._id]?.kind ?? '']}>{resultPostMsg[s._id]?.text ?? ''}</p>
+            </td></tr>
           {/if}
         {/each}
       </tbody>
@@ -450,17 +507,22 @@
             <td class="num">{p.rounds?.length ?? 0}</td>
             <td class="num">{p.photos?.length ?? 0}</td>
             <td>{fmtDate(p.publishedAt)}</td>
-            <td><button class="btn sm danger" type="button" onclick={() => deleteSchedulePost(p)}>Delete</button></td>
+            <td>
+              <div class="row">
+                <button class="btn sm" type="button" onclick={() => editSchedulePost(p)}>Edit</button>
+                <button class="btn sm danger" type="button" onclick={() => deleteSchedulePost(p)}>Delete</button>
+              </div>
+            </td>
           </tr>
         {/each}
       </tbody>
     </table>
   {/if}
 
-  <h4>New schedule post</h4>
+  <h4 id="postForm">{editingPost ? `Edit schedule post — ${editingPost.title}` : 'New schedule post'}</h4>
   <div class="row">
     <label class="field">Season
-      <select bind:value={postSeries}>
+      <select bind:value={postSeries} disabled={!!editingPost}>
         {#each series as s (s.slug)}<option value={s.slug}>{s.name} ({s.status})</option>{/each}
       </select>
     </label>
@@ -489,7 +551,12 @@
   <PhotoPicker {photos} bind:selected={postPhotos} />
 
   <div class="row" style="margin-top:0.8rem">
-    <button class="btn primary" type="button" onclick={createSchedulePost}>Publish schedule post</button>
+    {#if editingPost}
+      <button class="btn primary" type="button" onclick={saveSchedulePost}>Save changes</button>
+      <button class="btn" type="button" onclick={cancelEditPost}>Cancel</button>
+    {:else}
+      <button class="btn primary" type="button" onclick={createSchedulePost}>Publish schedule post</button>
+    {/if}
   </div>
   <p class={['msg', postMsg.kind]}>{postMsg.text}</p>
 </section>

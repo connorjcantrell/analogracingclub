@@ -41,6 +41,11 @@ export async function ingestEventResult(db, parsed, opts = {}) {
 
   const drivers = await upsertDrivers(db, eventResult);
   const doc = buildSubsessionDocument(eventResult, build);
+  // Photos, the featured shot and the post's headline/paragraph are curated in
+  // the admin, not derived from the result JSON, so they survive a re-upload
+  // of the same event.
+  const prev = await collections(db).subsessions.findOne({ _id: doc._id }, { projection: { images: 1, featuredImage: 1, postTitle: 1, postBody: 1 } });
+  for (const k of ['images', 'featuredImage', 'postTitle', 'postBody']) if (prev?.[k]) doc[k] = prev[k];
   await collections(db).subsessions.replaceOne({ _id: doc._id }, doc, { upsert: true });
   const results = doc.simsessions.reduce((n, s) => n + s.results.length, 0);
   return { subsessionId: doc._id, drivers: drivers.count, results, track: doc.track?.name ?? null };

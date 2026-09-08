@@ -25,8 +25,7 @@ export async function rescore(db, { seriesSlug = null } = {}) {
     });
     // Photos are curated in the admin, not derived from the result JSON, so
     // they must survive a rebuild.
-    if (doc.images) rebuilt.images = doc.images;
-    if (doc.featuredImage) rebuilt.featuredImage = doc.featuredImage;
+    for (const k of ['images', 'featuredImage', 'postTitle', 'postBody']) if (doc[k]) rebuilt[k] = doc[k];
     await subsessions.replaceOne({ _id: doc._id }, rebuilt);
     updated += 1;
   }

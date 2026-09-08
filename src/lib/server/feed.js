@@ -49,7 +49,10 @@ async function hydrateResult(sub, getRawSeries) {
     date: sub.startTime,
     series,
     subsession: withType,
-    title: resultPostTitle(series, withType),
+    // An admin-set headline wins over the automatic one; the paragraph is
+    // editorial only (there is none unless written).
+    title: sub.postTitle || resultPostTitle(series, withType),
+    body: sub.postBody ?? '',
   };
 }
 
