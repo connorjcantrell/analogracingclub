@@ -24,7 +24,7 @@ async function logoFile() {
 }
 // Bump when the rendering changes: names carry it, so stale cached files (and
 // crawlers' cached cards) are left behind.
-const VERSION = 'v7';
+const VERSION = 'v8';
 // The wordmark's opacity over the photo (25% transparent).
 const LOGO_OPACITY = 0.75;
 
@@ -47,7 +47,7 @@ function sourceFor(name) {
 // soft dark band so it reads on bright shots too.
 async function brandOverlay() {
   // Resize, then scale only the alpha channel so the mark sits lightly on the shot.
-  const logo = await sharp(await logoFile()).resize({ width: 150 }).ensureAlpha()
+  const logo = await sharp(await logoFile()).resize({ width: 188 }).ensureAlpha()
     .linear([1, 1, 1, LOGO_OPACITY], [0, 0, 0, 0]).png().toBuffer();
   const band = Buffer.from(
     `<svg width="${OG_WIDTH}" height="${OG_HEIGHT}"><defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0">` +
