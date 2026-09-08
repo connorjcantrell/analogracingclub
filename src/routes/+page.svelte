@@ -32,7 +32,6 @@
 
 <svelte:head>
   <title>Analog Racing Club</title>
-  <meta name="description" content="Analog Racing Club — an iRacing league.">
 </svelte:head>
 
 <div class="feed">

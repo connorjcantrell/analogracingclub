@@ -13,7 +13,7 @@ export async function load({ locals, url }) {
       imageAlt: featured?.alt || 'Analog Racing Club',
       url: `${url.origin}${url.pathname}`,
       siteName: 'Analog Racing Club',
-      description: 'Analog Racing Club — an iRacing league. Results, standings, and power rankings.',
+      description: 'An iRacing community built around analog cars (no TC, ESC, or ABS). Stock cars, vintage GT and formula, Australian Supercars.',
     },
   };
 }
