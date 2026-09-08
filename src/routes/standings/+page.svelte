@@ -1,10 +1,12 @@
 <script>
   import SeriesPicker from '$lib/SeriesPicker.svelte';
   import PageTitle from '$lib/PageTitle.svelte';
-  import { driverName } from '$lib/format.js';
+  import { driverName, signed } from '$lib/format.js';
 
   let { data } = $props();
   const d = $derived(data.standings);
+  // The Fast Four tally only means something for a Fast Four series.
+  const isFastFour = $derived(!!d?.series?.eventType?.display?.cards?.includes('fast-four'));
   // Meta shown as broadcast chips beside the series name.
   const metaChips = $derived.by(() => {
     const s = d?.series;
@@ -39,27 +41,20 @@
           <tr>
             <th class="pos">Pos</th>
             <th class="drv">Driver</th>
-            <!-- Each round header deep-links to that round on the results page. -->
-            {#each d.rounds as r (r)}
-              <th class="num"><a class="round-link" href={`/results?series=${encodeURIComponent(d.series.slug)}&round=${r}`}>R{r}</a></th>
-            {/each}
+            {#if isFastFour}<th class="num">Fast Four</th>{/if}
+            <th class="num">Positions Gained</th>
+            <th class="num">Laps Led</th>
             <th class="num pts">Total</th>
           </tr>
         </thead>
         <tbody>
           {#each d.standings as x, i (x.custId ?? x.displayName)}
-            <!-- A dropped round is shown struck through — it does not count toward Total. -->
-            {@const dropped = new Set(x.dropped ?? [])}
             <tr>
               <td class="pos"><span class="pos-box">{i + 1}</span>{#if x.change}<span class={['chg', x.change > 0 ? 'chg-up' : 'chg-down']}>{x.change > 0 ? '▲' : '▼'}{Math.abs(x.change)}</span>{/if}</td>
               <td class="drv">{driverName(x.displayName)}</td>
-              {#each d.rounds as r (r)}
-                {#if x.rounds[r] == null}
-                  <td class="num muted">—</td>
-                {:else}
-                  <td class={['num', { dropped: dropped.has(r) }]}>{x.rounds[r]}</td>
-                {/if}
-              {/each}
+              {#if isFastFour}<td class="num">{x.fastFours ?? 0}</td>{/if}
+              <td class="num">{signed(x.positionsGained)}</td>
+              <td class="num">{x.lapsLed ?? 0}</td>
               <td class="num total">{x.total}</td>
             </tr>
           {/each}

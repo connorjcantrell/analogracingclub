@@ -458,6 +458,75 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
   object-fit: cover; display: block;
 }
 
+/* ---------- Homepage feed ---------- */
+/* Each post sits in its own .lp-section (which supplies the padding + divider);
+   .post just resets the article's default margins. */
+.post { margin: 0; }
+/* A result post's title, photo, and table share one column width. */
+.result-post { max-width: 760px; }
+.result-post .latest-table { max-width: none; }
+/* Feed titles run smaller than a full page heading. */
+.post .lp-h { margin-top: 0.3rem; font-size: clamp(1.25rem, 2.6vw, 1.65rem); }
+/* The Fast Four, inline above a league round's table. */
+.fast-four-inline {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1.1rem;
+  margin: 0 0 1rem; font-size: 0.95rem;
+}
+.fast-four-inline .ff-label {
+  font-family: var(--display); text-transform: uppercase; letter-spacing: 0.15em;
+  font-size: 0.72rem; color: var(--accent);
+}
+.fast-four-inline .ff-name { color: var(--text); }
+.fast-four-inline .ff-name b { color: var(--muted); font-weight: 500; margin-right: 0.35rem; }
+/* Hover/focus hint explaining the inverted-grid rule. */
+.fast-four-inline .ff-info {
+  display: inline-grid; place-items: center; width: 1.15rem; height: 1.15rem;
+  padding: 0; background: none; font-family: inherit;
+  border: 1px solid var(--border); border-radius: 999px; cursor: help;
+  color: var(--muted); font-size: 0.7rem; line-height: 1;
+}
+.fast-four-inline .ff-info:hover, .fast-four-inline .ff-info:focus-visible {
+  color: var(--accent); border-color: var(--accent); outline: none;
+}
+
+/* Positions-gained column: green up, dimmed down. */
+.gained.up { color: #7fd6b0; }
+.gained.down { color: #d98c7d; }
+
+/* ---------- Driver achievements (results tables) ---------- */
+/* A name with round honours gets a dotted underline and a hover tooltip. */
+.driver-name.has-achv {
+  position: relative; cursor: help;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+  text-decoration-color: var(--border);
+}
+.driver-name.has-achv:hover { text-decoration-color: var(--accent); }
+.achv-tip {
+  position: absolute; bottom: calc(100% + 9px); left: 0;
+  z-index: 40; width: max-content; max-width: 300px;
+  display: grid; gap: 0.45rem;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.6rem 0.7rem; text-align: left;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  opacity: 0; visibility: hidden; transform: translateY(4px); pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+.achv-row { display: block; font-size: 0.8rem; line-height: 1.35; }
+.achv-row strong {
+  margin-right: 0.4rem; color: var(--accent);
+  font-family: var(--display); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em;
+}
+.achv-tip::after {
+  content: ''; position: absolute; top: 100%; left: 1.2rem;
+  border: 6px solid transparent; border-top-color: var(--panel);
+}
+.driver-name.has-achv:hover .achv-tip, .driver-name.has-achv:focus-within .achv-tip {
+  opacity: 1; visibility: visible; transform: translateY(0);
+}
+/* Off-screen tripwire that auto-loads the next page as it nears the viewport. */
+.feed-sentinel { height: 1px; }
+.feed-loading { color: var(--muted); text-align: center; padding: 1.5rem 0; }
+
 /* ---------- Driver power ranking ---------- */
 .rank-note {
   color: var(--muted); max-width: 62ch;
@@ -602,6 +671,24 @@ label.field { display: inline-flex; align-items: center; gap: 0.5rem; color: var
 .sched .row input[type="text"] { flex: 1; min-width: 10rem; }
 .sched .rn { color: var(--muted); width: 2.2rem; }
 .panel table { font-size: 0.92rem; }
+
+/* Schedule-post editor: a plain (non-monospace, short) intro field, and the
+   photo picker's thumbnail grid. */
+label.field.intro-field { display: flex; flex-direction: column; align-items: stretch; margin: 0.8rem 0; }
+.panel textarea.intro { min-height: 5rem; font-family: inherit; font-size: 0.95rem; margin-top: 0.35rem; }
+.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; }
+.pick {
+  position: relative; padding: 0; border: 2px solid var(--border); background: none;
+  cursor: pointer; line-height: 0; border-radius: 6px; overflow: hidden;
+}
+.pick img { width: 100%; height: 84px; object-fit: cover; display: block; opacity: 0.7; }
+.pick.on { border-color: var(--accent); }
+.pick.on img { opacity: 1; }
+.pick-badge {
+  position: absolute; top: 4px; right: 4px; min-width: 1.3rem; height: 1.3rem;
+  display: grid; place-items: center; padding: 0 0.3rem; border-radius: 999px;
+  background: var(--accent); color: #1a1718; font-size: 0.8rem; font-weight: 600; line-height: 1;
+}
 .badge { display: inline-block; font-family: var(--display); font-style: italic; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1rem 0.5rem; border: 1px solid var(--border); color: var(--muted); transform: skewX(-11deg); }
 .badge.active { color: var(--green); border-color: var(--green); }
 .badge.upcoming { color: var(--accent); border-color: var(--accent); }

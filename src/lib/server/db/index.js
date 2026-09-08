@@ -35,14 +35,19 @@ export const collections = (db) => ({
   series: db.collection('series'),
   drivers: db.collection('drivers'),
   subsessions: db.collection('subsessions'),
+  // Authored homepage posts (currently schedule announcements). Results posts
+  // are derived from subsessions on the fly, so only authored content lives here.
+  posts: db.collection('posts'),
 });
 
 async function ensureIndexes(db) {
-  const { series, subsessions } = collections(db);
+  const { series, subsessions, posts } = collections(db);
   // _id on subsessions is `<seriesSlug>:<subsession_id>`; _id on drivers is cust_id.
   await subsessions.createIndex({ seriesSlug: 1, round: 1 });
   await series.createIndex({ slug: 1 }, { unique: true });
   await series.createIndex({ status: 1, eventType: 1 });
+  // The feed reads authored posts newest-first, merged with subsessions.
+  await posts.createIndex({ publishedAt: -1 });
 }
 
 export async function closeDb() {

@@ -84,6 +84,26 @@ test('a drop count never leaves a driver with nothing', () => {
   assert.deepEqual(standings[0].dropped, []);
 });
 
+test('folds Fast Four count and net positions gained (heat start → feature finish)', () => {
+  const docs = [
+    doc(1, [
+      { kind: 'qualifying', results: [res(1, 1, 7), res(2, 2, 5), res(3, 3, 3)] },
+      { kind: 'sprint', results: [res(1, 3, 0, { start: 3 }), res(2, 1, 1, { start: 2, lapsLead: 4 }), res(3, 2, 0, { start: 1 })] },
+      { kind: 'feature', results: [res(1, 1, 20, { start: 3, lapsLead: 6 }), res(2, 2, 18, { start: 1 }), res(3, 3, 16, { start: 2 })] },
+    ]),
+  ];
+  const { standings } = foldStandings(docs, { qualifyingPlaces: 2 });
+  const d1 = standings.find((r) => r.custId === 1);
+  const d2 = standings.find((r) => r.custId === 2);
+  const d3 = standings.find((r) => r.custId === 3);
+  // Fast Four = a qualifying result inside the top 2 (the paying places here).
+  assert.deepEqual([d1.fastFours, d2.fastFours, d3.fastFours], [1, 1, 0]);
+  // Positions gained = heat start minus feature finish.
+  assert.deepEqual([d1.positionsGained, d2.positionsGained, d3.positionsGained], [2, 0, -2]);
+  // Laps led spans heat + feature.
+  assert.deepEqual([d1.lapsLed, d2.lapsLed, d3.lapsLed], [6, 4, 0]);
+});
+
 test('ties break on feature wins, then sprint wins, then poles', () => {
   const docs = [doc(1, [
     { kind: 'feature', results: [res(1, 1, 10), res(2, 2, 10)] },
