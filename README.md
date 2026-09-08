@@ -1,21 +1,29 @@
 # Analog Racing Club
 
 Website for the Analog Racing Club iRacing league — `analogracingclub.com`. Successor to the
-[league](https://github.com/connorjcantrell/league) site. Node.js + MongoDB; an admin area
-where iRacing result files are uploaded and scored; standings computed per series.
+[league](https://github.com/connorjcantrell/league) site. SvelteKit (Svelte 5, adapter-node) +
+MongoDB; an admin area where iRacing result files are uploaded and scored; standings computed
+per series.
 
 ## Quick start (local)
 
 ```sh
 docker run -d --name arc-mongo -p 27017:27017 -v arc-mongo-data:/data/db mongo:7
 npm install
-npm start                       # http://localhost:8004 — /admin is open from localhost (no password set)
+npm run dev                     # http://localhost:5173 — /admin is open from localhost (no password set)
 ```
 
-Or the whole stack in containers (set `ADMIN_PASSWORD` in `.env` first — see `.env.example`):
+`npm run dev` is Vite's dev server with server-side rendering and hot reload; it talks to the
+Mongo on `localhost:27017` (`MONGO_URL` to change). To run the production build locally:
 
 ```sh
-cp .env.example .env            # fill in ADMIN_PASSWORD (+ SESSION_SECRET: openssl rand -hex 32)
+npm run build && ORIGIN=http://localhost:8004 PORT=8004 npm start
+```
+
+Or the whole stack in containers (set admin auth in `.env` first — see `.env.example`):
+
+```sh
+cp .env.example .env            # fill in the CF_ACCESS_* pair or ADMIN_PASSWORD (+ SESSION_SECRET)
 docker compose up -d --build    # app on :8004 + mongo
 ```
 
@@ -26,6 +34,24 @@ how the area is protected in production). A sample iRacing file lives in
 ```sh
 npm run ingest data/eventresult-86498933.json -- --series <slug> --round 1
 ```
+
+## Layout
+
+```
+src/routes/            SvelteKit pages (+page.svelte / +page.server.js) and JSON endpoints (+server.js)
+  /  standings  results  drivers  about  admin  admin/login  admin/logout
+  api/...              the public JSON API;  api/admin/...  the admin API (gated)
+  assets/rounds/...    streams admin-uploaded race photos from disk
+src/lib/               shared Svelte components + browser-safe helpers (format.js, api.js)
+src/lib/server/        server-only domain code: db, import (ingest), scoring, standings, power,
+                       event-types, images, admin/{auth,access,ops}, views (read models)
+src/hooks.server.js    legacy .html redirects, DB handle per request, the admin gate
+src/app.css            the site stylesheet (global);  static/assets/  brand images
+test/                  node --test suites for the domain modules
+```
+
+Pages load their data in `+page.server.js` (rendered on the server, then hydrated); the admin
+page mutates through `/api/admin/*` and re-runs its load. The About page is prerendered.
 
 ## Series, events, and points
 
@@ -70,7 +96,7 @@ in the race. Presets live in
 
 ### Power rankings
 
-`/drivers.html` ranks every driver across **all seasons**, not just the current one. Each
+`/drivers` ranks every driver across **all seasons**, not just the current one. Each
 metric is averaged over a driver's events, then **the field is ranked on it and spread evenly
 from 100 (best) to 0 (worst)**. Because every category lands on the same scale whatever its
 units — placings, lap positions, cars passed — the weights mean what they say, and no single
@@ -113,7 +139,7 @@ calendar — a driver returning from a break is judged on their own recent form,
 rounds they missed. Their last three races count in full, the next seven taper linearly, and
 anything past ten races is excluded outright (`MAX_RACES`).
 
-The site itself does not expose the weights: `/drivers.html` shows only the rating, with a
+The site itself does not expose the weights: `/drivers` shows only the rating, with a
 plain-language "How it works" note. The full breakdown stays in `GET /api/power`.
 
 Drivers below `minEvents` (default 3, `MIN_EVENTS`) are flagged **provisional** and sorted
@@ -204,6 +230,11 @@ Runs as a Docker Compose stack on the Orange Pi; Cloudflare Tunnel → Caddy →
 ./scripts/deploy.sh      # rsync -> /srv/apps/analogracingclub, docker compose up -d --build
 ./scripts/add-route.sh   # tunnel ingress + Caddy block + DNS instructions for analogracingclub.com
 ```
+
+The image is built in two stages (`npm run build` → `node build`). Compose passes `ORIGIN`
+(default `https://analogracingclub.com`), which SvelteKit checks on form posts such as the admin
+login; `BODY_SIZE_LIMIT` is raised in the Dockerfile for result and photo uploads. Uploaded photos
+live in the `round-images` volume at `/app/public/assets/rounds` (`IMAGES_DIR` to override).
 
 `deploy.sh` refuses to run unless the deploy dir's `.env` configures admin auth (the
 `CF_ACCESS_*` pair, or `ADMIN_PASSWORD`).

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { verifyAccessToken } from '../src/admin/access.js';
+import { verifyAccessToken } from '../src/lib/server/admin/access.js';
 
 // Mint RS256 tokens with a local key pair and verify them against an injected
 // JWKS, so no Cloudflare round-trip is needed.

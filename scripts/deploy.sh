@@ -30,6 +30,8 @@ rsync -a --delete \
 	--exclude '.git' \
 	--exclude 'node_modules' \
 	--exclude '.env' \
+	--exclude '.svelte-kit' \
+	--exclude 'build' \
 	--exclude 'docker-compose.override.yml' \
 	--exclude 'public/assets/rounds/' \
 	"$SRC"/ "$DEST"/

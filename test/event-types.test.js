@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   EVENT_TYPES, DEFAULT_EVENT_TYPE, isEventType, isContainerType, resolveEventType,
   sessionKinds, publicDescriptor, eventTypeOptions,
-} from '../src/event-types.js';
+} from '../src/lib/server/event-types.js';
 
 test('every event type declares ordered sessions, cards, and a default format', () => {
   for (const [id, t] of Object.entries(EVENT_TYPES)) {

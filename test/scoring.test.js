@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computePoints } from '../src/scoring/calculator.js';
-import { FORMATS, validatePointsConfig } from '../src/scoring/formats.js';
-import { buildSubsessionDocument } from '../src/import/build-document.js';
-import { sessionKind, unwrapEnvelope } from '../src/import/mappers.js';
+import { computePoints } from '../src/lib/server/scoring/calculator.js';
+import { FORMATS, validatePointsConfig } from '../src/lib/server/scoring/formats.js';
+import { buildSubsessionDocument } from '../src/lib/server/import/build-document.js';
+import { sessionKind, unwrapEnvelope } from '../src/lib/server/import/mappers.js';
 
 const cfg = FORMATS['fast-four'].pointsConfig;
 

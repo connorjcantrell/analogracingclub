@@ -1,5 +1,5 @@
 # Analog Racing Club — full stack: Node app + MongoDB.
-#   docker compose up -d --build   bring up app + mongo (the app seeds Season 1 on first boot)
+#   docker compose up -d --build   bring up app + mongo
 #   docker compose down            stop (named volume retained)
 # Caddy on the host reverse-proxies analogracingclub.com -> localhost:${APP_PORT}.
 services:
@@ -8,6 +8,9 @@ services:
     restart: unless-stopped
     environment:
       PORT: 8004
+      # SvelteKit needs the public origin to accept its own form posts (the
+      # admin login) from behind the tunnel + Caddy.
+      ORIGIN: ${ORIGIN:-https://analogracingclub.com}
       MONGO_URL: mongodb://mongo:27017
       MONGO_DB: ${MONGO_DB:-arc}
       # Admin auth. Cloudflare Access (GitHub login at the edge) when both

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { foldStandings } from '../src/standings/index.js';
+import { foldStandings } from '../src/lib/server/standings/index.js';
 
 const res = (custId, finish, total, extra = {}) => ({ custId, displayName: `D${custId}`, finish, points: { total }, lapsLead: 0, ...extra });
 const doc = (round, sims) => ({ _id: `s:${round}`, round, simsessions: sims });

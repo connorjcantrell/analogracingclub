@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computePower, computeHeadToHead, rivalries, attachPositionChanges, overallOrder, rankScores, recencyWeight, scaleRating, MAX_RACES, MIN_EVENTS, RATING_FLOOR, WEIGHTS } from '../src/power/index.js';
+import { computePower, computeHeadToHead, rivalries, attachPositionChanges, overallOrder, rankScores, recencyWeight, scaleRating, MAX_RACES, MIN_EVENTS, RATING_FLOOR, WEIGHTS } from '../src/lib/server/power/index.js';
 
 const driver = (custId, finish, extra = {}) => ({
   custId, displayName: `D${custId}`, finish,
@@ -16,13 +16,13 @@ const event = (startTime, order, extra = () => ({})) => ({
 });
 const find = (rows, id) => rows.find((r) => r.custId === id);
 
-test('recency sheds 10% per race back to a ten-race cutoff', () => {
+test('recency sheds 20% per race back to a five-race cutoff', () => {
   assert.equal(recencyWeight(0), 1, 'the newest race counts in full');
-  assert.ok(Math.abs(recencyWeight(1) - 0.9) < 1e-9, 'one race back loses 10%');
-  assert.ok(Math.abs(recencyWeight(4) - 0.6) < 1e-9);
-  assert.ok(recencyWeight(6) < recencyWeight(4), 'older races weigh less');
-  assert.ok(Math.abs(recencyWeight(MAX_RACES - 1) - 0.1) < 1e-9, 'the tenth race is worth 10%');
-  assert.equal(recencyWeight(MAX_RACES), 0, 'the eleventh is dropped entirely');
+  assert.ok(Math.abs(recencyWeight(1) - 0.8) < 1e-9, 'one race back loses 20%');
+  assert.ok(Math.abs(recencyWeight(2) - 0.6) < 1e-9);
+  assert.ok(recencyWeight(6) < recencyWeight(3), 'older races weigh less');
+  assert.ok(Math.abs(recencyWeight(MAX_RACES - 1) - 0.2) < 1e-9, 'the fifth race is worth 20%');
+  assert.equal(recencyWeight(MAX_RACES), 0, 'the sixth is dropped entirely');
   assert.equal(recencyWeight(999), 0);
 });
 
