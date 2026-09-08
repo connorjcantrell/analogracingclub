@@ -38,9 +38,11 @@ test('cleanResultPost trims, caps and only touches the fields given', () => {
   assert.deepEqual(cleanResultPost(null), {});
 });
 
-test('fmtStartTime renders a local wall-clock start without zone conversion', () => {
-  assert.equal(fmtStartTime('2026-09-17T19:30'), 'Thu, Sep 17, 7:30 PM');
-  assert.equal(fmtStartTime('2026-01-05T09:05'), 'Mon, Jan 5, 9:05 AM');
+test('fmtStartTime shows the league start in a chosen zone with its abbreviation', () => {
+  assert.equal(fmtStartTime('2026-09-17T19:30'), 'Thu, Sep 17, 7:30 PM PDT');
+  assert.equal(fmtStartTime('2026-09-17T19:30', 'America/New_York'), 'Thu, Sep 17, 10:30 PM EDT');
+  assert.equal(fmtStartTime('2026-01-05T09:05', 'America/Los_Angeles'), 'Mon, Jan 5, 9:05 AM PST');
+  assert.equal(fmtStartTime('2026-09-17T19:30', 'Not/AZone'), 'Thu, Sep 17, 7:30 PM PDT');
   assert.equal(fmtStartTime(''), null);
   assert.equal(fmtStartTime('2026-09-17'), null);
 });

@@ -39,16 +39,6 @@ export const duration = (ticks) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 };
 
-// A schedule round's start, stored as a local wall-clock "YYYY-MM-DDTHH:mm"
-// with no zone: rendered from its own parts (via UTC so no conversion sneaks
-// in), e.g. "Thu Sep 17, 7:30 PM". Same output on the server and in every browser.
-export const fmtStartTime = (s) => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(s ?? '');
-  if (!m) return null;
-  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
-  return d.toLocaleString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-};
-
 // The league runs on one clock; schedule start times are wall-clock values in
 // this zone. Change here if the league ever moves.
 export const LEAGUE_TZ = 'America/Los_Angeles';
@@ -68,6 +58,19 @@ export const startEpoch = (s, tz = LEAGUE_TZ) => {
   let t = asUtc - offsetAt(asUtc);
   t = asUtc - offsetAt(t);
   return t;
+};
+
+// A schedule round's start ("YYYY-MM-DDTHH:mm", league wall-clock) shown in a
+// given zone with its abbreviation, e.g. "Thu, Sep 17, 7:30 PM PDT". The
+// server renders the league zone; the browser re-renders in the viewer's.
+export const fmtStartTime = (s, tz = LEAGUE_TZ) => {
+  const t = startEpoch(s);
+  if (t == null) return null;
+  try {
+    return new Date(t).toLocaleString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  } catch {
+    return fmtStartTime(s, LEAGUE_TZ); // an unknown zone name falls back to the league's
+  }
 };
 
 // "in 3 days" / "in 5 hours" / "in 20 minutes" for a start within the next

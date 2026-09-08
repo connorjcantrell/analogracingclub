@@ -4,21 +4,25 @@
   // follows; without one, the track is written out. The RSVP link beneath goes
   // to the round's event page, or the Discord invite.
   import { DISCORD_URL } from './links.js';
-  import { fmtStartTime, countdown } from './format.js';
+  import { fmtStartTime, countdown, LEAGUE_TZ } from './format.js';
 
   let { next } = $props();
+  // The start time is shown in the viewer's own zone, which only the browser
+  // knows: the server renders the league zone and the client swaps it in.
+  let viewerTz = $state(LEAGUE_TZ);
   // The countdown depends on the clock, so it is computed in the browser only
   // (never in server HTML, which would go stale and mismatch on hydration)
   // and refreshed every half minute.
   let now = $state(null);
   $effect(() => {
+    viewerTz = Intl.DateTimeFormat().resolvedOptions().timeZone || LEAGUE_TZ;
     now = Date.now();
     const id = setInterval(() => (now = Date.now()), 30_000);
     return () => clearInterval(id);
   });
   const soon = $derived(now == null ? null : countdown(next.startTime, now));
   const href = $derived(next.link || DISCORD_URL);
-  const when = $derived(fmtStartTime(next.startTime) ?? next.date ?? null);
+  const when = $derived(fmtStartTime(next.startTime, viewerTz) ?? next.date ?? null);
   const title = $derived([next.series.name, `Round ${next.round}`, when].filter(Boolean).join(' · '));
 </script>
 
