@@ -42,6 +42,16 @@ function sourceFor(name) {
   return m ? { folder: m[1], file: m[2] } : undefined;
 }
 
+async function findUpload(folder, file) {
+  const dir = resolve(join(IMAGES_DIR, folder));
+  if (!dir.startsWith(IMAGES_DIR + '/')) return null;
+  for (const ext of ['jpg', 'jpeg', 'png', 'webp', 'gif']) {
+    const p = join(dir, `${file}.${ext}`);
+    try { if ((await stat(p)).isFile()) return p; } catch { /* next */ }
+  }
+  return null;
+}
+
 // The rendered preview's path on disk, generating it on first use. Returns
 // null when the name is malformed or its source photo no longer exists.
 export async function ogImagePath(name) {
