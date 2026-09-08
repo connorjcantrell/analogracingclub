@@ -15,6 +15,7 @@
 <svelte:head>
   <!-- Link previews (Discord, iMessage, Slack…) read these; pages set their own <title>. -->
   <meta name="description" content={data.og.description}>
+  <meta property="og:title" content={data.og.siteName}>
   <meta property="og:site_name" content={data.og.siteName}>
   <meta property="og:type" content="website">
   <meta property="og:url" content={data.og.url}>
