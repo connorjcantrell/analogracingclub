@@ -142,9 +142,14 @@
     fillEditor();
   });
 
+  // The schedule rows as the server stores them. Both Save buttons send them,
+  // so a link or time typed into a row is never lost to whichever was clicked.
+  const scheduleRows = () => sched.map((r) => ({
+    round: r.round, track: r.track.trim() || null, date: r.date.trim() || null, startTime: r.startTime || null, link: r.link.trim() || null, image: r.image || null, multiplier: r.double ? 2 : 1,
+  })).sort((a, b) => a.round - b.round);
   async function saveSeries() {
-    const res = await post('/api/admin/series-update', { slug: editSlug, name: editName, status: editStatus, dropCount: Number(editDrop) || 0 });
-    seriesMsg.set(res.ok ? 'Saved.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+    const res = await post('/api/admin/series-update', { slug: editSlug, name: editName, status: editStatus, dropCount: Number(editDrop) || 0, schedule: scheduleRows() });
+    seriesMsg.set(res.ok ? 'Saved (including the schedule).' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
     await refresh();
   }
   async function deleteSeries() {
@@ -193,10 +198,7 @@
     schedMsg.set(`Image removed from R${r.round}.`, 'ok');
   }
   async function saveSchedule() {
-    const schedule = sched.map((r) => ({
-      round: r.round, track: r.track.trim() || null, date: r.date.trim() || null, startTime: r.startTime || null, link: r.link.trim() || null, image: r.image || null, multiplier: r.double ? 2 : 1,
-    })).sort((a, b) => a.round - b.round);
-    const res = await post('/api/admin/series-update', { slug: editSlug, schedule });
+    const res = await post('/api/admin/series-update', { slug: editSlug, schedule: scheduleRows() });
     schedMsg.set(res.ok ? 'Schedule saved.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
     await refresh();
   }
