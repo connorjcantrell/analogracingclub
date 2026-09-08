@@ -18,7 +18,11 @@ export async function POST({ locals, request }) {
     if (!isContainerType(body.eventType)) return json({ error: 'eventType must be a series-capable event type' }, { status: 400 });
     set.eventType = body.eventType;
   }
-  if (body.schedule != null) { if (!Array.isArray(body.schedule)) return json({ error: 'schedule must be an array' }, { status: 400 }); set.schedule = cleanSchedule(body.schedule); }
+  if (body.schedule != null) {
+    if (!Array.isArray(body.schedule)) return json({ error: 'schedule must be an array' }, { status: 400 });
+    try { set.schedule = cleanSchedule(body.schedule); }
+    catch (e) { return json({ error: e.message }, { status: 400 }); }
+  }
   if (body.dropCount != null) { if (!Number.isInteger(body.dropCount) || body.dropCount < 0) return json({ error: 'dropCount must be an integer >= 0' }, { status: 400 }); set.dropCount = body.dropCount; }
   if (!Object.keys(set).length) return json({ error: 'nothing to update' }, { status: 400 });
   const upd = await series.updateOne({ slug }, { $set: set });
