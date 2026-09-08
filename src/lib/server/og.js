@@ -24,9 +24,9 @@ async function logoFile() {
 }
 // Bump when the rendering changes: names carry it, so stale cached files (and
 // crawlers' cached cards) are left behind.
-const VERSION = 'v6';
-// The wordmark's opacity over the photo (75% transparent).
-const LOGO_OPACITY = 0.25;
+const VERSION = 'v7';
+// The wordmark's opacity over the photo (25% transparent).
+const LOGO_OPACITY = 0.75;
 
 // /assets/rounds/<folder>/<file>.<ext>  →  <folder>--<file>.jpg ; the logo → default.jpg
 export function ogNameFor(sourceUrl) {
