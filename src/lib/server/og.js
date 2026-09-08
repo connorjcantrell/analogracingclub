@@ -11,7 +11,17 @@ export const OG_WIDTH = 1200;
 export const OG_HEIGHT = 630;
 const OG_DIR = join(IMAGES_DIR, 'og');
 const SAFE = /^[a-zA-Z0-9_-]+$/;
-const LOGO = resolve('static/assets/logo.png');
+// The wordmark: adapter-node ships static files under build/client (the
+// runtime image has no static/ folder); in dev it is read from static/.
+const LOGO_CANDIDATES = ['build/client/assets/logo.png', 'static/assets/logo.png'].map((p) => resolve(p));
+let logoPath = null;
+async function logoFile() {
+  if (logoPath) return logoPath;
+  for (const p of LOGO_CANDIDATES) {
+    try { if ((await stat(p)).isFile()) return (logoPath = p); } catch { /* next */ }
+  }
+  throw new Error(`logo not found (looked in ${LOGO_CANDIDATES.join(', ')})`);
+}
 // Bump when the rendering changes: names carry it, so stale cached files (and
 // crawlers' cached cards) are left behind.
 const VERSION = 'v2';
@@ -34,7 +44,7 @@ function sourceFor(name) {
 // The wordmark, laid over a photo's lower-left corner on a soft dark band so
 // it reads on bright shots too.
 async function brandOverlay() {
-  const logo = await sharp(LOGO).resize({ width: 300 }).toBuffer();
+  const logo = await sharp(await logoFile()).resize({ width: 300 }).toBuffer();
   const { width, height } = await sharp(logo).metadata();
   const band = Buffer.from(
     `<svg width="${OG_WIDTH}" height="${OG_HEIGHT}"><defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0">` +
@@ -67,7 +77,7 @@ export async function ogImagePath(name) {
   if (src === null) {
     // The logo on the site's dark ground, letterboxed rather than cropped.
     await sharp({ create: { width: OG_WIDTH, height: OG_HEIGHT, channels: 3, background: '#121212' } })
-      .composite([{ input: await sharp(LOGO).resize({ width: 720, height: 360, fit: 'inside' }).toBuffer(), gravity: 'centre' }])
+      .composite([{ input: await sharp(await logoFile()).resize({ width: 720, height: 360, fit: 'inside' }).toBuffer(), gravity: 'centre' }])
       .jpeg({ quality: 88 }).toFile(out);
     return out;
   }
