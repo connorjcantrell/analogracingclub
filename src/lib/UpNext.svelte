@@ -1,6 +1,6 @@
 <script>
-  // Banner above the feed for the next scheduled round. With an image it is a
-  // 2:1 picture with the details overlaid; without, a bordered strip.
+  // Banner above the feed for the next scheduled round: the 2:1 picture (when
+  // the round has one) above a strip with the details.
   import { DISCORD_URL } from './links.js';
 
   let { next } = $props();
