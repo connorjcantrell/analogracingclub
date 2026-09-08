@@ -358,13 +358,36 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
   letter-spacing: 0.01em; color: var(--text); margin: 0 0 1.75rem;
 }
 
-/* About: how-to-join block. */
-.join-id { margin: 0 0 1.5rem; padding: 1rem 1.2rem; border: var(--rule); display: grid; gap: 0.5rem; }
-.join-id div { display: grid; grid-template-columns: 8rem 1fr; gap: 1rem; align-items: baseline; }
-.join-id dt { margin: 0; color: var(--muted); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.8rem; }
-.join-id dd { margin: 0; font-family: var(--display); font-size: 1.15rem; font-weight: 500; }
-.join-steps { padding-left: 1.4rem; margin: 0 0 1.25rem; }
-.join-steps li { margin: 0.45rem 0; }
+/* ---------- About ---------- */
+.about-block p { margin: 0 0 1rem; line-height: 1.65; }
+.about-block .latest-more { margin-top: 0.4rem; }
+/* The cars, as a row of tags. */
+.chips { list-style: none; margin: 0 0 1.1rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip {
+  font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.8rem;
+  padding: 0.3rem 0.7rem; border: 1px solid var(--border); color: var(--text);
+}
+/* How to join: the league's identity beside the steps. */
+.join-grid { display: grid; grid-template-columns: minmax(0, 17rem) 1fr; gap: 1.5rem 2rem; align-items: start; margin: 0 0 1.25rem; }
+.join-id { margin: 0; padding: 1rem 1.2rem; border: var(--rule); display: grid; gap: 0.6rem; }
+.join-id div { display: grid; gap: 0.1rem; }
+.join-id dt { margin: 0; color: var(--muted); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.72rem; }
+.join-id dd { margin: 0; font-family: var(--display); font-size: 1.25rem; font-weight: 500; letter-spacing: 0.02em; }
+.join-steps { padding-left: 1.3rem; margin: 0; }
+.join-steps li { margin: 0 0 0.6rem; padding-left: 0.2rem; line-height: 1.55; }
+.join-steps li::marker { color: var(--accent); font-family: var(--display); }
+/* Discord button: the wordmark's logo on a bordered pill that warms on hover. */
+.discord-btn {
+  display: inline-flex; align-items: center; gap: 0.7rem;
+  padding: 0.7rem 1.3rem 0.7rem 1.1rem; border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text); text-decoration: none; font-family: var(--display); text-transform: uppercase;
+  letter-spacing: 0.14em; font-size: 0.9rem; transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.discord-btn img { height: 20px; width: auto; display: block; }
+.discord-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+@media (max-width: 640px) {
+  .join-grid { grid-template-columns: 1fr; }
+}
 
 /* Track cell: car(s) listed beneath the circuit name. */
 .track-name { display: block; }
