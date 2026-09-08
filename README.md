@@ -51,7 +51,7 @@ test/                  node --test suites for the domain modules
 ```
 
 Pages load their data in `+page.server.js` (rendered on the server, then hydrated); the admin
-page mutates through `/api/admin/*` and re-runs its load. The About page is prerendered.
+page mutates through `/api/admin/*` and re-runs its load.
 
 ## Series, events, and points
 
@@ -200,6 +200,12 @@ Above the feed, a banner shows the **next round** of the active (else next upcom
 track, date, and the optional **2:1 image** from the series schedule — linking to the round's
 optional **event link** (both set per row in the Edit series panel) or, failing that, the
 Discord invite.
+
+### Link previews
+
+Every page carries Open Graph / Twitter tags. The image is the newest result's featured photo
+(else the logo), rendered on demand to 1200×630 by `sharp` at `/og/<name>.jpg` and cached under
+the photo store; the name encodes the source file, so it changes when the featured photo does.
 
 ## Admin auth
 
