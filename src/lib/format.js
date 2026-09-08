@@ -49,6 +49,41 @@ export const fmtStartTime = (s) => {
   return d.toLocaleString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 };
 
+// The league runs on one clock; schedule start times are wall-clock values in
+// this zone. Change here if the league ever moves.
+export const LEAGUE_TZ = 'America/Los_Angeles';
+
+// The instant (ms since epoch) a wall-clock "YYYY-MM-DDTHH:mm" in `tz` refers
+// to: take the parts as UTC, read that instant's offset in `tz`, and correct —
+// twice, so a DST boundary in between still lands right.
+export const startEpoch = (s, tz = LEAGUE_TZ) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(s ?? '');
+  if (!m) return null;
+  const asUtc = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const offsetAt = (t) => {
+    const p = Object.fromEntries(fmt.formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+    return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - t;
+  };
+  let t = asUtc - offsetAt(asUtc);
+  t = asUtc - offsetAt(t);
+  return t;
+};
+
+// "in 3 days" / "in 5 hours" / "in 20 minutes" for a start within the next
+// week, else null (too far off, or already started).
+export const countdown = (s, nowMs = Date.now(), tz = LEAGUE_TZ) => {
+  const t = startEpoch(s, tz);
+  if (t == null) return null;
+  const diff = t - nowMs;
+  if (diff <= 0) return null;
+  const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
+  if (diff < HOUR) { const n = Math.max(1, Math.round(diff / MIN)); return `in ${n} minute${n === 1 ? '' : 's'}`; }
+  if (diff < DAY) { const n = Math.max(1, Math.round(diff / HOUR)); return `in ${n} hour${n === 1 ? '' : 's'}`; }
+  if (diff < 7 * DAY) { const n = Math.max(1, Math.round(diff / DAY)); return `in ${n} day${n === 1 ? '' : 's'}`; }
+  return null;
+};
+
 // 1 → 1st, 2 → 2nd, 3 → 3rd …
 export const ordinal = (n) => { const t = n % 100; return `${n}${(t >= 11 && t <= 13) ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] || 'th')}`; };
 
