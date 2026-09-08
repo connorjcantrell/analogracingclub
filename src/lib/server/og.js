@@ -11,8 +11,9 @@ export const OG_WIDTH = 1200;
 export const OG_HEIGHT = 630;
 const OG_DIR = join(IMAGES_DIR, 'og');
 const SAFE = /^[a-zA-Z0-9_-]+$/;
-// The wordmark: adapter-node ships static files under build/client (the
-// runtime image has no static/ folder); in dev it is read from static/.
+// The logo for the no-photo fallback card: adapter-node ships static files
+// under build/client (the runtime image has no static/ folder); in dev it is
+// read from static/.
 const LOGO_CANDIDATES = ['build/client/assets/logo_cream.png', 'static/assets/logo_cream.png'].map((p) => resolve(p));
 let logoPath = null;
 async function logoFile() {
@@ -24,9 +25,7 @@ async function logoFile() {
 }
 // Bump when the rendering changes: names carry it, so stale cached files (and
 // crawlers' cached cards) are left behind.
-const VERSION = 'v8';
-// The wordmark's opacity over the photo (25% transparent).
-const LOGO_OPACITY = 0.75;
+const VERSION = 'v9';
 
 // /assets/rounds/<folder>/<file>.<ext>  →  <folder>--<file>.jpg ; the logo → default.jpg
 export function ogNameFor(sourceUrl) {
@@ -41,33 +40,6 @@ function sourceFor(name) {
   if (name === `default-${VERSION}.jpg`) return null;
   const m = new RegExp(`^([a-zA-Z0-9_-]+)--([a-zA-Z0-9_-]+)-${VERSION}\\.jpg$`).exec(name);
   return m ? { folder: m[1], file: m[2] } : undefined;
-}
-
-// The cream wordmark, small and faded, over a photo's lower-left corner on a
-// soft dark band so it reads on bright shots too.
-async function brandOverlay() {
-  // Resize, then scale only the alpha channel so the mark sits lightly on the shot.
-  const logo = await sharp(await logoFile()).resize({ width: 188 }).ensureAlpha()
-    .linear([1, 1, 1, LOGO_OPACITY], [0, 0, 0, 0]).png().toBuffer();
-  const band = Buffer.from(
-    `<svg width="${OG_WIDTH}" height="${OG_HEIGHT}"><defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0">` +
-    `<stop offset="0" stop-color="#121212" stop-opacity="0.7"/><stop offset="1" stop-color="#121212" stop-opacity="0"/></linearGradient></defs>` +
-    `<rect x="0" y="${OG_HEIGHT - 180}" width="${OG_WIDTH}" height="180" fill="url(#g)"/></svg>`);
-  const { height } = await sharp(logo).metadata();
-  return [
-    { input: band, top: 0, left: 0 },
-    { input: logo, top: OG_HEIGHT - height - 36, left: 40 },
-  ];
-}
-
-async function findUpload(folder, file) {
-  const dir = resolve(join(IMAGES_DIR, folder));
-  if (!dir.startsWith(IMAGES_DIR + '/')) return null;
-  for (const ext of ['jpg', 'jpeg', 'png', 'webp', 'gif']) {
-    const p = join(dir, `${file}.${ext}`);
-    try { if ((await stat(p)).isFile()) return p; } catch { /* next */ }
-  }
-  return null;
 }
 
 // The rendered preview's path on disk, generating it on first use. Returns
@@ -87,9 +59,7 @@ export async function ogImagePath(name) {
   }
   const file = await findUpload(src.folder, src.file);
   if (!file) return null;
-  // A race photo: cover the box, cropping toward the region of interest, with
-  // the wordmark over the lower-left corner.
-  await sharp(file).rotate().resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'attention' })
-    .composite(await brandOverlay()).jpeg({ quality: 84 }).toFile(out);
+  // A race photo: cover the box, cropping toward the region of interest.
+  await sharp(file).rotate().resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'attention' }).jpeg({ quality: 84 }).toFile(out);
   return out;
 }
