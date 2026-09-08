@@ -66,6 +66,9 @@ export const cleanSchedule = (schedule) => schedule.map((r, i) => ({
   // optional 2:1 image for that card, uploaded through the round-image route
   // (only a stored upload path is accepted).
   link: webUrl(r?.link, Number.isInteger(r?.round) ? r.round : i + 1),
+  // When the round starts, as the league's local wall-clock time from the
+  // admin's date-time picker ("2026-09-17T19:30"); no zone is attached.
+  startTime: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(r?.startTime ?? '')) ? String(r.startTime) : null,
   image: String(r?.image ?? '').startsWith('/assets/rounds/') ? String(r.image) : null,
   // A points multiplier for the round (a "double points" finale is 2). Only
   // values > 1 are stored; anything else means the round scores normally.

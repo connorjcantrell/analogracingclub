@@ -15,7 +15,7 @@ export async function buildUpNext(db) {
     if (row) {
       return {
         series: { slug: s.slug, name: s.name }, round: row.round,
-        track: row.track ?? null, date: row.date ?? null, link: row.link ?? null, image: row.image ?? null,
+        track: row.track ?? null, date: row.date ?? null, startTime: row.startTime ?? null, link: row.link ?? null, image: row.image ?? null,
         multiplier: row.multiplier ?? 1,
       };
     }

@@ -39,6 +39,16 @@ export const duration = (ticks) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 };
 
+// A schedule round's start, stored as a local wall-clock "YYYY-MM-DDTHH:mm"
+// with no zone: rendered from its own parts (via UTC so no conversion sneaks
+// in), e.g. "Thu Sep 17, 7:30 PM". Same output on the server and in every browser.
+export const fmtStartTime = (s) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(s ?? '');
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+  return d.toLocaleString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
+
 // 1 → 1st, 2 → 2nd, 3 → 3rd …
 export const ordinal = (n) => { const t = n % 100; return `${n}${(t >= 11 && t <= 13) ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] || 'th')}`; };
 

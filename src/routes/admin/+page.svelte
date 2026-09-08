@@ -132,7 +132,7 @@
     editName = s?.name ?? '';
     editStatus = s?.status ?? 'upcoming';
     editDrop = s?.dropCount ?? 0;
-    sched = (s?.schedule ?? []).map((r) => ({ round: r.round, track: r.track ?? '', date: r.date ?? '', link: r.link ?? '', image: r.image ?? null, double: Number(r.multiplier) > 1 }));
+    sched = (s?.schedule ?? []).map((r) => ({ round: r.round, track: r.track ?? '', date: r.date ?? '', startTime: r.startTime ?? '', link: r.link ?? '', image: r.image ?? null, double: Number(r.multiplier) > 1 }));
     editFormat = s && meta.formats.some((f) => f.id === s.format) ? s.format : meta.default;
     pointsJson = s ? JSON.stringify(s.pointsConfig, null, 2) : '';
   }
@@ -170,7 +170,7 @@
   // rest untouched rather than renumbering and breaking uploaded results.
   function addRound() {
     const rounds = sched.map((r) => r.round);
-    sched.push({ round: (rounds.length ? Math.max(...rounds) : 0) + 1, track: '', date: '', link: '', image: null, double: false });
+    sched.push({ round: (rounds.length ? Math.max(...rounds) : 0) + 1, track: '', date: '', startTime: '', link: '', image: null, double: false });
   }
   // A round's 2:1 card image is stored as soon as it is chosen (the schedule
   // row is updated server-side), so it doesn't depend on Save schedule.
@@ -194,7 +194,7 @@
   }
   async function saveSchedule() {
     const schedule = sched.map((r) => ({
-      round: r.round, track: r.track.trim() || null, date: r.date.trim() || null, link: r.link.trim() || null, image: r.image || null, multiplier: r.double ? 2 : 1,
+      round: r.round, track: r.track.trim() || null, date: r.date.trim() || null, startTime: r.startTime || null, link: r.link.trim() || null, image: r.image || null, multiplier: r.double ? 2 : 1,
     })).sort((a, b) => a.round - b.round);
     const res = await post('/api/admin/series-update', { slug: editSlug, schedule });
     schedMsg.set(res.ok ? 'Schedule saved.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
@@ -484,6 +484,7 @@
         <span class="rn">R{r.round}</span>
         <input type="text" placeholder="Track" bind:value={r.track}>
         <input type="text" placeholder="Date (e.g. Thu Oct 2)" bind:value={r.date}>
+        <input type="datetime-local" title="Start time (league local), shown on the homepage's Up next" bind:value={r.startTime}>
         <input type="url" placeholder="Event link (optional)" title="The round's event page, e.g. a Discord event; the homepage's Next round links here" bind:value={r.link}>
         <label class="field" title="Double points for this round">2× <input type="checkbox" bind:checked={r.double}></label>
         <button class="btn danger sm" type="button" title="Remove this round from the schedule" onclick={() => sched.splice(i, 1)}>×</button>
