@@ -194,14 +194,12 @@ It asks you to type the series slug before doing anything. The API mirrors that:
 result count; with it, the cascade runs and the response reports how many results and photos
 went. Deleting a single result (`DELETE /api/admin/subsessions/:id`) also removes its photos.
 
-### Homepage sidebar
+### Up next banner
 
-On desktop the feed has a sticky right column: the **next round** of the active (else next
-upcoming) series — its track, date, and a link to the round's event page from the series
-schedule (each schedule row has an optional **event link** and an optional **2:1 image**, set in
-the Edit series panel), falling back to the Discord invite — and then the **top 5** of the
-active series' standings or, off-season, of the power ranking (provisional drivers excluded).
-It is keyed off series status, not the newest post, so a mid-season special doesn't flip it.
+Above the feed, a banner shows the **next round** of the active (else next upcoming) series —
+track, date, and the optional **2:1 image** from the series schedule — linking to the round's
+optional **event link** (both set per row in the Edit series panel) or, failing that, the
+Discord invite.
 
 ## Admin auth
 
