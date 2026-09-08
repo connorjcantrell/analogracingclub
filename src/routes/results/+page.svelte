@@ -118,9 +118,9 @@
         {/each}
       </div>
       {#if active === 'overall'}
-        <OverallTable {sub} {mult} />
+        <OverallTable {sub} {mult} qualifyingPlaces={d.series?.qualifyingPlaces ?? 0} />
       {:else}
-        <SessionTable {sub} kind={active} {mult} />
+        <SessionTable {sub} kind={active} {mult} qualifyingPlaces={d.series?.qualifyingPlaces ?? 0} />
       {/if}
       {#if sub.images?.length}
         <div class="gallery-section">

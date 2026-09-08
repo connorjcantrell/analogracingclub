@@ -27,6 +27,18 @@ export const gap = (ticks) => {
   return `+${lapTime(ticks)}`;
 };
 
+// An elapsed race time as m:ss (or h:mm:ss past an hour), rounded to the second.
+// Used for a winner's total time, which iRacing gives only as a derived figure
+// (no absolute finish time is stored), so sub-second precision would be false.
+export const duration = (ticks) => {
+  if (ticks == null || ticks <= 0) return null;
+  const total = Math.round(ticks / TICKS);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+};
+
 // 1 → 1st, 2 → 2nd, 3 → 3rd …
 export const ordinal = (n) => { const t = n % 100; return `${n}${(t >= 11 && t <= 13) ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] || 'th')}`; };
 
@@ -80,6 +92,18 @@ export const overallWinner = (sub) => (sub ? driverName(roundTable(sub)[0]?.name
 
 // A driver's finishing position in one session, for the Overall grid.
 export const posCell = (x) => (x?.finish ? `P${x.finish}` : '—');
+
+// Net positions gained across a round (from a roundTable row): the heat grid
+// slot (or the feature grid, with no heat) to the feature finish. Positive is
+// places gained; null when the driver didn't run the deciding race.
+export const roundPositionsGained = (d) => {
+  const finish = d?.feature?.finish ?? null;
+  const start = d?.sprint?.start ?? d?.feature?.start ?? null;
+  return start == null || finish == null ? null : start - finish;
+};
+
+// A signed count for display: +3, −2, 0, or — when absent.
+export const signed = (n) => (n == null ? '—' : n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 
 // Session-specific columns for a session table. Qualifying compares lap times
 // against pole (derived from stored times, so it works without the `interval`

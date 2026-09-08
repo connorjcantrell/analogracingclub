@@ -1,6 +1,7 @@
 <script>
   import { invalidateAll } from '$app/navigation';
   import PhotoPanel from '$lib/PhotoPanel.svelte';
+  import PhotoPicker from '$lib/PhotoPicker.svelte';
   import PageTitle from '$lib/PageTitle.svelte';
   import { post } from '$lib/api.js';
   import { fmtDate, realConfig } from '$lib/format.js';
@@ -9,6 +10,8 @@
   const meta = $derived(data.meta);
   const series = $derived(data.series);
   const subs = $derived(data.subsessions);
+  const posts = $derived(data.posts);
+  const photos = $derived(data.photos);
   const refresh = () => invalidateAll();
 
   // Status line under each panel.
@@ -17,7 +20,7 @@
     kind = $state('');
     set(text, kind = '') { this.text = text; this.kind = kind; }
   }
-  const uploadMsg = new Msg(), newMsg = new Msg(), seriesMsg = new Msg(), schedMsg = new Msg(), pointsMsg = new Msg();
+  const uploadMsg = new Msg(), newMsg = new Msg(), seriesMsg = new Msg(), schedMsg = new Msg(), pointsMsg = new Msg(), postMsg = new Msg();
 
   const eventTypeName = (id) => meta.eventTypes.find((t) => t.id === id)?.name ?? id;
   const formatName = (id) => meta.formats.find((f) => f.id === id)?.name ?? id;
@@ -203,6 +206,50 @@
   const seriesName = (slug) => series.find((x) => x.slug === slug)?.name ?? slug;
   const trackOf = (s) => [s.track?.name, realConfig(s.track?.config)].filter(Boolean).join(' — ') || '—';
   const sessionsOf = (s) => (s.simsessions ?? []).map((x) => x.kind).filter((k) => k !== 'practice').join(', ');
+
+  // ---- Schedule posts -------------------------------------------------------
+  // A schedule post announces an upcoming season on the homepage feed: its own
+  // rows (track, config, date) plus a carousel of photos picked from results.
+  let postSeries = $state('');
+  let postTitle = $state('');
+  let postIntro = $state('');
+  let postRounds = $state([]);
+  let postPhotos = $state([]);
+  const upcomingSeries = $derived(series.filter((s) => s.status !== 'complete'));
+  $effect(() => {
+    if (!series.some((s) => s.slug === postSeries)) postSeries = upcomingSeries[0]?.slug ?? series[0]?.slug ?? '';
+  });
+
+  // Prefill the title and rows from the chosen series' scoring schedule (config
+  // is left blank — the series schedule doesn't carry one).
+  function seedPostFromSeries() {
+    const s = series.find((x) => x.slug === postSeries);
+    if (!s) return;
+    postTitle = s.name;
+    postRounds = (s.schedule ?? []).map((r) => ({ round: r.round, track: r.track ?? '', config: '', date: r.date ?? '' }));
+  }
+  function addPostRound() {
+    const rounds = postRounds.map((r) => r.round);
+    postRounds.push({ round: (rounds.length ? Math.max(...rounds) : 0) + 1, track: '', config: '', date: '' });
+  }
+  async function createSchedulePost() {
+    if (!postSeries) return postMsg.set('Pick a season first.', 'err');
+    const rounds = postRounds.map((r) => ({
+      round: r.round, track: r.track.trim() || null, config: r.config.trim() || null, date: r.date.trim() || null,
+    }));
+    const res = await post('/api/admin/posts', {
+      seriesSlug: postSeries, title: postTitle.trim(), intro: postIntro.trim(), rounds, photos: postPhotos,
+    });
+    postMsg.set(res.ok ? 'Published to the feed.' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+    if (res.ok) { postIntro = ''; postPhotos = []; }
+    await refresh();
+  }
+  async function deleteSchedulePost(p) {
+    if (!confirm(`Delete the schedule post "${p.title}"?`)) return;
+    const res = await post(`/api/admin/posts/${encodeURIComponent(p._id)}`, null, 'DELETE');
+    if (!res.ok) alert(`Error: ${res.error}`);
+    await refresh();
+  }
 </script>
 
 <svelte:head>
@@ -385,4 +432,64 @@
     <button class="btn" type="button" onclick={saveCustom}>Save custom JSON &amp; rescore</button>
   </div>
   <p class={['msg', pointsMsg.kind]}>{pointsMsg.text}</p>
+</section>
+
+<section class="panel">
+  <h3>Schedule posts</h3>
+  <p class="desc">Announce an upcoming season on the homepage feed: pick the season, set the rounds (track, configuration, date), an optional intro, and a carousel of photos chosen from past results.</p>
+  {#if !posts.length}
+    <p class="empty">No schedule posts yet.</p>
+  {:else}
+    <table>
+      <thead><tr><th>Title</th><th>Season</th><th>Rounds</th><th>Photos</th><th>Published</th><th></th></tr></thead>
+      <tbody>
+        {#each posts as p (p._id)}
+          <tr>
+            <td>{p.title}</td>
+            <td class="muted">{seriesName(p.seriesSlug)}</td>
+            <td class="num">{p.rounds?.length ?? 0}</td>
+            <td class="num">{p.photos?.length ?? 0}</td>
+            <td>{fmtDate(p.publishedAt)}</td>
+            <td><button class="btn sm danger" type="button" onclick={() => deleteSchedulePost(p)}>Delete</button></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+
+  <h4>New schedule post</h4>
+  <div class="row">
+    <label class="field">Season
+      <select bind:value={postSeries}>
+        {#each series as s (s.slug)}<option value={s.slug}>{s.name} ({s.status})</option>{/each}
+      </select>
+    </label>
+    <label class="field">Title <input type="text" size="18" placeholder="(defaults to season name)" bind:value={postTitle}></label>
+    <button class="btn" type="button" onclick={seedPostFromSeries}>Load season schedule</button>
+  </div>
+  <label class="field intro-field">Intro
+    <textarea class="intro" bind:value={postIntro} placeholder="Optional blurb shown above the schedule."></textarea>
+  </label>
+
+  <h4>Rounds</h4>
+  <div class="sched">
+    {#each postRounds as r, i (r.round)}
+      <div class="row">
+        <span class="rn">R{r.round}</span>
+        <input type="text" placeholder="Track" bind:value={r.track}>
+        <input type="text" placeholder="Config (e.g. Classic)" bind:value={r.config}>
+        <input type="text" placeholder="Date (e.g. 9/17)" bind:value={r.date}>
+        <button class="btn danger sm" type="button" title="Remove this round" onclick={() => postRounds.splice(i, 1)}>×</button>
+      </div>
+    {/each}
+  </div>
+  <div class="row"><button class="btn" type="button" onclick={addPostRound}>+ Round</button></div>
+
+  <h4>Photos</h4>
+  <PhotoPicker {photos} bind:selected={postPhotos} />
+
+  <div class="row" style="margin-top:0.8rem">
+    <button class="btn primary" type="button" onclick={createSchedulePost}>Publish schedule post</button>
+  </div>
+  <p class={['msg', postMsg.kind]}>{postMsg.text}</p>
 </section>

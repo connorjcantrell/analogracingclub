@@ -29,7 +29,10 @@ export async function computeStandings(db, { seriesSlug }) {
   const docs = await subsessions.find({ seriesSlug }, { projection: { raw: 0 } }).toArray();
   // Per-round points multipliers (a double-points finale scores 2×).
   const multipliers = Object.fromEntries((s?.schedule ?? []).map((r) => [r.round, r.multiplier ?? 1]));
-  const opts = { eventType: s?.eventType, multipliers, dropCount: s?.dropCount ?? 0 };
+  const opts = {
+    eventType: s?.eventType, multipliers, dropCount: s?.dropCount ?? 0,
+    qualifyingPlaces: Object.keys(s?.pointsConfig?.qualifying?.base ?? {}).length,
+  };
   const out = foldStandings(docs, opts);
   // Show every scheduled round (even ones not yet run), plus any extra rounds seen.
   const scheduled = (s?.schedule ?? []).map((r) => r.round);
@@ -59,7 +62,7 @@ export function attachStandingsChanges(standings, prior) {
   return standings;
 }
 
-export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0 } = {}) {
+export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0, qualifyingPlaces = 0 } = {}) {
   const rule = standingsRuleFor({ eventType, dropCount });
   const byDriver = new Map();
   const rounds = new Set();
@@ -67,6 +70,9 @@ export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0
     const round = d.round ?? d._id;
     rounds.add(round);
     const mult = multipliers[round] ?? 1;
+    // Per-round grid/finish, to derive positions gained (heat start → feature
+    // finish) once both sessions of the round are seen.
+    const roundInfo = new Map();
     for (const s of d.simsessions ?? []) {
       for (const r of s.results ?? []) {
         let row = byDriver.get(r.custId);
@@ -75,6 +81,7 @@ export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0
             custId: r.custId, displayName: r.displayName, rounds: {},
             total: 0, qualifying: 0, sprint: 0, feature: 0,
             poles: 0, sprintWins: 0, featureWins: 0, lapsLed: 0, starts: 0,
+            fastFours: 0, positionsGained: 0,
           };
           byDriver.set(r.custId, row);
         }
@@ -83,10 +90,23 @@ export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0
         // The round total (and thus the championship total) carries the round's
         // multiplier; the tiebreak buckets below stay in raw points.
         row.rounds[round] = (row.rounds[round] ?? 0) + pts * mult;
-        if (s.kind === 'qualifying') { row.qualifying += pts; if (r.finish === 1) row.poles += 1; }
-        if (s.kind === 'sprint') { row.sprint += pts; if (r.finish === 1) row.sprintWins += 1; row.lapsLed += r.lapsLead ?? 0; }
-        if (s.kind === 'feature') { row.feature += pts; if (r.finish === 1) row.featureWins += 1; row.lapsLed += r.lapsLead ?? 0; row.starts += 1; }
+        const info = roundInfo.get(r.custId) ?? {};
+        if (s.kind === 'qualifying') {
+          row.qualifying += pts;
+          if (r.finish === 1) row.poles += 1;
+          // A "Fast Four" is a qualifying result inside the paying places.
+          if (qualifyingPlaces > 0 && r.finish >= 1 && r.finish <= qualifyingPlaces) row.fastFours += 1;
+        }
+        if (s.kind === 'sprint') { row.sprint += pts; if (r.finish === 1) row.sprintWins += 1; row.lapsLed += r.lapsLead ?? 0; info.sprintStart = r.start; }
+        if (s.kind === 'feature') { row.feature += pts; if (r.finish === 1) row.featureWins += 1; row.lapsLed += r.lapsLead ?? 0; row.starts += 1; info.featureStart = r.start; info.featureFinish = r.finish; }
+        roundInfo.set(r.custId, info);
       }
+    }
+    // Net positions gained this round: heat grid (or the feature grid, with no
+    // heat) to the feature finish.
+    for (const [custId, info] of roundInfo) {
+      const start = info.sprintStart ?? info.featureStart ?? null;
+      if (start != null && info.featureFinish != null) byDriver.get(custId).positionsGained += start - info.featureFinish;
     }
   }
   // The counted total is the rule over each driver's per-round points. A round
