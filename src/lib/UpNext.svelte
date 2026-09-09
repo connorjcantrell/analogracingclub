@@ -1,8 +1,8 @@
 <script>
   // "Up next": the next scheduled round, styled like the other feed posts. A
-  // three-line title — the season (or "Special event"), the car at the track,
-  // and the start in the viewer's zone — above the round's picture (when it
-  // has one) and the RSVP link to its event page or the Discord invite.
+  // two-line title — the season (or "Special event") and the car at the track
+  // — above the round's picture (when it has one), then the start in the
+  // viewer's zone beside the RSVP link to its event page or the Discord invite.
   import { DISCORD_URL } from './links.js';
   import { fmtStartTime, countdown, LEAGUE_TZ } from './format.js';
 
@@ -31,12 +31,14 @@
   <h2 class="lp-h up-next-title">
     <span class="up-next-kind">{next.series.kind}</span>
     <span>{where}</span>
-    {#if when}<span class="up-next-when">{when}</span>{/if}
   </h2>
   {#if next.image}
     <a class="up-next-media" href={href} target="_blank" rel="noopener" aria-label={`${next.series.kind}: ${where}`}>
       <img class="up-next-image" src={next.image} alt="">
     </a>
   {/if}
-  <p class="latest-more"><a class="link" href={href} target="_blank" rel="noopener">RSVP on Discord →</a></p>
+  <p class="latest-more up-next-foot">
+    {#if when}<span class="up-next-when">{when}</span>{/if}
+    <a class="link" href={href} target="_blank" rel="noopener">RSVP on Discord →</a>
+  </p>
 </article>
