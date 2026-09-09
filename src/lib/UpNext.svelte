@@ -1,6 +1,6 @@
 <script>
   // "Up next": the next scheduled round, styled like the other feed posts. A
-  // two-line title — the season (or "Special event") and the car at the track
+  // two-line title — the season and round (or "Special event") and the car at the track
   // — above the round's picture (when it has one), then the start in the
   // viewer's zone beside the RSVP link to its event page or the Discord invite.
   import { DISCORD_URL } from './links.js';
@@ -23,13 +23,13 @@
   const when = $derived(fmtStartTime(next.startTime, viewerTz) ?? next.date ?? null);
   const track = $derived(next.track ?? 'Track TBA');
   const where = $derived(next.series.car ? `${next.series.car} at ${track}` : track);
-  const kicker = $derived(['Up next', `Round ${next.round}`, next.multiplier > 1 ? `${next.multiplier}× points` : null, soon].filter(Boolean).join(' · '));
+  const kicker = $derived(['Up next', next.multiplier > 1 ? `${next.multiplier}× points` : null, soon].filter(Boolean).join(' · '));
 </script>
 
 <article class="post up-next">
   <p class="sched-round">{kicker}</p>
   <h2 class="lp-h up-next-title">
-    <span class="up-next-kind">{next.series.kind}</span>
+    <span class="up-next-kind">{next.series.kind} · Round {next.round}</span>
     <span>{where}</span>
   </h2>
   {#if next.image}
