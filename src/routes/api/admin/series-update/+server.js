@@ -13,6 +13,7 @@ export async function POST({ locals, request }) {
   if (!slug) return json({ error: 'slug required' }, { status: 400 });
   const set = {};
   if (body.name != null) { const n = String(body.name).trim(); if (!n) return json({ error: 'name cannot be empty' }, { status: 400 }); set.name = n; }
+  if (body.car != null) set.car = String(body.car).trim().slice(0, 80) || null;
   if (body.status != null) { if (!SERIES_STATUSES.includes(body.status)) return json({ error: `status must be one of ${SERIES_STATUSES.join(', ')}` }, { status: 400 }); set.status = body.status; }
   if (body.eventType != null) {
     if (!isContainerType(body.eventType)) return json({ error: 'eventType must be a series-capable event type' }, { status: 400 });

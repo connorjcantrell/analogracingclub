@@ -118,6 +118,7 @@
   // ---- Edit series ----------------------------------------------------------
   let editSlug = $state('');
   let editName = $state('');
+  let editCar = $state('');
   let editStatus = $state('upcoming');
   let editDrop = $state(0);
   let sched = $state([]);
@@ -130,6 +131,7 @@
   function fillEditor() {
     const s = selected();
     editName = s?.name ?? '';
+    editCar = s?.car ?? '';
     editStatus = s?.status ?? 'upcoming';
     editDrop = s?.dropCount ?? 0;
     sched = (s?.schedule ?? []).map((r) => ({ round: r.round, track: r.track ?? '', date: r.date ?? '', startTime: r.startTime ?? '', link: r.link ?? '', image: r.image ?? null, double: Number(r.multiplier) > 1 }));
@@ -148,7 +150,7 @@
     round: r.round, track: r.track.trim() || null, date: r.date.trim() || null, startTime: r.startTime || null, link: r.link.trim() || null, image: r.image || null, multiplier: r.double ? 2 : 1,
   })).sort((a, b) => a.round - b.round);
   async function saveSeries() {
-    const res = await post('/api/admin/series-update', { slug: editSlug, name: editName, status: editStatus, dropCount: Number(editDrop) || 0, schedule: scheduleRows() });
+    const res = await post('/api/admin/series-update', { slug: editSlug, name: editName, car: editCar, status: editStatus, dropCount: Number(editDrop) || 0, schedule: scheduleRows() });
     seriesMsg.set(res.ok ? 'Saved (including the schedule).' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
     await refresh();
   }
@@ -467,6 +469,7 @@
       </select>
     </label>
     <label class="field">Name <input type="text" size="18" bind:value={editName}></label>
+    <label class="field" title="The season's car, shown on the homepage's Up next">Car <input type="text" size="18" placeholder="e.g. Euro NASCAR" bind:value={editCar}></label>
     <label class="field">Status
       <select bind:value={editStatus}>
         {#each meta.statuses as st (st)}<option value={st}>{st}</option>{/each}
