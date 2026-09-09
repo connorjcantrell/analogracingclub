@@ -125,6 +125,11 @@
   let editFormat = $state('');
   let pointsJson = $state('');
   const selected = () => series.find((x) => x.slug === editSlug);
+  // The car a season's results were run in (from the event JSON), used as the
+  // default when no car is set on the series. Absent both, Up next can't name
+  // the car, so the field asks for it.
+  const carFromResults = $derived(subs.filter((x) => x.seriesSlug === editSlug && x.cars?.length)
+    .sort((a, b) => new Date(b.startTime ?? 0) - new Date(a.startTime ?? 0))[0]?.cars.join(' · ') ?? '');
 
   // Load the editor from the chosen series (on pick, and again after every
   // reload so saved values show).
@@ -469,7 +474,7 @@
       </select>
     </label>
     <label class="field">Name <input type="text" size="18" bind:value={editName}></label>
-    <label class="field" title="The season's car, shown on the homepage's Up next">Car <input type="text" size="18" placeholder="e.g. Euro NASCAR" bind:value={editCar}></label>
+    <label class={['field', { 'needs-input': !editCar && !carFromResults }]} title="The season's car, shown on the homepage's Up next. Defaults to the car in the season's latest result.">Car <input type="text" size="18" placeholder={carFromResults || 'Car needed — e.g. Euro NASCAR'} bind:value={editCar}></label>
     <label class="field">Status
       <select bind:value={editStatus}>
         {#each meta.statuses as st (st)}<option value={st}>{st}</option>{/each}
@@ -479,6 +484,9 @@
     <button class="btn primary" type="button" onclick={saveSeries}>Save</button>
     <button class="btn danger sm" type="button" title="Delete this series and every result filed under it (asks you to type the slug)" onclick={deleteSeries}>Delete</button>
   </div>
+  {#if !editCar && !carFromResults && editSlug}
+    <p class="desc" style="margin-top:0.5rem">No car is known for this season yet (no result has been uploaded to read it from). Enter the car so the homepage's Up next can show it.</p>
+  {/if}
   <p class={['msg', seriesMsg.kind]}>{seriesMsg.text}</p>
 
   <h4>Schedule</h4>

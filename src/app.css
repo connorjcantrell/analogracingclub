@@ -565,6 +565,8 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 /* The start time sits beside the RSVP link, in the link's lettering but muted. */
 .up-next-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1.25rem; }
 .up-next-when { color: var(--muted); font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.85rem; }
+/* Admin: a field that still needs a value. */
+label.field.needs-input input { border-color: var(--accent); }
 /* Admin: a schedule row's optional card image. */
 .sched-image { margin: -0.2rem 0 0.4rem; }
 .sched-thumb { width: 160px; aspect-ratio: 2 / 1; object-fit: cover; display: block; border: 1px solid var(--border); }
