@@ -552,8 +552,10 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 }
 /* Off-screen tripwire that auto-loads the next page as it nears the viewport. */
 /* "Up next" banner: a horizontal rectangle across the post column — picture
-   left, details right; stacked on phones. */
+   left, details right; stacked on phones. Its section sits close under the
+   header and has no divider beneath — the first post's own top rule follows. */
 .feed { max-width: 760px; }
+.up-next-section { padding: 0 0 1.75rem; border-bottom: none; }
 .up-next-banner {
   display: grid; grid-template-columns: 44% 1fr; align-items: stretch;
   border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
