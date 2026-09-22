@@ -2,7 +2,7 @@ import { collections } from '../db/index.js';
 
 // Driver power ranking.
 //
-// Five metrics, each reduced to one number per driver and then RANKED across
+// Four metrics, each reduced to one number per driver and then RANKED across
 // the field. The rank is what scores: sort everyone by a metric and spread
 // 0-100 evenly across them, best to worst. Because every category lands on the
 // same scale whatever its units — placings, lap positions, cars passed — the
@@ -17,13 +17,13 @@ import { collections } from '../db/index.js';
 //               — sustained race pace, where bestLap is one hot lap (qualifying
 //               is excluded: it is a hot lap or two, not a run)
 //   lapsLed     avg share of a race's led laps             (removed for now)
-//   finishing   share of races seen to the flag            (weight  5)
+//   finishing   share of races seen to the flag            (removed)
 //
 // Ranking deliberately discards margin, so winning a category by a mile scores
 // the same as winning it narrowly. `marginToLeader` is reported alongside to
 // put that back: how far a driver's average event finish sits behind the
 // leader's, in places.
-export const WEIGHTS = { overall: 35, gained: 15, bestLap: 15, avgLap: 15, /* lapsLed: 15, */ finishing: 5 };
+export const WEIGHTS = { overall: 35, gained: 15, bestLap: 15, avgLap: 15 /* , lapsLed: 15, finishing: 5 */ };
 
 // Sessions that count. Practice never does.
 export const OFFICIAL = ['qualifying', 'sprint', 'feature'];
@@ -35,33 +35,29 @@ export const OFFICIAL = ['qualifying', 'sprint', 'feature'];
 export const RATING_FLOOR = 45;
 export const scaleRating = (score) => RATING_FLOOR + (score / 100) * (100 - RATING_FLOOR);
 
-// Events a driver must have entered before they are ranked. Below this they
-// still appear, flagged provisional and sorted last, so one strong outing
-// cannot put a newcomer above the regulars.
-export const MIN_EVENTS = 3;
+// Only the league's last WINDOW races count. Anything older is out of the
+// ranking entirely — not in the averages, not in the stats — and a driver with
+// no race inside the window is not listed at all.
+export const WINDOW = 5;
+
+// Races inside the window a driver must have entered to be ranked. Below this
+// they still appear, flagged provisional and sorted last, so one strong outing
+// cannot put a newcomer above the regulars. Two races earn a ranking; a driver
+// keeps it only while at least two of the league's last five are theirs, so a
+// regular who stops racing drops out on their fourth consecutive miss.
+export const MIN_EVENTS = 2;
 
 // A rival must share at least this many races — enough history to mean
 // something — except for a driver who has raced fewer times than that, where
 // the bar drops to their own race count.
 export const RIVAL_MIN_RACES = 3;
 
-// Recency, counted over the events a driver ACTUALLY ENTERED rather than over
-// the league calendar. A driver returning after a break is judged on their own
-// last few outings instead of being decayed for the rounds they missed.
-//
-// The last five races count, each older one losing twenty percentage points:
-//
-//   race 1 (newest)  1.00
-//   race 2           0.80
-//   race 3           0.60
-//   race 5           0.20
-//   race 6+          dropped entirely
-export const MAX_RACES = 5; // races beyond the last five do not count
-
-// `age` is 0 for a driver's most recent race, 1 for the one before, and so on.
-// Each step back sheds 20% until the fifth race is worth 0.20; the sixth and
-// anything older weigh nothing.
-export const recencyWeight = (age) => Math.max(0, 1 - 0.2 * age);
+// The races that count, newest first. Every race inside the window counts
+// in full — there is no recency weighting — so a driver's numbers are plain
+// averages over the races they entered among the league's last WINDOW.
+export const recentWindow = (docs) => [...docs]
+  .sort((a, b) => new Date(b.startTime ?? 0) - new Date(a.startTime ?? 0))
+  .slice(0, WINDOW);
 
 // "Overall" means the result of the weekend as a whole, and what that means
 // depends on the event. A scored series round is won on total points across
@@ -131,18 +127,14 @@ export function rankScores(entries, { higherIsBetter = true } = {}) {
 }
 
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
-// Samples are { v, w }; a zero total weight means no usable data.
-const wmean = (xs) => {
-  const w = xs.reduce((a, x) => a + x.w, 0);
-  return w > 0 ? xs.reduce((a, x) => a + x.v * x.w, 0) / w : null;
-};
 const round1 = (n) => Math.round(n * 10) / 10;
 
 /**
  * Fold stored subsessions into a power ranking. Pure — takes documents,
- * returns rows. Drivers under `minEvents` (default MIN_EVENTS) are still
- * returned but flagged `provisional`, so a newcomer is visible without
- * outranking regulars on one lucky result.
+ * returns rows. Only the league's last WINDOW races are read; every stat and
+ * average covers that span. Drivers under `minEvents` (default MIN_EVENTS)
+ * within it are still returned but flagged `provisional`, so a newcomer is
+ * visible without outranking regulars on one lucky result.
  */
 export function computePower(docs, { minEvents = MIN_EVENTS } = {}) {
   const byDriver = new Map();
@@ -151,7 +143,7 @@ export function computePower(docs, { minEvents = MIN_EVENTS } = {}) {
     if (!row) {
       row = {
         custId: r.custId, displayName: r.displayName, events: 0,
-        overall: [], bestLap: [], avgLap: [], gained: [], lapsLed: [], classified: [],
+        overall: [], bestLap: [], avgLap: [], gained: [], lapsLed: [],
         incidents: [], incidentsTotal: 0,
         starts: 0, wins: 0, podiums: 0, poles: 0, lapsLedTotal: 0, points: 0,
         overallWins: 0, gainedTotal: 0,
@@ -163,20 +155,9 @@ export function computePower(docs, { minEvents = MIN_EVENTS } = {}) {
     return row;
   };
 
-  // Newest first, so index == age in events. Undated events sort last.
-  const ordered = [...docs].sort((a, b) =>
-    new Date(b.startTime ?? 0) - new Date(a.startTime ?? 0));
-
-  // How many of this driver's own races we have already walked past. Ordered
-  // newest-first, so this is their personal age for the event in hand.
-  const raceAge = new Map();
-  const ageOf = (custId) => raceAge.get(custId) ?? 0;
-
-  for (const d of ordered) {
+  // Cut to the league's last WINDOW races; each counts in full.
+  for (const d of recentWindow(docs)) {
     const seen = new Set();
-    // Weight for this event, per driver — resolved lazily so a driver's own
-    // history decides it rather than the league calendar.
-    const weightFor = (custId) => recencyWeight(ageOf(custId));
 
     for (const s of d.simsessions ?? []) {
       if (!OFFICIAL.includes(s.kind)) continue;
@@ -202,20 +183,19 @@ export function computePower(docs, { minEvents = MIN_EVENTS } = {}) {
         row.points += r.points?.total ?? 0;
 
         const place = lapPlace.get(r.custId);
-        const w = weightFor(r.custId);
-        if (place != null) row.bestLap.push({ v: place, w });
+        if (place != null) row.bestLap.push(place);
         // avgLap is sustained race pace, so only heats and features count —
         // qualifying is a hot lap or two, not a run.
         if (s.kind !== 'qualifying') {
           const avgPlace = avgLapPlace.get(r.custId);
-          if (avgPlace != null) row.avgLap.push({ v: avgPlace, w });
+          if (avgPlace != null) row.avgLap.push(avgPlace);
         }
 
         // Cars passed: started 8th, finished 3rd => +5. Qualifying counts too
         // where a grid position was recorded.
         if (r.finish != null && r.start != null) {
           const passed = r.start - r.finish;
-          row.gained.push({ v: passed, w });
+          row.gained.push(passed);
           row.gainedTotal += passed;
         }
 
@@ -231,8 +211,7 @@ export function computePower(docs, { minEvents = MIN_EVENTS } = {}) {
         row.starts += 1;
         // Cleanliness (Mr. Clean): incidents per race subsession, races only.
         row.incidentsTotal += r.incidents ?? 0;
-        row.incidents.push({ v: r.incidents ?? 0, w });
-        row.classified.push({ v: r.finish != null ? 1 : 0, w });
+        row.incidents.push(r.incidents ?? 0);
         if (r.finish != null) {
           row.racePos.push(r.finish);
           if (r.finish === 1) row.wins += 1;
@@ -240,7 +219,7 @@ export function computePower(docs, { minEvents = MIN_EVENTS } = {}) {
           if (row.bestFinish == null || r.finish < row.bestFinish) row.bestFinish = r.finish;
         }
         row.lapsLedTotal += r.lapsLead ?? 0;
-        row.lapsLed.push({ v: ledTotal > 0 ? (r.lapsLead ?? 0) / ledTotal : 0, w });
+        row.lapsLed.push(ledTotal > 0 ? (r.lapsLead ?? 0) / ledTotal : 0);
       }
     }
 
@@ -250,28 +229,24 @@ export function computePower(docs, { minEvents = MIN_EVENTS } = {}) {
       order.forEach((custId, i) => {
         const row = byDriver.get(custId);
         if (!row) return;
-        row.overall.push({ v: i + 1, w: weightFor(custId) });
+        row.overall.push(i + 1);
         row.overallPos.push(i + 1);
         if (i === 0) row.overallWins += 1;
       });
     }
 
-    for (const custId of seen) {
-      byDriver.get(custId).events += 1;
-      raceAge.set(custId, ageOf(custId) + 1);
-    }
+    for (const custId of seen) byDriver.get(custId).events += 1;
   }
 
-  // One averaged value per driver per metric, recency-weighted.
+  // One averaged value per driver per metric, over the races they entered.
   const rows = [...byDriver.values()].map((row) => ({
     row,
     values: {
-      overall: wmean(row.overall),     // lower is better
-      bestLap: wmean(row.bestLap),     // lower is better
-      avgLap: wmean(row.avgLap),       // lower is better
-      gained: wmean(row.gained),       // higher is better
-      lapsLed: wmean(row.lapsLed),     // higher is better
-      finishing: wmean(row.classified),// higher is better
+      overall: mean(row.overall),     // lower is better
+      bestLap: mean(row.bestLap),     // lower is better
+      avgLap: mean(row.avgLap),       // lower is better
+      gained: mean(row.gained),       // higher is better
+      lapsLed: mean(row.lapsLed),     // higher is better
     },
   }));
 
@@ -312,8 +287,8 @@ export function computePower(docs, { minEvents = MIN_EVENTS } = {}) {
       bestFinish: row.bestFinish,
       overallWins: row.overallWins,
       incidentsTotal: row.incidentsTotal,
-      // Recency-weighted average incidents per race subsession (Mr. Clean).
-      avgIncidents: row.incidents.length ? round1(wmean(row.incidents)) : null,
+      // Average incidents per race subsession (Mr. Clean).
+      avgIncidents: row.incidents.length ? round1(mean(row.incidents)) : null,
       avgQualifying: row.qualPos.length ? round1(mean(row.qualPos)) : null,
       avgFinish: row.racePos.length ? round1(mean(row.racePos)) : null,
       avgOverall: values.overall == null ? null : round1(values.overall),
@@ -455,18 +430,18 @@ function eachMatchup(d, cb) {
   // The rest break a split on the feature — the last race.
   runMetric('avgLap', valueMaps(races, (r) => (r.averageLapTime > 0 ? r.averageLapTime : null)), false, races.length - 1);
   runMetric('gained', valueMaps(sessions, (r) => (r.finish != null && r.start != null ? r.start - r.finish : null)), true, sessions.length - 1);
-  // Laps led removed for now:
+  // Laps led and races finished removed for now:
   // runMetric('lapsLed', valueMaps(races, (r, led) => (led > 0 ? (r.lapsLead ?? 0) / led : 0)), true, races.length - 1);
-  runMetric('finishing', valueMaps(races, (r) => (r.finish != null ? 1 : 0)), true, races.length - 1);
+  // runMetric('finishing', valueMaps(races, (r) => (r.finish != null ? 1 : 0)), true, races.length - 1);
 }
 
-// The same six metrics, judged head-to-head and then blended into one order.
-// Each matchup (weighted by recency) feeds a per-metric Colley solve, so the
+// The same metrics, judged head-to-head and then blended into one order.
+// Each matchup feeds a per-metric Colley solve, so the
 // result is a transitive order built from who beat whom — including drivers who
 // never met, ranked through common opponents.
 function headToHeadComponents(docs) {
   const metrics = Object.keys(WEIGHTS);
-  // metric -> { stats: id->{w,l,t}, pair: id->(id->games) }, all recency-weighted.
+  // metric -> { stats: id->{w,l,t}, pair: id->(id->games) }.
   const acc = Object.fromEntries(metrics.map((m) => [m, { stats: new Map(), pair: new Map() }]));
   const stat = (a, id) => { let s = a.stats.get(id); if (!s) { s = { w: 0, l: 0, t: 0 }; a.stats.set(id, s); } return s; };
   const pairMap = (a, id) => { let p = a.pair.get(id); if (!p) { p = new Map(); a.pair.set(id, p); } return p; };
@@ -480,27 +455,9 @@ function headToHeadComponents(docs) {
     pairMap(a, y).set(x, (pairMap(a, y).get(x) ?? 0) + g);
   };
 
-  const ordered = [...docs].sort((a, b) => new Date(b.startTime ?? 0) - new Date(a.startTime ?? 0));
-  const raceAge = new Map();
-  const ageOf = (id) => raceAge.get(id) ?? 0;
-
-  for (const d of ordered) {
-    const weightFor = (id) => recencyWeight(ageOf(id));
-    // A matchup's weight is the average of the two drivers' recency, so a game
-    // counts symmetrically for both.
-    eachMatchup(d, (metric, aId, bId, ox) => {
-      const g = (weightFor(aId) + weightFor(bId)) / 2;
-      if (g > 0) addGame(metric, aId, bId, ox, g);
-    });
-
-    // Advance each participant's personal race age (newest-first walk), matching
-    // the rank-based pass so recency lines up between the two methods.
-    const seen = new Set();
-    for (const s of d.simsessions ?? []) {
-      if (!OFFICIAL.includes(s.kind)) continue;
-      for (const r of s.results ?? []) seen.add(r.custId);
-    }
-    for (const id of seen) raceAge.set(id, ageOf(id) + 1);
+  // The same window as the rank-based pass; every matchup counts as one game.
+  for (const d of recentWindow(docs)) {
+    eachMatchup(d, (metric, aId, bId, ox) => addGame(metric, aId, bId, ox, 1));
   }
 
   // Colley-rate each metric's field, then assemble per-driver components on a
@@ -524,7 +481,7 @@ function headToHeadComponents(docs) {
  * (wins, poles, avgFinish, marginToLeader, provisional…) and swaps only the
  * rating: each metric component becomes the driver's Colley rating from their
  * 1v1 record on that metric — a transitive order over who beat whom — then the
- * six are weighted into a single 0-100 rating.
+ * four are weighted into a single 0-100 rating.
  */
 export function computeHeadToHead(docs, { minEvents = MIN_EVENTS } = {}) {
   const base = computePower(docs, { minEvents });
@@ -744,5 +701,5 @@ export async function computePowerRanking(db, { seriesSlug = null, minEvents = M
   const prior = lastTime == null ? [] : docs.filter((d) => new Date(d.startTime ?? 0).getTime() < lastTime);
   attachPositionChanges(drivers, prior.length ? computeHeadToHead(prior, { minEvents }) : []);
 
-  return { minEvents, weights: WEIGHTS, drivers };
+  return { minEvents, window: WINDOW, weights: WEIGHTS, drivers };
 }

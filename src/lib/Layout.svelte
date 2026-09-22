@@ -10,6 +10,7 @@
     { id: 'standings', href: '/standings', label: 'Standings' },
     { id: 'results', href: '/results', label: 'Results' },
     { id: 'drivers', href: '/drivers', label: 'Power Rankings' },
+    { id: 'format', href: '/format', label: 'Format' },
     { id: 'about', href: '/about', label: 'About' },
   ];
   const ADMIN = [...SITE.slice(0, 3), { id: 'admin', href: '/admin', label: 'Admin' }];

@@ -9,7 +9,7 @@
   const isLogin = $derived(path.startsWith('/admin/login'));
   const active = $derived(isAdmin ? 'admin' : path === '/' ? null : path.split('/')[1]);
   const links = $derived(isLogin ? 'none' : isAdmin ? 'admin' : 'site');
-  const mainClass = $derived(path === '/' ? 'home' : path === '/about' ? 'prose' : '');
+  const mainClass = $derived(path === '/' ? 'home' : path === '/about' || path === '/format' ? 'prose' : '');
 </script>
 
 <svelte:head>

@@ -109,7 +109,6 @@ runaway value can dominate.
 | 15% | Average **best**-lap placing per session | lower is better |
 | 15% | Average **mean**-lap placing per session | lower is better |
 | 15% | Share of the race's led laps | higher is better |
-| 5% | Races seen to the flag | higher is better |
 
 **Overall** is the result of the weekend as a whole, and what that means depends on the
 event: a scored series round is decided on **total points**, while a special event awards
@@ -134,16 +133,19 @@ component scores stay on the raw 0–100 scale in the API.
 Ranking deliberately discards margin — a narrow win scores the same as a runaway one — so the
 table also reports **Gap**: how far each driver's average finish sits behind the leader's.
 
-**Recency is per driver**, counted over the races they actually entered rather than the league
-calendar — a driver returning from a break is judged on their own recent form, not decayed for
-rounds they missed. Their last three races count in full, the next seven taper linearly, and
-anything past ten races is excluded outright (`MAX_RACES`).
+**Only the league's last five races count** (`WINDOW`), and every race inside the window counts
+the same — there is no recency weighting. A driver's numbers are plain averages over the races
+they entered among those five, so sitting one out neither helps nor hurts until it pushes their
+results off the back of the window, and a driver drops off the table once none of the last five
+are theirs. Every stat the ranking reports (races, wins, podiums, averages) covers that window.
 
 The site itself does not expose the weights: `/drivers` shows only the rating, with a
 plain-language "How it works" note. The full breakdown stays in `GET /api/power`.
 
-Drivers below `minEvents` (default 3, `MIN_EVENTS`) are flagged **provisional** and sorted
-last, so a newcomer with one win does not top the table. Tunables live in
+Drivers below `minEvents` (default 2, `MIN_EVENTS`) within the window are flagged
+**provisional** and sorted last, so a newcomer with one win does not top the table. Two races
+earn a ranking; a driver keeps it only while at least two of the last five are theirs, so a
+regular who stops racing is unranked on their fourth consecutive miss. Tunables live in
 `src/power/index.js`; `GET /api/power` accepts `?series=` and `?minEvents=`.
 
 ### Uploading a result
