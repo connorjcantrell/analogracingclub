@@ -30,6 +30,7 @@
   <p class="sched-round">{kicker}</p>
   <h2 class="lp-h">{post.title}</h2>
   <p class="lp-sub">{fmtDate(sub.startTime)}</p>
+  {#if post.body}<p class="post-body">{post.body}</p>{/if}
 
   {#if fastFour.length}
     <p class="fast-four-inline">
@@ -37,9 +38,9 @@
       {#each fastFour as q (q.finish)}
         <span class="ff-name"><b>Q{q.finish}</b>{q.name}</span>
       {/each}
-      <button type="button" class="ff-info"
-        aria-label="The fastest qualifiers, whose grid was inverted so they started from the back."
-        title="The fastest qualifiers, whose grid was inverted so they started from the back.">?</button>
+      <a class="ff-info" href="/format"
+        aria-label="The fastest qualifiers, whose grid was inverted so they started from the back. How the Fast Four format works."
+        title="The fastest qualifiers, whose grid was inverted so they started from the back. How the Fast Four format works.">?</a>
     </p>
   {/if}
 
@@ -71,6 +72,6 @@
         {/each}
       </tbody>
     </table>
-    <p class="latest-more"><a class="link" href={resultsLink}>Full results and standings →</a></p>
+    <p class="latest-more"><a class="link" href={resultsLink}>Full results →</a></p>
   </div>
 </article>

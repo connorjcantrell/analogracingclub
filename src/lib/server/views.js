@@ -61,6 +61,15 @@ export async function resultsView(db, slug) {
   return { series: publicSeries(s), rounds: await seriesRounds(db, s) };
 }
 
+// The featured photo of the most recent result that has one — the picture
+// link previews (Open Graph) show for any page on the site.
+export async function latestFeaturedImage(db) {
+  const doc = await collections(db).subsessions
+    .find({ featuredImage: { $nin: [null, ''] } }, { projection: { featuredImage: 1, track: 1, title: 1 } })
+    .sort({ startTime: -1 }).limit(1).next();
+  return doc ? { url: doc.featuredImage, alt: doc.title || doc.track?.name || '' } : null;
+}
+
 // The most recently run event, league round or special, for the homepage.
 export async function latestEvent(db) {
   const doc = await collections(db).subsessions.find({}, { projection: { raw: 0 } }).sort({ startTime: -1 }).limit(1).next();

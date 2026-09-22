@@ -1,5 +1,4 @@
 import { redirect, json, text } from '@sveltejs/kit';
-import { building } from '$app/environment';
 import { getDb, closeDb } from '$lib/server/db/index.js';
 import { requireAdmin } from '$lib/server/admin/auth.js';
 
@@ -20,8 +19,7 @@ export async function handle({ event, resolve }) {
   const path = event.url.pathname.replace(/\/+$/, '') || '/';
   if (LEGACY[path]) redirect(301, `${LEGACY[path]}${event.url.search}`);
 
-  // Prerendering (the About page) needs no database.
-  if (!building) event.locals.db = await getDb();
+  event.locals.db = await getDb();
 
   const adminPage = path === '/admin' || path.startsWith('/admin/');
   const adminApi = path.startsWith('/api/admin/');

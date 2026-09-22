@@ -21,6 +21,26 @@ export const cleanScheduleRows = (rows) =>
     }))
     .filter((r) => r.track || r.config || r.date);
 
+// Resolve chosen carousel urls: only keep ones that still point at a stored
+// result photo, so a deleted result can never leave a dangling image, and store
+// each with its track/config so the carousel can caption it.
+async function resolvePhotos(db, urls) {
+  const byUrl = new Map((await listPhotos(db, { limit: Infinity })).map((p) => [p.url, p]));
+  return (Array.isArray(urls) ? urls : [])
+    .filter((u) => byUrl.has(u))
+    .map((u) => ({ url: u, track: byUrl.get(u).track, config: byUrl.get(u).config }));
+}
+
+// The editorial fields an admin can set on a stored result's feed post: a
+// headline that replaces the automatic one, and a paragraph under it. Trimmed
+// and capped; an empty string clears the field.
+export function cleanResultPost(body) {
+  const out = {};
+  if (body?.postTitle !== undefined) out.postTitle = String(body.postTitle ?? '').trim().slice(0, 200);
+  if (body?.postBody !== undefined) out.postBody = String(body.postBody ?? '').trim().slice(0, 4000);
+  return out;
+}
+
 // Every authored post, newest first.
 export async function listPosts(db) {
   return collections(db)
@@ -42,13 +62,7 @@ export async function createPost(db, body, now = new Date()) {
   const title = String(body?.title ?? '').trim() || series.name;
   const intro = String(body?.intro ?? '').trim();
   const rounds = cleanScheduleRows(body?.rounds);
-  // Only keep urls that still point at a stored result photo, so a deleted
-  // result can never leave a dangling image in the carousel. Each is stored
-  // with its track/config so the carousel can caption it.
-  const byUrl = new Map((await listPhotos(db, { limit: Infinity })).map((p) => [p.url, p]));
-  const photos = (Array.isArray(body?.photos) ? body.photos : [])
-    .filter((u) => byUrl.has(u))
-    .map((u) => ({ url: u, track: byUrl.get(u).track, config: byUrl.get(u).config }));
+  const photos = await resolvePhotos(db, body?.photos);
   const publishedAt = body?.publishedAt ? new Date(body.publishedAt) : now;
 
   const doc = {
@@ -64,6 +78,24 @@ export async function createPost(db, body, now = new Date()) {
   };
   await collections(db).posts.insertOne(doc);
   return { ok: true, post: doc };
+}
+
+// Edit a schedule post in place: title, intro, rounds and photos. The season it
+// announces and its place in the feed (publishedAt) stay as they are. Returns
+// { error } on a missing post, else { ok, post }.
+export async function updatePost(db, id, body) {
+  const { posts } = collections(db);
+  const cur = await posts.findOne({ _id: id });
+  if (!cur) return { error: 'post not found' };
+  const set = {
+    title: String(body?.title ?? '').trim() || cur.title,
+    intro: String(body?.intro ?? '').trim(),
+    rounds: cleanScheduleRows(body?.rounds),
+    photos: await resolvePhotos(db, body?.photos),
+    updatedAt: new Date(),
+  };
+  await posts.updateOne({ _id: id }, { $set: set });
+  return { ok: true, post: { ...cur, ...set } };
 }
 
 export async function deletePost(db, id) {

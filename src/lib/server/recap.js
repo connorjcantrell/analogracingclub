@@ -4,18 +4,26 @@
 // A league (Fast Four) round is titled by its round winner and, when someone
 // else won the feature, that driver too; the track is named without its
 // config/"version" suffix. A one-off Special event is "<name> wins <event>".
+// Drivers go by surname, the way a race report reads.
 //
 // Pure and DB-free, so it is unit-testable.
 import { trackName, winner as winnerOf, overallWinner, raceSessions, session, driverName } from '../format.js';
 
 const eventName = (sub) => sub.title || trackName(sub) || 'the latest round';
 
+// The surname: the last word of the display name (with iRacing's numeric
+// duplicate suffix already stripped). A single-word name is used whole.
+export const lastName = (name) => {
+  const clean = driverName(name);
+  return clean ? clean.split(/\s+/).pop() : clean;
+};
+
 // The driver who led the most laps in a session (null if nobody led any).
 function mostLapsLed(sub, kind) {
   let best = null;
   for (const r of session(sub, kind)?.results ?? []) {
     const laps = r.lapsLead ?? 0;
-    if (laps > 0 && (!best || laps > best.laps)) best = { name: driverName(r.displayName), laps };
+    if (laps > 0 && (!best || laps > best.laps)) best = { name: lastName(r.displayName), laps };
   }
   return best?.name ?? null;
 }
@@ -25,9 +33,9 @@ export function resultPostTitle(series, sub) {
 
   // A league round (a series that runs more than one race).
   if (series && races.length > 1) {
-    const round = overallWinner(sub);
+    const round = lastName(overallWinner(sub));
     const featureKind = races[races.length - 1].kind;
-    const feature = winnerOf(sub, featureKind);
+    const feature = lastName(winnerOf(sub, featureKind));
     const track = sub.track?.name || 'the latest round';
     if (!round) return `Results — ${track}`;
     // A clean sweep: the same driver takes the round, wins the feature, and
@@ -41,7 +49,7 @@ export function resultPostTitle(series, sub) {
   }
 
   // A one-off: named by its final-race winner and its own title.
-  const name = winnerOf(sub, races[races.length - 1]?.kind);
+  const name = lastName(winnerOf(sub, races[races.length - 1]?.kind));
   const event = eventName(sub);
   return name ? `${name} wins ${event}` : `Results — ${event}`;
 }

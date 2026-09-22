@@ -2,12 +2,15 @@
   // Site chrome shared by every page: brand, page links (behind a hamburger on
   // narrow screens), the platform icons or a page-supplied `right` snippet,
   // the <main> wrapper and the footer.
+  import { DISCORD_URL } from './links.js';
+
   let { active = null, mainClass = '', links = 'site', right, children } = $props();
 
   const SITE = [
     { id: 'standings', href: '/standings', label: 'Standings' },
     { id: 'results', href: '/results', label: 'Results' },
     { id: 'drivers', href: '/drivers', label: 'Power Rankings' },
+    { id: 'format', href: '/format', label: 'Format' },
     { id: 'about', href: '/about', label: 'About' },
   ];
   const ADMIN = [...SITE.slice(0, 3), { id: 'admin', href: '/admin', label: 'Admin' }];
@@ -38,7 +41,7 @@
   {#if right}
     {@render right()}
   {:else if links !== 'none'}
-    <a class="platform" href="https://discord.gg/jpchbxKu76" target="_blank" rel="noopener" aria-label="Join our Discord"><img src="/assets/Discord-Symbol-White.svg" alt="Discord"></a>
+    <a class="platform" href={DISCORD_URL} target="_blank" rel="noopener" aria-label="Join our Discord"><img src="/assets/Discord-Symbol-White.svg" alt="Discord"></a>
     <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   {/if}
 </header>

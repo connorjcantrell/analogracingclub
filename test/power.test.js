@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computePower, computeHeadToHead, rivalries, attachPositionChanges, overallOrder, rankScores, recencyWeight, scaleRating, MAX_RACES, MIN_EVENTS, RATING_FLOOR, WEIGHTS } from '../src/lib/server/power/index.js';
+import { computePower, computeHeadToHead, rivalries, attachPositionChanges, overallOrder, rankScores, recentWindow, scaleRating, WINDOW, MIN_EVENTS, RATING_FLOOR, WEIGHTS } from '../src/lib/server/power/index.js';
 
 const driver = (custId, finish, extra = {}) => ({
   custId, displayName: `D${custId}`, finish,
@@ -16,17 +16,19 @@ const event = (startTime, order, extra = () => ({})) => ({
 });
 const find = (rows, id) => rows.find((r) => r.custId === id);
 
-test('recency sheds 20% per race back to a five-race cutoff', () => {
-  assert.equal(recencyWeight(0), 1, 'the newest race counts in full');
-  assert.ok(Math.abs(recencyWeight(1) - 0.8) < 1e-9, 'one race back loses 20%');
-  assert.ok(Math.abs(recencyWeight(2) - 0.6) < 1e-9);
-  assert.ok(recencyWeight(6) < recencyWeight(3), 'older races weigh less');
-  assert.ok(Math.abs(recencyWeight(MAX_RACES - 1) - 0.2) < 1e-9, 'the fifth race is worth 20%');
-  assert.equal(recencyWeight(MAX_RACES), 0, 'the sixth is dropped entirely');
-  assert.equal(recencyWeight(999), 0);
+test('the window is five races', () => {
+  assert.equal(WINDOW, 5);
 });
 
-test('recent form outranks identical older form', () => {
+test('recentWindow keeps the newest five league races, newest first', () => {
+  const docs = Array.from({ length: 9 }, (_, i) => ({ startTime: `2025-01-0${i + 1}`, simsessions: [] }));
+  const w = recentWindow(docs);
+  assert.equal(w.length, 5);
+  assert.equal(w[0].startTime, '2025-01-09', 'newest first');
+  assert.equal(w[4].startTime, '2025-01-05', 'the four oldest fall outside');
+});
+
+test('every race in the window counts the same, whenever it was', () => {
   // D1 and D4 have the same record; only WHEN they won differs.
   const rows = computePower([
     event('2024-01-01', [1, 2, 3, 4]),
@@ -35,11 +37,11 @@ test('recent form outranks identical older form', () => {
     event('2025-07-01', [4, 3, 2, 1]),
   ], { minEvents: 1 });
   const recent = find(rows, 4);
-  const faded = find(rows, 1);
-  assert.equal(recent.wins, faded.wins, 'same number of wins');
-  assert.equal(recent.avgFinish, faded.avgFinish, 'same average finish');
-  assert.ok(recent.rating > faded.rating, 'the recent winner rates higher');
-  assert.equal(rows[0].custId, 4);
+  const older = find(rows, 1);
+  assert.equal(recent.wins, older.wins, 'same number of wins');
+  assert.equal(recent.avgFinish, older.avgFinish, 'same average finish');
+  assert.equal(recent.avgOverall, older.avgOverall, 'same average event result');
+  assert.equal(recent.rating, older.rating, 'no recency weighting: identical records rate the same');
 });
 
 test('finishing position is scored against the size of the field', () => {
@@ -126,16 +128,29 @@ test('the overall component and its stats reach the ranking', () => {
   assert.equal(find(rows, 2).overallWins, 0);
 });
 
-test('a driver stays provisional until three events', () => {
+test('two races earn a ranking', () => {
   const ev = (startTime, ids) => ({
     startTime,
     simsessions: [{ kind: 'feature', results: ids.map((id, i) => driver(id, i + 1)) }],
   });
-  assert.equal(MIN_EVENTS, 3);
-  // D1 runs three events, D2 only two.
-  const rows = computePower([ev('2025-03-01', [1, 2]), ev('2025-02-01', [1, 2]), ev('2025-01-01', [1])]);
-  assert.equal(find(rows, 1).provisional, false, 'three events clears provisional');
-  assert.equal(find(rows, 2).provisional, true, 'two does not');
+  assert.equal(MIN_EVENTS, 2);
+  // D1 runs two events, D2 only one.
+  const rows = computePower([ev('2025-02-01', [1, 2]), ev('2025-01-01', [1])]);
+  assert.equal(find(rows, 1).provisional, false, 'two events clears provisional');
+  assert.equal(find(rows, 2).provisional, true, 'one does not');
+});
+
+test('a ranked driver is unranked on their fourth consecutive miss', () => {
+  const ev = (startTime, ids) => ({
+    startTime,
+    simsessions: [{ kind: 'feature', results: ids.map((id, i) => driver(id, i + 1)) }],
+  });
+  // D2 raced the two oldest of a run of league events, then stopped; D1 races on.
+  const docs = (n) => Array.from({ length: n }, (_, i) =>
+    ev(`2025-02-${String(i + 1).padStart(2, '0')}`, i < 2 ? [1, 2] : [1]));
+  assert.equal(find(computePower(docs(5)), 2).provisional, false, 'three misses: both races still inside the window');
+  assert.equal(find(computePower(docs(6)), 2).provisional, true, 'the fourth miss leaves one race in the window');
+  assert.equal(find(computePower(docs(7)), 2), undefined, 'out of the window entirely — not listed');
 });
 
 test('rankScores spreads 0-100 evenly and shares ties', () => {
@@ -195,46 +210,51 @@ test('marginToLeader records the gap that ranking discards', () => {
   assert.equal(find(rows, 3).marginToLeader, 2);
 });
 
-test('every metric is weighted; laps-led is removed for now', () => {
-  assert.deepEqual(Object.keys(WEIGHTS), ['overall', 'gained', 'bestLap', 'avgLap', 'finishing']);
+test('every metric is weighted; laps-led and races finished are removed', () => {
+  assert.deepEqual(Object.keys(WEIGHTS), ['overall', 'gained', 'bestLap', 'avgLap']);
   assert.equal(WEIGHTS.lapsLed, undefined, 'laps led is commented out for now');
+  assert.equal(WEIGHTS.finishing, undefined, 'races finished no longer counts');
   assert.equal(WEIGHTS.pace, undefined, 'pace was replaced by the best-lap placing');
 });
 
-test('recency is counted per driver, not over the league calendar', () => {
+test('averages cover only the races a driver entered inside the window', () => {
   const ev = (startTime, ids) => ({
     startTime,
     simsessions: [{ kind: 'feature', results: ids.map((id, i) => driver(id, i + 1)) }],
   });
-  // Twelve league events. D1 enters every one; D2 only the three oldest.
-  // D2's own last three races are therefore still at full weight.
-  const docs = [];
-  for (let i = 0; i < 12; i += 1) {
-    const day = String(12 - i).padStart(2, '0');
-    docs.push(ev(`2025-02-${day}`, i >= 9 ? [1, 2] : [1]));
-  }
-  const rows = computePower(docs, { minEvents: 1 });
+  // Five league events. D1 races all five; D2 skips the two newest and beat D1
+  // in the two oldest. Missed races do not count against D2 — their average
+  // is over the three they ran — and D1's average is over all five.
+  const docs = [
+    ev('2025-02-05', [1, 3]), ev('2025-02-04', [1, 3]),
+    ev('2025-02-03', [1, 2]),
+    ev('2025-02-02', [2, 1]), ev('2025-02-01', [2, 1]),
+  ];
+  const rows = computePower(docs);
+  assert.equal(find(rows, 1).events, 5);
   assert.equal(find(rows, 2).events, 3);
-  assert.equal(find(rows, 2).avgOverall, 2, 'their three races count in full despite the gap');
+  assert.equal(find(rows, 1).avgOverall, 1.4, 'three wins and two seconds');
+  assert.ok(Math.abs(find(rows, 2).avgOverall - 4 / 3) < 0.06, 'two wins and a second, over three starts');
 });
 
-test('races past the ten-race cutoff are excluded from the averages', () => {
+test('races outside the five-race window are excluded from stats and averages', () => {
   const ev = (startTime, ids) => ({
     startTime,
     simsessions: [{ kind: 'feature', results: ids.map((id, i) => driver(id, i + 1)) }],
   });
-  // D1 wins their ten most recent races and loses the two before that.
+  // D1 wins their five most recent races and loses the two before that.
   const docs = [];
-  for (let i = 0; i < 12; i += 1) {
-    const day = String(12 - i).padStart(2, '0');
-    docs.push(ev(`2025-02-${day}`, i >= 10 ? [2, 1] : [1, 2]));
+  for (let i = 0; i < 7; i += 1) {
+    const day = String(7 - i).padStart(2, '0');
+    docs.push(ev(`2025-02-${day}`, i >= 5 ? [2, 1] : [1, 2]));
   }
-  const d1 = find(computePower(docs, { minEvents: 1 }), 1);
+  const d1 = find(computePower(docs), 1);
   assert.equal(d1.avgOverall, 1, 'the two stale defeats do not drag the average');
-  assert.equal(d1.events, 12, 'but they still count as participation');
+  assert.equal(d1.events, 5, 'and no longer count as participation');
+  assert.equal(d1.wins, 5, 'stats cover the window only');
 });
 
-test('avgIncidents averages per race subsession, recency-weighted, races only', () => {
+test('avgIncidents averages per race subsession, races only', () => {
   const inc = (id, incidents) => ({ ...driver(id, 1), incidents });
   // One event: qualifying incidents are ignored; the heat (2) and feature (4)
   // count as two subsession samples → average 3.
@@ -264,12 +284,6 @@ test('a newly ranked driver has no position change', () => {
   const drivers = [{ custId: 1, provisional: false }, { custId: 2, provisional: false }];
   attachPositionChanges(drivers, [{ custId: 1, provisional: false }]);
   assert.equal(drivers[1].change, null, 'D2 was not ranked before');
-});
-
-test('races finished is the lightest metric', () => {
-  assert.equal(WEIGHTS.finishing, 5);
-  assert.ok(Object.entries(WEIGHTS).every(([k, w]) => k === 'finishing' || w > WEIGHTS.finishing),
-    'finishing is lighter than every other metric');
 });
 
 test('average lap ranks sustained pace, separately from the single best lap', () => {

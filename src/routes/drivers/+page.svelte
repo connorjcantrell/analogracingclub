@@ -8,15 +8,15 @@
   let { data } = $props();
   const drivers = $derived(data.power.drivers);
   const minEvents = $derived(data.power.minEvents);
+  const windowSize = $derived(data.power.window);
   // The qualifying (non-provisional) field — the only drivers that define the
   // category ranks.
   const qualifiers = $derived(drivers.filter((d) => !d.provisional));
   const rivals = $derived(new Map(data.rivals.rivals.map((r) => [r.custId, r])));
   const featured = $derived(data.rivals.featured);
-  // Mr. Clean: the driver with the fewest incidents per race (recency-weighted,
-  // minimum three races).
+  // Mr. Clean: the ranked driver with the fewest incidents per race.
   const clean = $derived.by(() => {
-    const eligible = drivers.filter((d) => d.events >= 3 && d.avgIncidents != null);
+    const eligible = drivers.filter((d) => !d.provisional && d.avgIncidents != null);
     return eligible.length ? eligible.reduce((best, d) => (d.avgIncidents < best.avgIncidents ? d : best)) : null;
   });
 
@@ -57,7 +57,7 @@
     </div>
     <div class="detail-grid">
       <div>
-        <h4>Season</h4>
+        <h4>Last {windowSize} races</h4>
         <dl class="detail-stats">
           {#each [['Races', d.events], ['Wins', d.wins], ['Podiums', d.podiums], ['Avg finish', d.avgFinish], ['Avg overall', d.avgOverall], ['Incidents / race', d.avgIncidents]] as [label, val] (label)}
             <div class="stat-row"><dt>{label}</dt><dd>{val == null ? '—' : val}</dd></div>
@@ -84,14 +84,14 @@
 {:else}
   <div>
     <p class="rank-note">
-      Every driver across every season, rated on their last five races. Select a driver for the full breakdown.
+      Every driver in the league’s last {windowSize} races, rated on form. Select a driver for the full breakdown.
       <button class="rank-toggle" type="button" onclick={() => (explain = !explain)}>{explain ? 'Hide' : 'How it works'}</button>
     </p>
     {#if explain}
       <div class="rank-detail">
         <p>The order is built from who beat whom, race by race: every driver’s record against everyone they shared a grid with, judged on how they finished overall, their speed over one lap, their pace over a full run, how many cars they passed, and how often they saw the flag.</p>
         <p>Beating a strong field counts for more than beating a weak one, and two drivers who never met are still placed through the opponents they share. Select a driver for their full breakdown and record against any rival.</p>
-        <p>The newest race counts in full and each older one loses twenty percent, out to the last five. Drivers with fewer than {minEvents} races are shown as provisional and listed last.</p>
+        <p>Only the league’s last {windowSize} races count, and each counts the same. A driver is rated on the races they entered among those, so a missed round is simply not counted, and their results drop off the back as the league moves on. Drivers with fewer than {minEvents} of those races are shown as provisional and listed last.</p>
       </div>
     {/if}
     {#if drivers.length}
