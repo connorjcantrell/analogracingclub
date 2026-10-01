@@ -505,8 +505,17 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 }
 .video-race:hover { color: var(--accent-soft); }
 
-/* /videos: the page's intro, then the grid at a wider pitch than a post's. */
-.videos-page .videos { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.4rem 1rem; }
+/* /videos: a feed — one video per row at full width, newest first. */
+.videos-page { max-width: 760px; }
+.videos-page .lp-sub { margin-bottom: 1rem; }
+.videos-feed { grid-template-columns: 1fr; gap: 0; }
+.videos-feed .video { padding: 2.25rem 0; border-bottom: var(--rule); }
+.videos-feed .video:last-child { border-bottom: none; }
+.videos-feed .video-title { font-family: var(--display); font-size: clamp(1.1rem, 2.2vw, 1.35rem); font-weight: 500; -webkit-line-clamp: 3; }
+.videos-feed .video figcaption { margin-top: 0.8rem; }
+.videos-feed .video-channel { font-size: 0.88rem; }
+.videos-feed .video-race { font-size: 0.75rem; }
+.videos-feed .video-play { width: 4rem; height: 4rem; font-size: 1.5rem; }
 .videos-note { color: var(--muted); font-size: 0.92rem; margin: 2.5rem 0 0; padding-top: 1.5rem; border-top: var(--rule); }
 @media (max-width: 640px) {
   .videos { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }

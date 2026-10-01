@@ -9,13 +9,13 @@
 <svelte:head><title>Videos · Analog Racing Club</title></svelte:head>
 
 <div class="videos-page">
-  <div class="page-head"><PageTitle inline>Videos</PageTitle></div>
-  <p class="lp-sub">Race broadcasts, onboards and recaps from the league's YouTube channels, newest first. Each is filed under the race it followed.</p>
+  <PageTitle>Videos</PageTitle>
+  <p class="lp-sub">Race broadcasts, onboards and recaps from the league's YouTube channels, newest first.</p>
 
   {#if !data.videos.length}
     <p class="empty">No videos yet — they appear here as the followed channels upload them.</p>
   {:else}
-    <VideoStrip videos={data.videos} />
+    <VideoStrip videos={data.videos} feed />
   {/if}
 
   <p class="videos-note">Do you stream or upload league races? Reach out to a league admin on
