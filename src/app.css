@@ -528,7 +528,8 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 }
 .videos-note { color: var(--muted); font-size: 0.92rem; margin: 2.5rem 0 0; padding-top: 1.5rem; border-top: var(--rule); }
 @media (max-width: 640px) {
-  .videos { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  /* The thumbnail grid only — the /videos feed (.videos-feed) stays one per row. */
+  .videos:not(.videos-feed) { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
 
 /* Featured photo heading the latest-event section. */
