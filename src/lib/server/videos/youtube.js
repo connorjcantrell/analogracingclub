@@ -66,6 +66,27 @@ export function channelIdFromPage(html) {
   return m ? m[1] : null;
 }
 
+// Thumbnail files per video, largest first. The feed names only hqdefault
+// (480×360, letterboxed); the 1280×720 maxresdefault exists for most uploads
+// but not all, and sddefault (640×480) for most of the rest.
+export const THUMB_SIZES = ['maxresdefault', 'sddefault', 'hqdefault'];
+export const thumbUrl = (videoId, size) => `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/${size}.jpg`;
+
+/** The largest thumbnail YouTube serves for a video; `exists` is injectable for tests. */
+export async function bestThumbnail(videoId, exists = headOk) {
+  for (const size of THUMB_SIZES.slice(0, -1)) {
+    if (await exists(thumbUrl(videoId, size))) return thumbUrl(videoId, size);
+  }
+  return thumbUrl(videoId, THUMB_SIZES.at(-1));
+}
+
+async function headOk(url) {
+  try {
+    const r = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(8_000) });
+    return r.ok;
+  } catch { return false; }
+}
+
 async function get(url) {
   const r = await fetch(url, { headers: { 'user-agent': UA, 'accept-language': 'en' }, redirect: 'follow', signal: AbortSignal.timeout(15_000) });
   if (!r.ok) throw new Error(`HTTP ${r.status} from YouTube`);

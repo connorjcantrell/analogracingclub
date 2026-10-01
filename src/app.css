@@ -505,17 +505,25 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 }
 .video-race:hover { color: var(--accent-soft); }
 
-/* /videos: a feed — one video per row at full width, newest first. */
-.videos-page { max-width: 760px; }
+/* /videos: a feed — one video per row, newest first: picture left, the title
+   and details right. The row widens to a full-width player when played. */
+.videos-page { max-width: 860px; }
 .videos-page .lp-sub { margin-bottom: 1rem; }
 .videos-feed { grid-template-columns: 1fr; gap: 0; }
-.videos-feed .video { padding: 2.25rem 0; border-bottom: var(--rule); }
+.videos-feed .video {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: 1.5rem; align-items: start;
+  padding: 2rem 0; border-bottom: var(--rule);
+}
 .videos-feed .video:last-child { border-bottom: none; }
-.videos-feed .video-title { font-family: var(--display); font-size: clamp(1.1rem, 2.2vw, 1.35rem); font-weight: 500; -webkit-line-clamp: 3; }
-.videos-feed .video figcaption { margin-top: 0.8rem; }
-.videos-feed .video-channel { font-size: 0.88rem; }
-.videos-feed .video-race { font-size: 0.75rem; }
+.videos-feed .video.playing { grid-template-columns: 1fr; }
+.videos-feed .video figcaption { margin-top: 0.1rem; }
+.videos-feed .video-title { font-family: var(--display); font-size: clamp(1.1rem, 2.2vw, 1.35rem); font-weight: 500; line-height: 1.25; -webkit-line-clamp: 3; }
+.videos-feed .video-channel { font-size: 0.88rem; margin-top: 0.45rem; }
+.videos-feed .video-race { font-size: 0.75rem; margin-top: 0.6rem; }
 .videos-feed .video-play { width: 4rem; height: 4rem; font-size: 1.5rem; }
+@media (max-width: 640px) {
+  .videos-feed .video { grid-template-columns: 1fr; gap: 0.8rem; padding: 1.5rem 0; }
+}
 .videos-note { color: var(--muted); font-size: 0.92rem; margin: 2.5rem 0 0; padding-top: 1.5rem; border-top: var(--rule); }
 @media (max-width: 640px) {
   .videos { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }

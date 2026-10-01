@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseFeed, channelIdFrom, channelPageUrl, channelIdFromPage } from '../src/lib/server/videos/youtube.js';
+import { parseFeed, channelIdFrom, channelPageUrl, channelIdFromPage, bestThumbnail } from '../src/lib/server/videos/youtube.js';
 import { mentionsClub, assignVideos, toStored, LEAD_MS } from '../src/lib/server/videos/index.js';
 
 const FEED = `<?xml version="1.0" encoding="UTF-8"?>
@@ -79,6 +79,17 @@ test('channelIdFromPage reads the canonical link, else the identifier meta', () 
   assert.equal(channelIdFromPage(canon), 'UCX6OQ3DkcsbYNE6H8uQQuVA');
   assert.equal(channelIdFromPage('<meta itemprop="identifier" content="UCX6OQ3DkcsbYNE6H8uQQuVA">'), 'UCX6OQ3DkcsbYNE6H8uQQuVA');
   assert.equal(channelIdFromPage('<html>nothing</html>'), null);
+});
+
+test('bestThumbnail takes the largest file YouTube serves, falling back to hqdefault without asking', async () => {
+  const asked = [];
+  const only = (sizes) => async (url) => { asked.push(url); return sizes.some((sz) => url.endsWith(`/${sz}.jpg`)); };
+  assert.equal(await bestThumbnail('abc', only(['maxresdefault', 'sddefault'])), 'https://i.ytimg.com/vi/abc/maxresdefault.jpg');
+  assert.equal(asked.length, 1);
+  assert.equal(await bestThumbnail('abc', only(['sddefault'])), 'https://i.ytimg.com/vi/abc/sddefault.jpg');
+  assert.equal(await bestThumbnail('abc', only([])), 'https://i.ytimg.com/vi/abc/hqdefault.jpg');
+  // hqdefault is never probed — it always exists.
+  assert.ok(asked.every((u) => !u.endsWith('/hqdefault.jpg')));
 });
 
 test('toStored keeps the fields the site shows, unhidden, keyed by video id', () => {

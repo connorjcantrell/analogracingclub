@@ -15,7 +15,7 @@
 {#if videos.length}
   <div class={['videos', { 'videos-feed': feed }]}>
     {#each videos as v (v.id)}
-      <figure class="video">
+      <figure class={['video', { playing: playing === v.id }]}>
         {#if playing === v.id}
           <div class="video-frame">
             <iframe src={embed(v.id)} title={v.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>

@@ -5,7 +5,7 @@
 // and that is worked out when read (see assignVideos), so results uploaded
 // after the video appeared still claim it.
 import { collections } from '../db/index.js';
-import { fetchChannelFeed, resolveChannel } from './youtube.js';
+import { fetchChannelFeed, resolveChannel, bestThumbnail } from './youtube.js';
 
 // A video is the club's when its description names the site. The title does
 // not count, and neither does the club's name on its own: creators opt a
@@ -137,19 +137,26 @@ export async function removeChannel(db, id) {
 
 // ---- Polling ----------------------------------------------------------------
 
-/** Read one channel's feed and store the uploads that mention the club. */
+/** Read one channel's feed and store the uploads that link the site. */
 export async function pollChannel(db, channel, now = new Date()) {
   const { channels, videos } = collections(db);
   try {
     const { name, videos: entries } = await fetchChannelFeed(channel._id);
     const hits = entries.filter(mentionsClub);
+    const known = new Set((await videos.find({ _id: { $in: hits.map((v) => v.videoId) } }, { projection: { _id: 1 } }).toArray()).map((d) => d._id));
     let added = 0;
     for (const v of hits) {
       const doc = toStored(v, { ...channel, name: name || channel.name }, now);
-      // Keep what the admin set (hidden) on a video seen before; refresh the rest.
-      const { hidden, ...rest } = doc;
-      const r = await videos.updateOne({ _id: doc._id }, { $set: rest, $setOnInsert: { hidden } }, { upsert: true });
-      if (r.upsertedCount) added++;
+      if (known.has(doc._id)) {
+        // Seen before: refresh what the feed may have changed, keep the
+        // thumbnail already resolved and whatever the admin set (hidden).
+        const { hidden, thumbnail, ...rest } = doc;
+        await videos.updateOne({ _id: doc._id }, { $set: rest });
+      } else {
+        // New: find the sharpest thumbnail YouTube has (one HEAD or two).
+        await videos.insertOne({ ...doc, thumbnail: await bestThumbnail(doc._id) });
+        added++;
+      }
     }
     await channels.updateOne({ _id: channel._id }, { $set: { name: name || channel.name, lastPolledAt: now, lastError: null, lastCount: hits.length } });
     return { ok: true, added, matched: hits.length };
