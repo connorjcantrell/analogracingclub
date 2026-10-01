@@ -17,7 +17,7 @@ const FEED = `<?xml version="1.0" encoding="UTF-8"?>
   <media:group>
    <media:title>Round 3 &amp; a half — Analog Racing Club</media:title>
    <media:thumbnail url="https://i4.ytimg.com/vi/AAA111/hqdefault.jpg" width="480" height="360"/>
-   <media:description>Full race from Lime Rock.
+   <media:description>Full race from Lime Rock — results at AnalogRacingClub.com
 Second line &lt;b&gt;here&lt;/b&gt;</media:description>
   </media:group>
  </entry>
@@ -38,7 +38,7 @@ test('parseFeed reads each entry with decoded text, thumbnail and publish time',
   assert.equal(a.channelId, 'UCabc');
   assert.equal(a.channelName, 'Some Racer');
   assert.equal(a.title, 'Round 3 & a half — Analog Racing Club');
-  assert.equal(a.description, 'Full race from Lime Rock.\nSecond line <b>here</b>');
+  assert.equal(a.description, 'Full race from Lime Rock — results at AnalogRacingClub.com\nSecond line <b>here</b>');
   assert.equal(a.thumbnail, 'https://i4.ytimg.com/vi/AAA111/hqdefault.jpg');
   assert.equal(a.publishedAt.toISOString(), '2026-09-18T03:10:00.000Z');
   // Missing thumbnail falls back to the standard URL; the feed title names the channel.
@@ -47,13 +47,12 @@ test('parseFeed reads each entry with decoded text, thumbnail and publish time',
   assert.deepEqual(parseFeed(''), []);
 });
 
-test('mentionsClub matches the club name or domain in title or description, loosely on case and spacing', () => {
-  assert.equal(mentionsClub({ title: 'ANALOG racing  club round 1', description: '' }), true);
-  assert.equal(mentionsClub({ title: 'Tuesday night', description: 'Racing with the Analog Racing Club again' }), true);
-  assert.equal(mentionsClub({ title: 'Analog Racing', description: 'club night' }), false);
-  // The site's domain (or a hashtag) counts too.
+test('mentionsClub requires the site domain in the description — not the title, not the club name', () => {
   assert.equal(mentionsClub({ title: 'Sebring onboard', description: 'Results at https://analogracingclub.com/results' }), true);
-  assert.equal(mentionsClub({ title: 'Sebring onboard #AnalogRacingClub', description: '' }), true);
+  assert.equal(mentionsClub({ title: '', description: 'ANALOGRACINGCLUB.COM' }), true);
+  assert.equal(mentionsClub({ title: 'analogracingclub.com in the title only', description: 'nothing here' }), false);
+  assert.equal(mentionsClub({ title: 'Analog Racing Club round 1', description: 'Racing with the Analog Racing Club again' }), false);
+  assert.equal(mentionsClub({ title: '', description: '#analogracingclub' }), false);
   assert.equal(mentionsClub({}), false);
   assert.equal(parseFeed(FEED).filter(mentionsClub).map((v) => v.videoId).join(), 'AAA111');
 });

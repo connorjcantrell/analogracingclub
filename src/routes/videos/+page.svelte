@@ -19,6 +19,6 @@
   {/if}
 
   <p class="videos-note">Do you stream or upload league races? Reach out to a league admin on
-    <a class="link" href={DISCORD_URL} target="_blank" rel="noopener">Discord</a> to have your channel added. Any video of yours
-    that mentions "Analog Racing Club" or links analogracingclub.com in its title or description will show up here and under the race it covers.</p>
+    <a class="link" href={DISCORD_URL} target="_blank" rel="noopener">Discord</a> to have your channel added. Then put
+    <strong>analogracingclub.com</strong> in a video's description and it will show up here and under the race it covers.</p>
 </div>

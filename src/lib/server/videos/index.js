@@ -1,16 +1,16 @@
 // Race videos from YouTube. The admin keeps a list of channels; a poller
-// reads each channel's feed and stores every upload that mentions the club
-// by name. Nothing is matched to a race at that point — a video belongs to
+// reads each channel's feed and stores every upload whose description links
+// the site. Nothing is matched to a race at that point — a video belongs to
 // whichever stored race was the latest to start before it was published,
 // and that is worked out when read (see assignVideos), so results uploaded
 // after the video appeared still claim it.
 import { collections } from '../db/index.js';
 import { fetchChannelFeed, resolveChannel } from './youtube.js';
 
-// A video is the club's when its title or description names the club or the
-// site: "Analog Racing Club", or "analogracingclub" as in the domain or a
-// hashtag. Case and spacing don't matter.
-export const PHRASES = ['Analog Racing Club', 'analogracingclub'];
+// A video is the club's when its description names the site. The title does
+// not count, and neither does the club's name on its own: creators opt a
+// video in by putting the domain in the description. Case doesn't matter.
+export const PHRASE = 'analogracingclub.com';
 
 // A live stream or upload that goes up shortly before a race starts is about
 // that race, not the previous one: the window for a race opens this long
@@ -19,11 +19,8 @@ export const LEAD_MS = 3 * 60 * 60 * 1000;
 
 const norm = (s) => String(s ?? '').toLowerCase().replace(/\s+/g, ' ');
 
-/** Does the video name the club (or the site) in its title or description? */
-export const mentionsClub = (v) => {
-  const text = `${norm(v?.title)}\n${norm(v?.description)}`;
-  return PHRASES.some((p) => text.includes(norm(p)));
-};
+/** Does the video's description name the site? */
+export const mentionsClub = (v) => norm(v?.description).includes(PHRASE);
 
 /** Shape stored for a matched feed entry (no description — only the match matters). */
 export const toStored = (v, channel, now = new Date()) => ({

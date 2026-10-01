@@ -650,7 +650,7 @@
 
 <section class="panel">
   <h3>YouTube channels</h3>
-  <p class="desc">Follow the channels that stream or upload the league's races. Any video from them that mentions "Analog Racing Club" or analogracingclub.com in its title or description is picked up and shown beneath the results of the race that ran just before it — on the homepage and the results page. Channels are checked every half hour.</p>
+  <p class="desc">Follow the channels that stream or upload the league's races. Any video from them with analogracingclub.com in its description is picked up and shown beneath the results of the race that ran just before it — on the homepage and the results page. Channels are checked every half hour.</p>
   {#if !channels.length}
     <p class="empty">No channels yet.</p>
   {:else}

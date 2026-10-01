@@ -193,8 +193,9 @@ The **YouTube channels** panel in the admin follows the channels that stream or 
 league's races: paste a channel URL, an `@handle` or a channel id and it is resolved to its
 `UC…` id. The server reads each channel's public Atom feed (its latest ~15 uploads; no API
 key, no quota) every `VIDEO_POLL_MINUTES` (default 30, `0` turns the poll off) and on the
-panel's **Check now**. Any upload whose title or description mentions "Analog Racing Club"
-or `analogracingclub.com` is stored in `videos`; everything else is ignored.
+panel's **Check now**. Any upload with `analogracingclub.com` in its **description** is stored
+in `videos`; everything else is ignored — the title doesn't count, so creators opt a video
+in by linking the site.
 
 A video is not pinned to a race when stored. It belongs to whichever stored event was the
 latest to start before it was published (with a three-hour lead so a stream that goes live
