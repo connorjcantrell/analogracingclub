@@ -41,9 +41,9 @@
   }
 </script>
 
-<svelte:head><title>Power Rankings · Analog Racing Club</title></svelte:head>
+<svelte:head><title>Drivers · Analog Racing Club</title></svelte:head>
 
-<PageTitle>Power Rankings</PageTitle>
+<PageTitle>Drivers</PageTitle>
 {#if detail}
   {@const d = detail.driver}
   <section>
@@ -82,7 +82,9 @@
     </div>
   </section>
 {:else}
-  <div>
+  <!-- Power Rankings: the form table, then the featured cards. -->
+  <section>
+    <h3 class="section-title">Power Rankings</h3>
     <p class="rank-note">
       Every driver in the league’s last {windowSize} races, rated on form. Select a driver for the full breakdown.
       <button class="rank-toggle" type="button" onclick={() => (explain = !explain)}>{explain ? 'Hide' : 'How it works'}</button>
@@ -137,5 +139,5 @@
         {/if}
       </div>
     {/if}
-  </div>
+  </section>
 {/if}

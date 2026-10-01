@@ -417,7 +417,9 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 
 /* ---------- Race photos ---------- */
 .gallery-section { margin-top: 3rem; padding-top: 2rem; border-top: var(--rule); }
-.gallery-title {
+/* A section heading within a page (the results page's Photos/Videos, the
+   drivers page's Power Rankings): small accent lettering. */
+.gallery-title, .section-title {
   color: var(--accent); font-size: 0.8rem; font-weight: 500;
   letter-spacing: 0.2em; margin: 0 0 1.25rem;
 }

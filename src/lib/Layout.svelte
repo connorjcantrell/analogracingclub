@@ -9,8 +9,8 @@
   const SITE = [
     { id: 'standings', href: '/standings', label: 'Standings' },
     { id: 'results', href: '/results', label: 'Results' },
+    { id: 'drivers', href: '/drivers', label: 'Drivers' },
     { id: 'videos', href: '/videos', label: 'Videos' },
-    { id: 'drivers', href: '/drivers', label: 'Power Rankings' },
     { id: 'format', href: '/format', label: 'Format' },
     { id: 'about', href: '/about', label: 'About' },
   ];
