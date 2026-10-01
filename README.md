@@ -39,12 +39,12 @@ npm run ingest data/eventresult-86498933.json -- --series <slug> --round 1
 
 ```
 src/routes/            SvelteKit pages (+page.svelte / +page.server.js) and JSON endpoints (+server.js)
-  /  standings  results  drivers  about  admin  admin/login  admin/logout
+  /  standings  results  videos  drivers  about  admin  admin/login  admin/logout
   api/...              the public JSON API;  api/admin/...  the admin API (gated)
   assets/rounds/...    streams admin-uploaded race photos from disk
 src/lib/               shared Svelte components + browser-safe helpers (format.js, api.js)
 src/lib/server/        server-only domain code: db, import (ingest), scoring, standings, power,
-                       event-types, images, admin/{auth,access,ops}, views (read models)
+                       event-types, images, videos (YouTube), admin/{auth,access,ops}, views (read models)
 src/hooks.server.js    legacy .html redirects, DB handle per request, the admin gate
 src/app.css            the site stylesheet (global);  static/assets/  brand images
 test/                  node --test suites for the domain modules
@@ -186,6 +186,24 @@ home page's latest-event section. Removing the featured photo clears the flag ra
 leaving a broken hero; with none set, the home page falls back to the round's first photo.
 Files are stored under `public/assets/rounds/<subsession>/`, named by content hash (so
 re-uploading the same file is a no-op) and kept in the `round-images` volume.
+
+### Race videos (YouTube)
+
+The **YouTube channels** panel in the admin follows the channels that stream or upload the
+league's races: paste a channel URL, an `@handle` or a channel id and it is resolved to its
+`UC…` id. The server reads each channel's public Atom feed (its latest ~15 uploads; no API
+key, no quota) every `VIDEO_POLL_MINUTES` (default 30, `0` turns the poll off) and on the
+panel's **Check now**. Any upload whose title or description mentions "Analog Racing Club"
+or `analogracingclub.com` is stored in `videos`; everything else is ignored.
+
+A video is not pinned to a race when stored. It belongs to whichever stored event was the
+latest to start before it was published (with a three-hour lead so a stream that goes live
+ahead of the green flag counts for that race), worked out on every read — so a result
+uploaded the morning after still claims the night's videos. Matched videos appear as
+click-to-play thumbnails beneath the results table in the home page's post for that race,
+under **Videos** on the results page, and all together, newest first, at `/videos`. The
+admin's video list shows which race each one lands on; **Hide** keeps a false positive off
+the site, and removing a channel removes its videos.
 
 ### Deleting a series
 

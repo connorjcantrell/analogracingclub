@@ -3,6 +3,7 @@
   // table schema (Pos · Driver · Start · Laps led · Delta · Points) drawn from
   // the deciding race, in finishing order. No Fast Four / championship copy.
   import DriverName from './DriverName.svelte';
+  import VideoStrip from './VideoStrip.svelte';
   import { driverName, fmtDate, trackName, session, raceSessions, gap, duration, SPECIAL_SLUG } from './format.js';
   import { roundBadges } from './badges.js';
 
@@ -77,4 +78,9 @@
     {/if}
     <p class="latest-more"><a class="link" href={resultsLink}>Full results →</a></p>
   </div>
+
+  <!-- Race videos from the followed YouTube channels, beneath the table. -->
+  {#if post.videos?.length}
+    <div class="post-videos"><VideoStrip videos={post.videos} /></div>
+  {/if}
 </article>

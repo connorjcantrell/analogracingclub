@@ -4,6 +4,7 @@
   import SeriesPicker from '$lib/SeriesPicker.svelte';
   import PageTitle from '$lib/PageTitle.svelte';
   import Gallery from '$lib/Gallery.svelte';
+  import VideoStrip from '$lib/VideoStrip.svelte';
   import OverallTable from '$lib/OverallTable.svelte';
   import SessionTable from '$lib/SessionTable.svelte';
   import SummaryCards from '$lib/SummaryCards.svelte';
@@ -121,6 +122,12 @@
         <OverallTable {sub} {mult} qualifyingPlaces={d.series?.qualifyingPlaces ?? 0} />
       {:else}
         <SessionTable {sub} kind={active} {mult} qualifyingPlaces={d.series?.qualifyingPlaces ?? 0} />
+      {/if}
+      {#if sub.videos?.length}
+        <div class="gallery-section">
+          <h3 class="gallery-title">Videos</h3>
+          <VideoStrip videos={sub.videos} />
+        </div>
       {/if}
       {#if sub.images?.length}
         <div class="gallery-section">

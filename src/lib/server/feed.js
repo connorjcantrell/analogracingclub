@@ -6,6 +6,7 @@ import { collections } from './db/index.js';
 import { getSeries } from './api/queries.js';
 import { publicSeries, withEventType } from './views.js';
 import { resultPostTitle } from './recap.js';
+import { videosByEvent } from './videos/index.js';
 
 const epoch = (d) => new Date(d ?? 0).getTime();
 
@@ -31,15 +32,16 @@ export async function buildFeed(db, { offset = 0, limit = 3 } = {}) {
     return seriesById.get(slug);
   };
 
+  const videos = slice.some((i) => i.kind === 'result') ? await videosByEvent(db) : new Map();
   const out = [];
   for (const item of slice) {
     if (item.kind === 'authored') out.push(hydrateSchedule(item.post));
-    else out.push(await hydrateResult(item.sub, getRawSeries));
+    else out.push(await hydrateResult(item.sub, getRawSeries, videos.get(item.sub._id) ?? []));
   }
   return { posts: out, hasMore: offset + limit < index.length };
 }
 
-async function hydrateResult(sub, getRawSeries) {
+async function hydrateResult(sub, getRawSeries, videos = []) {
   const raw = sub.seriesSlug ? await getRawSeries(sub.seriesSlug) : null;
   const series = raw ? publicSeries(raw) : null;
   const withType = withEventType(sub, raw?.eventType);
@@ -53,6 +55,8 @@ async function hydrateResult(sub, getRawSeries) {
     // editorial only (there is none unless written).
     title: sub.postTitle || resultPostTitle(series, withType),
     body: sub.postBody ?? '',
+    // Race videos from the followed YouTube channels, newest first.
+    videos,
   };
 }
 

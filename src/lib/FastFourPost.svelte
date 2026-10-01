@@ -4,6 +4,7 @@
   // inline Fast Four strip. Nothing here is shared with other event types'
   // posts, so the schema can diverge freely per type.
   import DriverName from './DriverName.svelte';
+  import VideoStrip from './VideoStrip.svelte';
   import { driverName, fmtDate, roundTable, roundPositionsGained, posCell, signed, cardsOf, topQualifiers } from './format.js';
   import { roundBadges } from './badges.js';
 
@@ -74,4 +75,9 @@
     </table>
     <p class="latest-more"><a class="link" href={resultsLink}>Full results →</a></p>
   </div>
+
+  <!-- Race videos from the followed YouTube channels, beneath the table. -->
+  {#if post.videos?.length}
+    <div class="post-videos"><VideoStrip videos={post.videos} /></div>
+  {/if}
 </article>

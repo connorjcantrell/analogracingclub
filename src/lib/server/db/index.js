@@ -38,16 +38,22 @@ export const collections = (db) => ({
   // Authored homepage posts (currently schedule announcements). Results posts
   // are derived from subsessions on the fly, so only authored content lives here.
   posts: db.collection('posts'),
+  // YouTube channels the admin follows, and the uploads from them that name
+  // the club (see src/lib/server/videos). _id is the channel / video id.
+  channels: db.collection('channels'),
+  videos: db.collection('videos'),
 });
 
 async function ensureIndexes(db) {
-  const { series, subsessions, posts } = collections(db);
+  const { series, subsessions, posts, videos } = collections(db);
   // _id on subsessions is `<seriesSlug>:<subsession_id>`; _id on drivers is cust_id.
   await subsessions.createIndex({ seriesSlug: 1, round: 1 });
   await series.createIndex({ slug: 1 }, { unique: true });
   await series.createIndex({ status: 1, eventType: 1 });
   // The feed reads authored posts newest-first, merged with subsessions.
   await posts.createIndex({ publishedAt: -1 });
+  await videos.createIndex({ publishedAt: -1 });
+  await videos.createIndex({ channelId: 1 });
 }
 
 export async function closeDb() {

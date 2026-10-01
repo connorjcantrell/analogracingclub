@@ -9,11 +9,12 @@
   const SITE = [
     { id: 'standings', href: '/standings', label: 'Standings' },
     { id: 'results', href: '/results', label: 'Results' },
+    { id: 'videos', href: '/videos', label: 'Videos' },
     { id: 'drivers', href: '/drivers', label: 'Power Rankings' },
     { id: 'format', href: '/format', label: 'Format' },
     { id: 'about', href: '/about', label: 'About' },
   ];
-  const ADMIN = [...SITE.slice(0, 3), { id: 'admin', href: '/admin', label: 'Admin' }];
+  const ADMIN = [...SITE.filter((l) => ['standings', 'results', 'drivers'].includes(l.id)), { id: 'admin', href: '/admin', label: 'Admin' }];
   const items = $derived(links === 'admin' ? ADMIN : links === 'site' ? SITE : []);
 
   let open = $state(false);

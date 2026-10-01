@@ -1,6 +1,7 @@
 import { redirect, json, text } from '@sveltejs/kit';
 import { getDb, closeDb } from '$lib/server/db/index.js';
 import { requireAdmin } from '$lib/server/admin/auth.js';
+import { startVideoPoller } from '$lib/server/videos/poller.js';
 
 // The old static site lived at /standings.html and friends; links in the
 // wild (and Discord) still point there.
@@ -20,6 +21,7 @@ export async function handle({ event, resolve }) {
   if (LEGACY[path]) redirect(301, `${LEGACY[path]}${event.url.search}`);
 
   event.locals.db = await getDb();
+  startVideoPoller(event.locals.db);
 
   const adminPage = path === '/admin' || path.startsWith('/admin/');
   const adminApi = path.startsWith('/api/admin/');

@@ -23,6 +23,8 @@ services:
       # Signs the admin session cookie. Leave empty to generate one per boot
       # (every restart logs the admin out).
       SESSION_SECRET: ${SESSION_SECRET:-}
+      # Minutes between checks of the followed YouTube channels (0 = off).
+      VIDEO_POLL_MINUTES: ${VIDEO_POLL_MINUTES:-30}
     ports:
       - "${APP_PORT:-8004}:8004"
     volumes:

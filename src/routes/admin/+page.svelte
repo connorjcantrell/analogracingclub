@@ -13,6 +13,8 @@
   const subs = $derived(data.subsessions);
   const posts = $derived(data.posts);
   const photos = $derived(data.photos);
+  const channels = $derived(data.channels);
+  const videos = $derived(data.videos);
   const refresh = () => invalidateAll();
 
   // Status line under each panel.
@@ -21,7 +23,7 @@
     kind = $state('');
     set(text, kind = '') { this.text = text; this.kind = kind; }
   }
-  const uploadMsg = new Msg(), newMsg = new Msg(), seriesMsg = new Msg(), schedMsg = new Msg(), pointsMsg = new Msg(), postMsg = new Msg();
+  const uploadMsg = new Msg(), newMsg = new Msg(), seriesMsg = new Msg(), schedMsg = new Msg(), pointsMsg = new Msg(), postMsg = new Msg(), videoMsg = new Msg();
 
   const eventTypeName = (id) => meta.eventTypes.find((t) => t.id === id)?.name ?? id;
   const formatName = (id) => meta.formats.find((f) => f.id === id)?.name ?? id;
@@ -321,6 +323,45 @@
     if (!res.ok) alert(`Error: ${res.error}`);
     await refresh();
   }
+
+  // ---- YouTube channels -----------------------------------------------------
+  // Followed channels are read every VIDEO_POLL_MINUTES; any upload naming the
+  // club is kept and shown under the race that preceded it.
+  let newChannel = $state('');
+  let polling = $state(false);
+  async function addChannel() {
+    const input = newChannel.trim();
+    if (!input) return videoMsg.set('Paste a channel URL or @handle first.', 'err');
+    videoMsg.set('Looking up the channel…');
+    const res = await post('/api/admin/channels', { channel: input });
+    videoMsg.set(res.ok ? `Following ${res.name}: ${res.added} video${res.added === 1 ? '' : 's'} found.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+    if (res.ok) newChannel = '';
+    await refresh();
+  }
+  async function removeChannel(c) {
+    if (!confirm(`Stop following ${c.name}? Its videos come off the site too.`)) return;
+    const res = await post(`/api/admin/channels/${encodeURIComponent(c._id)}`, null, 'DELETE');
+    videoMsg.set(res.ok ? `Removed ${c.name} and ${res.videos} video${res.videos === 1 ? '' : 's'}.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+    await refresh();
+  }
+  async function pollNow() {
+    polling = true;
+    videoMsg.set('Checking channels…');
+    const res = await post('/api/admin/videos/poll', null);
+    polling = false;
+    if (!res.ok) return videoMsg.set(`Error: ${res.error}`, 'err');
+    const failed = (res.results ?? []).filter((r) => r.error).map((r) => `${r.channel}: ${r.error}`).join('; ');
+    videoMsg.set(`${res.added} new video${res.added === 1 ? '' : 's'}.${failed ? ` Failed — ${failed}` : ''}`, failed ? 'err' : 'ok');
+    await refresh();
+  }
+  async function toggleHidden(v) {
+    const res = await post(`/api/admin/videos/${encodeURIComponent(v._id)}`, { hidden: !v.hidden }, 'PATCH');
+    if (!res.ok) return videoMsg.set(`Error: ${res.error}`, 'err');
+    await refresh();
+  }
+  const eventLabel = (e) => !e ? 'No race before it'
+    : e.seriesSlug ? `${seriesName(e.seriesSlug)} R${e.round ?? '?'}${e.track ? ` · ${e.track}` : ''}`
+    : e.title || e.track || 'Special event';
 </script>
 
 <svelte:head>
@@ -605,4 +646,57 @@
     {/if}
   </div>
   <p class={['msg', postMsg.kind]}>{postMsg.text}</p>
+</section>
+
+<section class="panel">
+  <h3>YouTube channels</h3>
+  <p class="desc">Follow the channels that stream or upload the league's races. Any video from them that mentions "Analog Racing Club" or analogracingclub.com in its title or description is picked up and shown beneath the results of the race that ran just before it — on the homepage and the results page. Channels are checked every half hour.</p>
+  {#if !channels.length}
+    <p class="empty">No channels yet.</p>
+  {:else}
+    <table>
+      <thead><tr><th>Channel</th><th>Last checked</th><th>Matched</th><th></th></tr></thead>
+      <tbody>
+        {#each channels as c (c._id)}
+          <tr>
+            <td><a class="link" href={c.url} target="_blank" rel="noopener">{c.name}</a></td>
+            <td class={{ muted: !c.lastError }}>
+              {#if c.lastError}<span class="err">Error: {c.lastError}</span>
+              {:else}{c.lastPolledAt ? fmtDate(c.lastPolledAt) : 'never'}{/if}
+            </td>
+            <td class="num">{c.lastCount ?? 0}</td>
+            <td><button class="btn sm danger" type="button" onclick={() => removeChannel(c)}>Remove</button></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+  <div class="row" style="margin-top:0.8rem">
+    <label class="field">Channel <input type="text" size="34" placeholder="https://www.youtube.com/@channel" bind:value={newChannel} onkeydown={(e) => e.key === 'Enter' && addChannel()}></label>
+    <button class="btn primary" type="button" onclick={addChannel}>Follow</button>
+    <button class="btn" type="button" disabled={polling || !channels.length} onclick={pollNow}>{polling ? 'Checking…' : 'Check now'}</button>
+  </div>
+  <p class={['msg', videoMsg.kind]}>{videoMsg.text}</p>
+
+  <h4>Videos</h4>
+  <p class="desc">Every matched video, newest first, with the race it is shown under. Hide one to keep it off the site.</p>
+  {#if !videos.length}
+    <p class="empty">No videos matched yet.</p>
+  {:else}
+    <div class="shot-admin">
+      {#each videos as v (v._id)}
+        <figure class={['shot-admin-item', 'video-admin-item', { 'is-hidden': v.hidden }]}>
+          <a href={v.url} target="_blank" rel="noopener"><img src={v.thumbnail} alt=""></a>
+          <div class="cap">
+            {v.title}
+            <span class="muted">{v.channelName} · {fmtDate(v.publishedAt)}</span>
+            <span class={['muted', { err: !v.event }]}>{eventLabel(v.event)}</span>
+          </div>
+          <div class="row">
+            <button class="btn sm" type="button" onclick={() => toggleHidden(v)}>{v.hidden ? 'Show' : 'Hide'}</button>
+          </div>
+        </figure>
+      {/each}
+    </div>
+  {/if}
 </section>

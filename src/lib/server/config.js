@@ -21,3 +21,7 @@ export const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(3
 export const SESSION_TTL_MS = Number(process.env.SESSION_TTL_HOURS ?? 24 * 7) * 60 * 60 * 1000;
 
 export const UPLOAD_MAX_BYTES = Number(process.env.UPLOAD_MAX_BYTES ?? 5_000_000); // 5 MB
+
+// How often the YouTube channels are re-read for new race videos; 0 turns the
+// background poll off (the admin's "Check now" button still works).
+export const VIDEO_POLL_MINUTES = Number(process.env.VIDEO_POLL_MINUTES ?? 30);

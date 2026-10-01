@@ -4,6 +4,7 @@
 import { collections } from './db/index.js';
 import { getSeries, listSubsessionsFull, listSpecialEvents } from './api/queries.js';
 import { publicDescriptor } from './event-types.js';
+import { videosByEvent } from './videos/index.js';
 
 // How many qualifying places the series' format actually pays. The ARC
 // standard scores the top four ("the Fast Four"); a format that scores no
@@ -31,13 +32,13 @@ export const withEventType = (doc, containerType = null) => ({ ...doc, eventType
 
 // A series' rounds: schedule merged with the stored results for each round.
 export async function seriesRounds(db, s) {
-  const docs = await listSubsessionsFull(db, { seriesSlug: s.slug });
+  const [docs, videos] = await Promise.all([listSubsessionsFull(db, { seriesSlug: s.slug }), videosByEvent(db)]);
   const byRound = new Map();
   for (const r of s.schedule ?? []) byRound.set(r.round, { round: r.round, track: r.track, date: r.date, multiplier: r.multiplier ?? 1, subsessions: [] });
   for (const d of docs) {
     const key = d.round ?? d._id;
     if (!byRound.has(key)) byRound.set(key, { round: key, track: null, date: null, multiplier: 1, subsessions: [] });
-    byRound.get(key).subsessions.push(withEventType(d, s.eventType));
+    byRound.get(key).subsessions.push({ ...withEventType(d, s.eventType), videos: videos.get(d._id) ?? [] });
   }
   return [...byRound.values()].sort((a, b) => a.round - b.round);
 }
@@ -45,10 +46,10 @@ export async function seriesRounds(db, s) {
 // The standalone special events, shaped like a series' rounds so the results
 // page can render them with the same machinery (each event is its own row).
 export async function specialEventsView(db) {
-  const docs = await listSpecialEvents(db);
+  const [docs, videos] = await Promise.all([listSpecialEvents(db), videosByEvent(db)]);
   return {
     series: { name: 'Special events', typeLabel: 'Special events', special: true, singleRound: true },
-    rounds: docs.map((d) => ({ round: null, track: null, date: null, multiplier: 1, subsessions: [withEventType(d)] })),
+    rounds: docs.map((d) => ({ round: null, track: null, date: null, multiplier: 1, subsessions: [{ ...withEventType(d), videos: videos.get(d._id) ?? [] }] })),
   };
 }
 
