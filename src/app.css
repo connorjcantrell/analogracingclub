@@ -411,12 +411,6 @@ main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.14em;
 }
 
-/* Points earned, beside a position or laps led on the Overall table. */
-.pts-tag {
-  margin-left: 0.4rem; color: var(--green); font-family: var(--display);
-  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; vertical-align: 0.1em;
-}
-
 /* Results detail: tabs switch the table between overall and each session. */
 .tabs {
   display: flex; gap: 2rem; flex-wrap: wrap;
