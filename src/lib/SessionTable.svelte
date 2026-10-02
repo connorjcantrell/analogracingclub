@@ -1,6 +1,8 @@
 <script>
   // One session, ordered by finishing position, with the columns that matter
-  // for it and the points it awarded. Columns with nothing in them are dropped:
+  // for it and the points it awarded for the finish — the lap-led bonus is
+  // left out here and marked on the Overall table instead. Columns with
+  // nothing in them are dropped:
   // an unscored special event has no points, and a standing-start-only event
   // has no grid positions. Shared by the results page; the homepage feed's
   // per-type posts render their own tables.
@@ -13,7 +15,8 @@
     .sort((a, b) => (a.finish ?? Infinity) - (b.finish ?? Infinity)));
   const rows = $derived(all.slice(0, limit));
   const cols = $derived((SESSION_COLS[kind] ?? []).filter((c) => all.some((x) => c.cell(x, all) != null)));
-  const scored = $derived(all.some((x) => (x.points?.total ?? 0) !== 0));
+  const pts = (x) => x.points?.base ?? x.points?.total ?? 0;
+  const scored = $derived(all.some((x) => pts(x) !== 0));
   const badges = $derived(roundBadges(sub, { qualifyingPlaces }));
 </script>
 
@@ -38,7 +41,7 @@
             {@const v = c.cell(x, all)}
             <td class={['num', { muted: v == null }]}>{v ?? '—'}</td>
           {/each}
-          {#if scored}<td class="num total">{(x.points?.total ?? 0) * mult}</td>{/if}
+          {#if scored}<td class="num total">{pts(x) * mult}</td>{/if}
         </tr>
       {/each}
     </tbody>

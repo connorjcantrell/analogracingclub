@@ -171,6 +171,8 @@ const raceBehind = (rows, x) => {
 };
 const RACE_COLS = [
   { head: 'Start', cell: (x) => (x.start ? `P${x.start}` : null) },
+  // Places made up from this session's grid slot to its finish.
+  { head: 'Gained', cell: (x) => (x.start && x.finish ? signed(x.start - x.finish) : null) },
   { head: 'Laps led', cell: (x) => (x.lapsLead ? String(x.lapsLead) : null) },
   { head: 'Behind', cell: (x, rows) => raceBehind(rows, x) },
   { head: 'Best lap', cell: (x) => lapTime(x.bestLapTime) },
