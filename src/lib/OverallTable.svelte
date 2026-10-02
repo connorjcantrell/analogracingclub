@@ -35,7 +35,7 @@
       <th class="pos">Pos</th>
       <th>Driver</th>
       {#each kinds as k (k)}<th class="num">{sessionLabel(sub.eventType, k)}</th>{/each}
-      {#if gained}<th class="num" title="Places made up from the heat grid to the feature finish">Gained</th>{/if}
+      {#if gained}<th class="num" title="Places made up from the heat grid to the feature finish">Positions gained</th>{/if}
       <th class="num" title={lapsLedTip}>Laps led</th>
       {#if scored}<th class="num">{mult > 1 ? 'Points 2×' : 'Points'}</th>{/if}
     </tr>
