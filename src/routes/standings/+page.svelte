@@ -45,10 +45,10 @@
             <th class="pos">Pos</th>
             <th class="drv">Driver</th>
             <th class="num" title="Rounds entered">Starts</th>
-            <th class="num" title="Rounds won on the overall order">Wins</th>
-            <th class="num" title="Rounds finished in the overall top 5">Top 5</th>
-            <th class="num" title="Rounds finished in the overall top 10">Top 10</th>
             {#if isFastFour}<th class="num" title="Share of rounds qualified in the Fast Four">Fast Four %</th>{/if}
+            <th class="num" title="Rounds finished in the overall top 10">Top 10</th>
+            <th class="num" title="Rounds finished in the overall top 5">Top 5</th>
+            <th class="num" title="Rounds won on the overall order">Wins</th>
             <th class="num">Laps Led</th>
             <th class="num pts">Total</th>
           </tr>
@@ -59,10 +59,10 @@
               <td class="pos"><span class="pos-box">{i + 1}</span>{#if x.change}<span class={['chg', x.change > 0 ? 'chg-up' : 'chg-down']}>{x.change > 0 ? '▲' : '▼'}{Math.abs(x.change)}</span>{/if}</td>
               <td class="drv">{driverName(x.displayName)}</td>
               <td class="num">{x.starts ?? 0}</td>
-              <td class="num">{x.wins ?? 0}</td>
-              <td class="num">{x.top5 ?? 0}</td>
-              <td class="num">{x.top10 ?? 0}</td>
               {#if isFastFour}<td class="num">{fastFourPct(x)}</td>{/if}
+              <td class="num">{x.top10 ?? 0}</td>
+              <td class="num">{x.top5 ?? 0}</td>
+              <td class="num">{x.wins ?? 0}</td>
               <td class="num">{x.lapsLed ?? 0}</td>
               <td class="num total">{x.total}</td>
             </tr>
