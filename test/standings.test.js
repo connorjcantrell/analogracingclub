@@ -104,6 +104,38 @@ test('folds Fast Four count and net positions gained (heat start → feature fin
   assert.deepEqual([d1.lapsLed, d2.lapsLed, d3.lapsLed], [6, 4, 0]);
 });
 
+test('counts starts, and round wins / top 5s / top 10s on the round overall order', () => {
+  // Round 1: D1 27, D2 24, D3 19 on points. Round 2: D1 and D2 tie on 20,
+  // D2 wins it on the better feature finish; D3 sits it out.
+  const docs = [
+    doc(1, [
+      { kind: 'qualifying', results: [res(1, 1, 7), res(2, 2, 5), res(3, 3, 3)] },
+      { kind: 'feature', results: [res(1, 1, 20), res(2, 2, 19), res(3, 3, 16)] },
+    ]),
+    doc(2, [
+      { kind: 'qualifying', results: [res(1, 1, 2), res(2, 2, 0)] },
+      { kind: 'feature', results: [res(1, 2, 18), res(2, 1, 20)] },
+    ]),
+  ];
+  const { standings } = foldStandings(docs, { qualifyingPlaces: 2 });
+  const by = (id) => standings.find((r) => r.custId === id);
+  assert.deepEqual([by(1).starts, by(2).starts, by(3).starts], [2, 2, 1]);
+  assert.deepEqual([by(1).wins, by(2).wins, by(3).wins], [1, 1, 0]);
+  assert.deepEqual([by(1).top5, by(2).top5, by(3).top5], [2, 2, 1]);
+  assert.deepEqual([by(1).top10, by(2).top10, by(3).top10], [2, 2, 1]);
+  // Fast Four: qualified in the top 2 — D1 both rounds, D2 both, D3 never.
+  assert.deepEqual([by(1).fastFours, by(2).fastFours, by(3).fastFours], [2, 2, 0]);
+});
+
+test('top 5 and top 10 stop at the fifth and tenth place of a round', () => {
+  const field = Array.from({ length: 12 }, (_, i) => res(i + 1, i + 1, 30 - i));
+  const { standings } = foldStandings([doc(1, [{ kind: 'feature', results: field }])]);
+  const by = (id) => standings.find((r) => r.custId === id);
+  assert.deepEqual([by(5).top5, by(6).top5], [1, 0]);
+  assert.deepEqual([by(10).top10, by(11).top10], [1, 0]);
+  assert.equal(standings.filter((r) => r.wins).length, 1);
+});
+
 test('ties break on feature wins, then sprint wins, then poles', () => {
   const docs = [doc(1, [
     { kind: 'feature', results: [res(1, 1, 10), res(2, 2, 10)] },

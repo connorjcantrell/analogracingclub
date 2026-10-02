@@ -23,6 +23,8 @@ export function standingsRuleFor({ dropCount = 0 } = {}) {
 
 // Series standings: fold every stored result into per-driver totals with a
 // per-round breakdown. Sorted by total, then feature wins, sprint wins, poles.
+// `starts` counts the rounds a driver appeared in; wins/top5/top10 are on each
+// round's overall order.
 export async function computeStandings(db, { seriesSlug }) {
   const { subsessions, series } = collections(db);
   const s = await series.findOne({ slug: seriesSlug });
@@ -71,8 +73,10 @@ export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0
     rounds.add(round);
     const mult = multipliers[round] ?? 1;
     // Per-round grid/finish, to derive positions gained (heat start → feature
-    // finish) once both sessions of the round are seen.
+    // finish) once both sessions of the round are seen, and the round's raw
+    // points per driver for its overall order.
     const roundInfo = new Map();
+    const roundPts = new Map();
     for (const s of d.simsessions ?? []) {
       for (const r of s.results ?? []) {
         let row = byDriver.get(r.custId);
@@ -82,11 +86,15 @@ export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0
             total: 0, qualifying: 0, sprint: 0, feature: 0,
             poles: 0, sprintWins: 0, featureWins: 0, lapsLed: 0, starts: 0,
             fastFours: 0, positionsGained: 0,
+            // Round results on the round's overall order (points across the
+            // round's sessions, the results page's Overall tab).
+            wins: 0, top5: 0, top10: 0,
           };
           byDriver.set(r.custId, row);
         }
         row.displayName = r.displayName;
         const pts = r.points?.total ?? 0;
+        if (s.kind !== 'practice') roundPts.set(r.custId, (roundPts.get(r.custId) ?? 0) + pts);
         // The round total (and thus the championship total) carries the round's
         // multiplier; the tiebreak buckets below stay in raw points.
         row.rounds[round] = (row.rounds[round] ?? 0) + pts * mult;
@@ -98,7 +106,7 @@ export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0
           if (qualifyingPlaces > 0 && r.finish >= 1 && r.finish <= qualifyingPlaces) row.fastFours += 1;
         }
         if (s.kind === 'sprint') { row.sprint += pts; if (r.finish === 1) row.sprintWins += 1; row.lapsLed += r.lapsLead ?? 0; info.sprintStart = r.start; }
-        if (s.kind === 'feature') { row.feature += pts; if (r.finish === 1) row.featureWins += 1; row.lapsLed += r.lapsLead ?? 0; row.starts += 1; info.featureStart = r.start; info.featureFinish = r.finish; }
+        if (s.kind === 'feature') { row.feature += pts; if (r.finish === 1) row.featureWins += 1; row.lapsLed += r.lapsLead ?? 0; info.featureStart = r.start; info.featureFinish = r.finish; }
         roundInfo.set(r.custId, info);
       }
     }
@@ -108,6 +116,17 @@ export function foldStandings(docs, { eventType, multipliers = {}, dropCount = 0
       const start = info.sprintStart ?? info.featureStart ?? null;
       if (start != null && info.featureFinish != null) byDriver.get(custId).positionsGained += start - info.featureFinish;
     }
+    // The round's overall order — same rule as the results page's Overall tab
+    // (roundTable in src/lib/format.js): round points, then feature finish.
+    const order = [...roundPts.entries()].sort(([a, ap], [b, bp]) =>
+      bp - ap || (roundInfo.get(a)?.featureFinish ?? Infinity) - (roundInfo.get(b)?.featureFinish ?? Infinity));
+    order.forEach(([custId], i) => {
+      const row = byDriver.get(custId);
+      row.starts += 1;
+      if (i === 0) row.wins += 1;
+      if (i < 5) row.top5 += 1;
+      if (i < 10) row.top10 += 1;
+    });
   }
   // The counted total is the rule over each driver's per-round points. A round
   // that RAN but the driver missed counts as a droppable zero, so drops land on

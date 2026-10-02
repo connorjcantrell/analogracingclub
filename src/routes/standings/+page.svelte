@@ -1,7 +1,7 @@
 <script>
   import SeriesPicker from '$lib/SeriesPicker.svelte';
   import PageTitle from '$lib/PageTitle.svelte';
-  import { driverName, signed } from '$lib/format.js';
+  import { driverName } from '$lib/format.js';
 
   let { data } = $props();
   const d = $derived(data.standings);
@@ -15,6 +15,9 @@
     if ((s.dropCount ?? 0) > 0) out.push(`Drops ${s.dropCount} lowest`);
     return out;
   });
+  // Share of a driver's rounds that put them in the Fast Four (qualified in
+  // the paying places), as a whole percentage.
+  const fastFourPct = (x) => (x.starts ? `${Math.round(100 * (x.fastFours ?? 0) / x.starts)}%` : '—');
   const EMPTY = 'No results yet — standings appear after the first round.';
 </script>
 
@@ -41,8 +44,11 @@
           <tr>
             <th class="pos">Pos</th>
             <th class="drv">Driver</th>
-            {#if isFastFour}<th class="num">Fast Four</th>{/if}
-            <th class="num">Positions Gained</th>
+            <th class="num" title="Rounds entered">Starts</th>
+            <th class="num" title="Rounds won on the overall order">Wins</th>
+            <th class="num" title="Rounds finished in the overall top 5">Top 5</th>
+            <th class="num" title="Rounds finished in the overall top 10">Top 10</th>
+            {#if isFastFour}<th class="num" title="Share of rounds qualified in the Fast Four">Fast Four %</th>{/if}
             <th class="num">Laps Led</th>
             <th class="num pts">Total</th>
           </tr>
@@ -52,8 +58,11 @@
             <tr>
               <td class="pos"><span class="pos-box">{i + 1}</span>{#if x.change}<span class={['chg', x.change > 0 ? 'chg-up' : 'chg-down']}>{x.change > 0 ? '▲' : '▼'}{Math.abs(x.change)}</span>{/if}</td>
               <td class="drv">{driverName(x.displayName)}</td>
-              {#if isFastFour}<td class="num">{x.fastFours ?? 0}</td>{/if}
-              <td class="num">{signed(x.positionsGained)}</td>
+              <td class="num">{x.starts ?? 0}</td>
+              <td class="num">{x.wins ?? 0}</td>
+              <td class="num">{x.top5 ?? 0}</td>
+              <td class="num">{x.top10 ?? 0}</td>
+              {#if isFastFour}<td class="num">{fastFourPct(x)}</td>{/if}
               <td class="num">{x.lapsLed ?? 0}</td>
               <td class="num total">{x.total}</td>
             </tr>
