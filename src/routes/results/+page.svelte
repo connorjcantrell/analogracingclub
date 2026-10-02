@@ -1,5 +1,5 @@
 <script>
-  import { tick } from 'svelte';
+  import { replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import SeriesPicker from '$lib/SeriesPicker.svelte';
   import PageTitle from '$lib/PageTitle.svelte';
@@ -8,40 +8,46 @@
   import OverallTable from '$lib/OverallTable.svelte';
   import SessionTable from '$lib/SessionTable.svelte';
   import SummaryCards from '$lib/SummaryCards.svelte';
-  import { fmtDate, trackName, winner, overallWinner, sessionKindsOf, sessionLabel } from '$lib/format.js';
+  import { fmtDate, trackName, sessionKindsOf, sessionLabel, SPECIAL_SLUG } from '$lib/format.js';
 
   let { data } = $props();
   // The series in view (a container, or the synthetic "Special events"
   // collection). Each event's layout comes from its own sub.eventType.
   const d = $derived(data.results);
-  // A single-round competition (or the specials list) has no round number.
-  // The winner columns follow the events' type; a container is homogeneous,
-  // so the first event that ran is representative. Pole only means something
-  // when the type runs a qualifying session.
   const oneOff = $derived(!!d?.series?.singleRound);
-  const et = $derived(d?.rounds.map((r) => r.subsessions[0]).find(Boolean)?.eventType);
-  const single = $derived(sessionKindsOf(et).length <= 1);
-  const hasQual = $derived(sessionKindsOf(et).includes('qualifying'));
 
-  // The round being shown, keyed by its stored result so switching series
-  // clears it. A ?round= deep link picks the round on first render.
-  let selectedId = $state(null);
-  let view = $state('overall');
-  let detail = $state(null);
+  // The events that have run, newest first — the dropdown's choices — and the
+  // scheduled rounds still to come, listed after them for context.
+  const epoch = (r) => new Date(r.subsessions[0]?.startTime ?? 0).getTime();
+  const run = $derived((d?.rounds ?? []).filter((r) => r.subsessions.length).sort((a, b) => epoch(b) - epoch(a)));
+  const upcoming = $derived((d?.rounds ?? []).filter((r) => !r.subsessions.length));
+
+  // The event shown. The URL is the deep link: ?round=N for a league round,
+  // ?event=<id> for a special; with neither, the most recent event.
   const sel = $derived.by(() => {
-    if (!d) return null;
-    const chosen = d.rounds.find((r) => r.subsessions[0]?._id === selectedId);
-    if (chosen) return chosen;
-    const want = Number(page.url.searchParams.get('round')) || null;
-    return want != null ? d.rounds.find((r) => r.round === want && r.subsessions.length) ?? null : null;
+    if (!run.length) return null;
+    const q = page.url.searchParams;
+    const byId = q.get('event');
+    const byRound = Number(q.get('round')) || null;
+    return run.find((r) => r.subsessions[0]._id === byId)
+      ?? (byRound != null ? run.find((r) => r.round === byRound) : null)
+      ?? run[0];
   });
-
-  async function pick(r) {
-    selectedId = r.subsessions[0]._id;
-    await tick();
-    detail?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Choosing an event rewrites the URL (no reload — the page already holds
+  // every event of the series), so the address bar is always shareable.
+  function choose(e) {
+    const r = run.find((x) => x.subsessions[0]._id === e.currentTarget.value);
+    if (!r) return;
+    const url = new URL(page.url);
+    url.searchParams.set('series', data.pick.slug);
+    url.searchParams.delete('round'); url.searchParams.delete('event');
+    if (oneOff || r.round == null) url.searchParams.set('event', r.subsessions[0]._id);
+    else url.searchParams.set('round', String(r.round));
+    replaceState(url, {});
+    view = 'overall';
   }
 
+  let view = $state('overall');
   // Tabs are declared by the event's own type — strictly. A declared session
   // shows its tab even when a round skipped it (the table then shows a
   // placeholder), and "Overall" appears when the type combines >1 session.
@@ -50,7 +56,15 @@
     const overall = type?.display?.overall && kinds.length > 1;
     return (overall ? [['overall', 'Overall']] : []).concat(kinds.map((k) => [k, sessionLabel(type, k)]));
   }
-  const rowKey = (r) => r.subsessions[0]?._id ?? `round:${r.round}`;
+  const optionLabel = (r) => {
+    const sub = r.subsessions[0];
+    return [
+      oneOff ? null : `Round ${r.round}`,
+      r.multiplier > 1 ? `${r.multiplier}×` : null,
+      sub.title && oneOff ? sub.title : trackName(sub),
+      fmtDate(sub.startTime),
+    ].filter(Boolean).join(' · ');
+  };
   const detailTitle = (r, sub) => [
     oneOff ? null : `Round ${r.round}`,
     r.multiplier > 1 ? `${r.multiplier}× points` : null,
@@ -70,39 +84,27 @@
   <p class="empty">{EMPTY}</p>
 {:else}
   <p class="muted" id="seriesName">{d.series.name} · {d.series.typeLabel}</p>
-  <table>
-    <thead>
-      <tr>
-        {#if !oneOff}<th>Round</th>{/if}
-        <th>Track</th>
-        <th>Date</th>
-        {#if hasQual}<th>Fast qualifier</th>{/if}
-        {#if !single}<th>{sessionLabel(et, 'feature')} winner</th>{/if}
-        <th>{single ? 'Winner' : 'Overall winner'}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each d.rounds as r (rowKey(r))}
-        {@const sub = r.subsessions[0]}
-        {@const track = sub ? trackName(sub) : r.track}
-        <tr style:cursor={sub ? 'pointer' : null} onclick={() => sub && pick(r)}>
-          {#if !oneOff}
-            <td class="pos">{r.round ?? ''}{#if r.multiplier > 1}<span class="mult-badge">{r.multiplier}×</span>{/if}</td>
-          {/if}
-          <td class={{ muted: !track }}>
-            <span class="track-name">{track || '—'}</span>
-            {#if sub?.cars?.length}<span class="track-cars">{sub.cars.join(' · ')}</span>{/if}
-          </td>
-          <td class={{ muted: !sub }}>{sub ? fmtDate(sub.startTime) : r.date || 'TBD'}</td>
-          {#if hasQual}<td class={{ muted: !sub }}>{winner(sub, 'qualifying') || '—'}</td>{/if}
-          {#if !single}<td class={{ muted: !sub }}>{winner(sub, 'feature') || '—'}</td>{/if}
-          <td class={{ muted: !sub }}>{overallWinner(sub) || '—'}</td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-  {#if !d.rounds.some((r) => r.subsessions.length)}
+
+  {#if !run.length}
     <p class="empty">{EMPTY}</p>
+  {:else}
+    <!-- Event picker: everything that has run, newest first; scheduled rounds
+         still to come are listed, greyed, after them. -->
+    <label class="event-pick-label">
+      <span class="event-pick-caption">Event</span>
+      <select class="series-pick event-pick" value={sel?.subsessions[0]._id} onchange={choose}>
+        {#each run as r (r.subsessions[0]._id)}
+          <option value={r.subsessions[0]._id}>{optionLabel(r)}</option>
+        {/each}
+        {#if upcoming.length}
+          <optgroup label="Upcoming">
+            {#each upcoming as r (`round:${r.round}`)}
+              <option disabled>Round {r.round} · {r.track || 'TBD'} · {r.date || 'TBD'}</option>
+            {/each}
+          </optgroup>
+        {/if}
+      </select>
+    </label>
   {/if}
 
   {#if sel}
@@ -110,8 +112,9 @@
     {@const mult = sel.multiplier || 1}
     {@const views = viewsFor(sub.eventType)}
     {@const active = views.some(([v]) => v === view) ? view : (views[0]?.[0] ?? 'overall')}
-    <section bind:this={detail}>
+    <section class="event-detail">
       <h2 class="detail-title">{detailTitle(sel, sub)}</h2>
+      <p class="lp-sub detail-date">{fmtDate(sub.startTime)}</p>
       <SummaryCards {sub} qualifyingPlaces={d.series?.qualifyingPlaces ?? 0} />
       <div class="tabs" role="tablist">
         {#each views as [v, title] (v)}

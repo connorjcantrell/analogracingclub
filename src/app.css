@@ -297,6 +297,17 @@ footer a:hover { color: var(--accent-soft); }
 }
 .series-pick:hover { border-bottom-color: var(--accent); color: var(--accent); }
 .series-pick option { background: var(--bg); color: var(--text); font-family: var(--body); letter-spacing: normal; text-transform: none; }
+.series-pick optgroup { background: var(--bg); color: var(--muted); font-family: var(--body); letter-spacing: normal; text-transform: none; }
+
+/* Results: the event dropdown under the series line, then the detail. */
+.event-pick-label { display: inline-flex; align-items: baseline; gap: 0.8rem; margin: 0.6rem 0 0; max-width: 100%; }
+.event-pick-caption {
+  font-family: var(--display); color: var(--accent); font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.2em;
+}
+.event-pick { max-width: 100%; text-overflow: ellipsis; }
+.event-detail .detail-title { margin-top: 2.25rem; padding-top: 1.75rem; margin-bottom: 0.2rem; }
+.event-detail .detail-date { margin: 0 0 1.5rem; }
 
 /* Page subtitle under a page-head */
 #seriesName {
