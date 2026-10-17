@@ -42,10 +42,20 @@ export const collections = (db) => ({
   // the club (see src/lib/server/videos). _id is the channel / video id.
   channels: db.collection('channels'),
   videos: db.collection('videos'),
+  // Next-season car vote (see src/lib/server/vote). voteSessions holds the
+  // ballot definition (cars, window, points-source series); voteCodes holds
+  // each driver's sign-in passcode (_id is custId, generated on /admin/vote
+  // and handed out by DM); voteBallots is one doc per driver per session with
+  // their point allocation.
+  voteSessions: db.collection('voteSessions'),
+  voteCodes: db.collection('voteCodes'),
+  voteBallots: db.collection('voteBallots'),
 });
 
 async function ensureIndexes(db) {
-  const { series, subsessions, posts, videos } = collections(db);
+  const { series, subsessions, posts, videos, voteBallots } = collections(db);
+  // The live tally re-reads a session's ballots every few seconds.
+  await voteBallots.createIndex({ sessionId: 1 });
   // _id on subsessions is `<seriesSlug>:<subsession_id>`; _id on drivers is cust_id.
   await subsessions.createIndex({ seriesSlug: 1, round: 1 });
   await series.createIndex({ slug: 1 }, { unique: true });

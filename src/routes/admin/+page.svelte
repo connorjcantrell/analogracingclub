@@ -372,6 +372,7 @@
 <div class="topbar">
   <PageTitle inline>Admin</PageTitle>
   <button class="btn sm" type="button" onclick={refresh}>↻ Refresh</button>
+  <a class="btn sm" href="/admin/vote">Car vote →</a>
 </div>
 
 <section class="panel">

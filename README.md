@@ -255,6 +255,31 @@ mode from the environment:
    with no token gets a Cloudflare login redirect at the edge, and hitting the origin directly
    (`curl -H 'Host: analogracingclub.com' localhost/api/admin/series`) is refused with 403.
 
+## Car vote (`/vote`)
+
+A hidden page (no nav link, `noindex`) where drivers pick next season's car by spending the
+championship points they earned this season. Everything lives under `src/lib/server/vote/` and
+`src/routes/vote/`; admin controls are at `/admin/vote` (behind the usual admin gate).
+
+**Voter flow:** each driver gets a random passcode (`XXXX-XXXX`), generated on `/admin/vote` —
+the Copy button puts a DM-ready line on the clipboard. Entering it on `/vote` signs the driver
+in (signed cookie, same `SESSION_SECRET` as admin; the code is also kept in localStorage so a
+returning browser signs back in by itself). The driver's budget is their final points total in
+the series the vote was created from, scaled down by a tenth and rounded up (43 → 5, 50 → 5);
+they spend it on the bars themselves (+/−/Clear/Max per car) and can re-save until the window
+closes. Sign-in attempts share the admin form's per-IP throttle, and Regenerate kills a leaked
+code instantly.
+
+**Live tally:** the page holds a Server-Sent Events stream (`/vote/stream`) that re-reads the
+ballots every 3 s and pushes changes into the bar graph (bars are proportional to the leader;
+rows re-sort live); a heartbeat keeps Cloudflare/Caddy from cutting the idle connection. When
+the window ends the page flips to the winner banner on its own.
+
+**Running one:** on `/admin/vote` — title, source series, the eligible cars (checked from a
+fixed catalog in `src/lib/server/vote/index.js`), optional start (blank = now), duration in days
+(default 3). "End vote now" closes it early; delete removes the ballots too. No external setup:
+passcodes replace OAuth, so nothing else to configure.
+
 ## Deploy (behind the connorcantrell.com foundation)
 
 Runs as a Docker Compose stack on the Orange Pi; Cloudflare Tunnel → Caddy → `localhost:8004`.
