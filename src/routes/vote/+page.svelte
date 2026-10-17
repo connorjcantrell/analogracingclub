@@ -44,8 +44,10 @@
     return () => es.close();
   });
 
-  // Bars scale to the leader; ranking is live (optimistic while the voter edits).
-  const ranked = $derived([...(session?.cars ?? [])].sort((a, b) => totalOf(b.id) - totalOf(a.id)));
+  // Ranking follows the *saved* totals, so rows only re-order when a ballot is
+  // saved (mine or another voter's via the stream) — not as the voter clicks.
+  // Bar widths still track the optimistic working total, scaled to the leader.
+  const ranked = $derived([...(session?.cars ?? [])].sort((a, b) => (totals[b.id] ?? 0) - (totals[a.id] ?? 0)));
   const maxPts = $derived(Math.max(1, ...(session?.cars ?? []).map((c) => totalOf(c.id))));
   const winnerNames = $derived.by(() => {
     if (status !== 'closed') return null;
@@ -100,8 +102,6 @@
   // One-tap edits; nothing counts until Save. Increments can't exceed the budget.
   const inc = (id) => { if (remaining > 0) alloc[id] = (Number(alloc[id]) || 0) + 1; };
   const dec = (id) => { alloc[id] = Math.max(0, (Number(alloc[id]) || 0) - 1); };
-  const zeroCar = (id) => (alloc[id] = 0);
-  const maxCar = (id) => { if (remaining > 0) alloc[id] = (Number(alloc[id]) || 0) + remaining; };
   const clearAll = () => { for (const k of Object.keys(alloc)) alloc[k] = 0; };
 </script>
 
@@ -119,8 +119,16 @@
         <span class="who-name">{data.me.driverName}</span>
         <form method="post" action="?/logout" onsubmit={() => localStorage.removeItem(CODE_KEY)}><button class="btn sm" type="submit">Log out</button></form>
       </div>
+    {:else if session && status !== 'closed'}
+      <form class="code-form" method="post" action="?/login" use:enhance={enhanceLogin} bind:this={loginForm}>
+        <input type="text" name="code" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" required bind:value={codeInput}>
+        <button class="btn" type="submit">Sign in</button>
+      </form>
     {/if}
   </div>
+  {#if session && status !== 'closed' && !data.me}
+    <p class="gate-hint">Spend the championship points you earned this season — enter the passcode you were DMed. No code? Ping an admin in Discord.{#if form?.login && form?.error} <span class="msg err">{form.error}</span>{/if}</p>
+  {/if}
 
   {#if !session}
     <p class="empty">No vote is running right now.</p>
@@ -157,39 +165,36 @@
            part of each bar is yours; the dim part is everyone else's. -->
       <form class="ballot" method="post" action="?/allocate" use:enhance>
         <div class="budget">
-          <span class="budget-label">Your points</span>
-          <span class="budget-count"><strong>{spent}</strong><span class="slash">/</span>{budget}</span>
-          <span class="budget-rest">{remaining} left</span>
+          <span class="budget-label">Points remaining</span>
+          <span class="budget-count"><strong>{remaining}</strong></span>
+          <div class="budget-actions">
+            <button class="btn sm" type="button" disabled={spent === 0} onclick={clearAll}>Clear all</button>
+            <button class="btn" type="submit">Save</button>
+          </div>
         </div>
+        {#if form?.error}<p class="msg err ballot-msg">{form.error}</p>{/if}
+        {#if form?.saved}<p class="msg ok ballot-msg">Saved — {form.spent} of {form.budget} points in. Change it anytime before the vote closes.</p>{/if}
 
         <div class="board">
-          {#each session.cars as car (car.id)}
+          {#each ranked as car (car.id)}
             {@const mine = mineOf(car.id)}
-            <div class="vrow" class:allocated={mine > 0}>
+            <div class="vrow" animate:flip={{ duration: 400 }}>
               <span class="car">{car.name}</span>
               <div class="track lane">
                 {#if mine > 0}<div class="seg mine" style:width="{(mine / maxPts) * 100}%"></div>{/if}
                 {#if othersOf(car.id) > 0}<div class="seg others" style:width="{(othersOf(car.id) / maxPts) * 100}%"></div>{/if}
               </div>
-              <span class="total">{totalOf(car.id)}</span>
               <div class="ctl">
                 <button class="step" type="button" aria-label="Remove a point from {car.name}" disabled={mine <= 0} onclick={() => dec(car.id)}>−</button>
                 <span class="mine-badge" title="Your points on {car.name}">{mine}</span>
                 <button class="step" type="button" aria-label="Add a point to {car.name}" disabled={remaining <= 0} onclick={() => inc(car.id)}>+</button>
-                <button class="btn xs" type="button" disabled={mine <= 0} onclick={() => zeroCar(car.id)}>Clear</button>
-                <button class="btn xs" type="button" title="Apply your {remaining} remaining points here" disabled={remaining <= 0} onclick={() => maxCar(car.id)}>Max</button>
               </div>
+              <span class="total">{totalOf(car.id)}</span>
               <input type="hidden" name="car:{car.id}" value={alloc[car.id] ?? 0}>
             </div>
           {/each}
         </div>
 
-        <div class="ballot-foot">
-          <button class="btn" type="submit">Save</button>
-          <button class="btn sm" type="button" disabled={spent === 0} onclick={clearAll}>Clear all</button>
-          {#if form?.error}<span class="msg err">{form.error}</span>{/if}
-          {#if form?.saved}<span class="msg ok">Saved — {form.spent} of {form.budget} points in. Change it anytime before the vote closes.</span>{/if}
-        </div>
       </form>
     {:else}
       <!-- Watch-only tally — bars scale to the current leader. -->
@@ -204,17 +209,7 @@
         {/each}
       </div>
 
-      {#if status === 'open' && !data.me}
-        <div class="gate">
-          <p>Vote by spending the championship points you earned this season.
-          Enter the passcode you were DMed — no code? Ping an admin in Discord.</p>
-          <form class="code-form" method="post" action="?/login" use:enhance={enhanceLogin} bind:this={loginForm}>
-            <input type="text" name="code" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" required bind:value={codeInput}>
-            <button class="btn" type="submit">Sign in</button>
-            {#if form?.login && form?.error}<span class="msg err">{form.error}</span>{/if}
-          </form>
-        </div>
-      {:else if status === 'upcoming'}
+      {#if status === 'upcoming'}
         <p class="empty">Voting opens {fmtAt(session.startsAt)}{#if data.me} — your budget is ready{/if}.</p>
       {/if}
     {/if}
@@ -224,7 +219,7 @@
 <style>
   /* Same broadcast language as the standings tower: site tokens, slanted
      accents, tabular numerals. */
-  .vote { max-width: 46rem; margin: 0 auto; }
+  .vote { max-width: 60rem; margin: 0 auto; }
   .vote-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
   .who { display: flex; align-items: center; gap: 0.6rem; }
   .who-name { font-family: var(--display); font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
@@ -267,34 +262,32 @@
   .vrow.watch.leader .bar { opacity: 1; }
   .vrow.watch.leader .total { color: var(--accent); }
 
-  /* ---- Budget header (used / available) ---- */
+  /* ---- Budget header (points remaining) ---- */
   .budget {
-    display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap;
-    border: 1px solid var(--accent); background: var(--accent-dim); padding: 0.6rem 1rem; margin-bottom: 1.2rem;
+    display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
+    border: 1px solid var(--border); background: #0c0c0c; padding: 0.6rem 1rem; margin-bottom: 1.2rem;
   }
   .budget-label { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
   .budget-count {
     font-family: var(--display); font-weight: 700; font-style: italic; font-size: 1.5rem;
-    font-variant-numeric: tabular-nums; color: var(--muted); line-height: 1;
+    font-variant-numeric: tabular-nums; line-height: 1;
   }
   .budget-count strong { color: var(--accent); }
-  .budget-count .slash { margin: 0 0.1rem; font-style: normal; color: var(--border); }
-  .budget-rest { margin-left: auto; font-family: var(--display); font-size: 0.74rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .budget-actions { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
+  .ballot-msg { margin: -0.6rem 0 1.2rem; }
 
-  /* ---- Interactive rows: your points (bright) + others (dim), then controls ---- */
+  /* ---- Interactive rows: your points (bright) + others (dim), controls inline ---- */
   .ballot .vrow {
-    display: grid; column-gap: 0.75rem; row-gap: 0.4rem;
-    grid-template-columns: minmax(7rem, 11rem) 1fr 2.5rem;
-    grid-template-areas: "car track total" "ctl ctl ctl";
-    padding: 0.2rem 0; border-bottom: 1px solid var(--border);
+    display: grid; column-gap: 0.8rem; align-items: center;
+    grid-template-columns: minmax(6rem, 11rem) 1fr auto 2.5rem;
+    grid-template-areas: "car track ctl total";
+    padding: 0.25rem 0; border-bottom: 1px solid var(--border);
   }
   .ballot .vrow .car { grid-area: car; }
   .ballot .vrow .track { grid-area: track; }
-  .ballot .vrow .total { grid-area: total; }
   .ballot .vrow .ctl { grid-area: ctl; }
+  .ballot .vrow .total { grid-area: total; }
   .vrow input[type="hidden"] { display: none; }
-  .ballot .vrow.allocated .car { color: var(--accent); }
-
   .track.lane { background: rgba(255, 255, 255, 0.05); display: flex; }
   .seg { height: 100%; transition: width 0.3s ease; }
   .seg.mine { background: var(--accent); }
@@ -312,12 +305,8 @@
     min-width: 2.2rem; text-align: center; font-family: var(--display); font-weight: 700; font-style: italic;
     font-variant-numeric: tabular-nums; color: var(--accent); font-size: 1.1rem;
   }
-  .btn.xs { font-size: 0.64rem; padding: 0.22rem 0.5rem; }
-
-  /* ---- Sign-in / linking states ---- */
-  .gate { margin: 2rem 0 0; border: 1px solid var(--border); background: var(--panel); padding: 1.1rem 1.2rem; }
-  .gate p { margin: 0 0 0.9rem; }
-  .gate p:last-child { margin-bottom: 0; }
+  /* ---- Sign-in ---- */
+  .gate-hint { color: var(--muted); font-size: 0.9rem; margin: 0.7rem 0 0; max-width: 46rem; }
   .code-form { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
   .code-form input {
     width: 9.5rem; text-align: center; letter-spacing: 0.15em; text-transform: uppercase;
@@ -328,15 +317,20 @@
 
   /* ---- Ballot wrapper ---- */
   .ballot { margin: 2rem 0 0; border: 1px solid var(--border); background: var(--panel); padding: 1.1rem 1.2rem; }
-  .ballot-foot { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1.1rem; }
   .msg { font-size: 0.9rem; }
   .msg.ok { color: var(--accent); }
   .msg.err { color: #e05c5c; }
 
   .empty { color: var(--muted); margin-top: 2rem; }
 
-  @media (max-width: 520px) {
+  @media (max-width: 560px) {
     .vrow.watch { grid-template-columns: 1fr auto; }
     .vrow.watch .track { grid-column: 1 / -1; order: 3; }
+    /* Controls drop below the bar when there's no room inline. */
+    .ballot .vrow {
+      grid-template-columns: 1fr auto;
+      grid-template-areas: "car total" "track track" "ctl ctl";
+      row-gap: 0.4rem;
+    }
   }
 </style>
