@@ -42,6 +42,7 @@ export const CARS = [
   'Supercars (Legacy)',
   'Lotus 49',
   'Lotus 79',
+  'Nissan GTP ZX-T',
 ];
 
 /** The session being voted on (or shown): the most recently created one. */
