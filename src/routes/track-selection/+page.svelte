@@ -82,21 +82,20 @@
 </svelte:head>
 
 <div class="sel">
-  <PageTitle>Next Season's Tracks</PageTitle>
-  {#if data.me}
-    <div class="who">Signed in as <strong>{data.me.driverName}</strong>.
-      <form method="post" action="?/logout" onsubmit={() => localStorage.removeItem(CODE_KEY)}><button class="link" type="submit">Log out</button></form>
-    </div>
-  {:else if selection}
-    <form class="code-form" method="post" action="?/login" use:enhance={enhanceLogin} bind:this={loginForm}>
-      <label for="code">Passcode</label>
-      <div class="code-row">
-        <input id="code" type="text" name="code" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" required bind:value={codeInput}>
-        <button class="btn" type="submit">Sign in</button>
+  <div class="sel-head">
+    <PageTitle inline>Next Season's Tracks</PageTitle>
+    {#if data.me}
+      <div class="who">
+        <span class="who-name">{data.me.driverName}</span>
+        <form method="post" action="?/logout" onsubmit={() => localStorage.removeItem(CODE_KEY)}><button class="btn sm" type="submit">Log out</button></form>
       </div>
-      {#if form?.login && form?.error}<p class="msg err">{form.error}</p>{/if}
-    </form>
-  {/if}
+    {:else if selection}
+      <form class="code-form" method="post" action="?/login" use:enhance={enhanceLogin} bind:this={loginForm}>
+        <input type="text" name="code" placeholder="XXXX-XXXX" aria-label="Passcode" autocomplete="off" spellcheck="false" required bind:value={codeInput}>
+        <button class="btn" type="submit">Sign in</button>
+      </form>
+    {/if}
+  </div>
 
   {#if !selection}
     <p class="empty">No track selection is open right now.</p>
@@ -106,32 +105,36 @@
       a track and layout, the weather, and whether it runs as a Standard or a Long round. No two drivers can pick the same track.
       {#if selection.trackTypes.length < 6}Tracks on offer: {selection.trackTypes.join(', ').toLowerCase()}s.{/if}
     </p>
-    {#if data.me && !editing}
-      <p class="muted">You're signed in, but you're not one of the drivers picking this time.</p>
+    {#if !data.me}
+      <p class="gate-hint">Enter your passcode above to make your pick.{#if form?.login && form?.error} <span class="msg err">{form.error}</span>{/if}</p>
+    {:else if !editing}
+      <p class="gate-hint">You're signed in, but you're not one of the drivers picking this time.</p>
     {/if}
 
     {#if editing}
-      <form class="pick" method="post" action="?/pick" use:enhance>
-        <h3>Your round</h3>
+      <form class="round" method="post" action="?/pick" use:enhance>
+        <h3 class="round-title">Your round</h3>
 
-        {#if types.length > 1}
+        <div class="grid2" class:single={types.length <= 1}>
+          {#if types.length > 1}
+            <div class="field">
+              <label for="type">Track type</label>
+              <select id="type" bind:value={typeFilter} onchange={chooseType}>
+                <option value="">All types</option>
+                {#each types as t (t)}<option value={t}>{t}</option>{/each}
+              </select>
+            </div>
+          {/if}
+
           <div class="field">
-            <label for="type">Track type</label>
-            <select id="type" value={typeFilter} onchange={chooseType}>
-              <option value="">All types</option>
-              {#each types as t (t)}<option value={t}>{t}</option>{/each}
+            <label for="track">Track</label>
+            <select id="track" name="trackId" bind:value={trackId} onchange={chooseTrack}>
+              <option value="" disabled>Choose a track</option>
+              {#each tracks as t (t.id)}
+                <option value={t.id} disabled={!!takenBy[t.id]}>{t.name}{takenBy[t.id] ? ` (taken by ${takenBy[t.id]})` : ''}</option>
+              {/each}
             </select>
           </div>
-        {/if}
-
-        <div class="field">
-          <label for="track">Track</label>
-          <select id="track" name="trackId" value={trackId} onchange={chooseTrack}>
-            <option value="" disabled selected={!trackId}>Choose a track</option>
-            {#each tracks as t (t.id)}
-              <option value={t.id} disabled={!!takenBy[t.id]}>{t.name}{takenBy[t.id] ? ` (taken by ${takenBy[t.id]})` : ''}</option>
-            {/each}
-          </select>
         </div>
 
         <!-- The layout only appears once a track is chosen; a track with a
@@ -141,7 +144,7 @@
             <label for="layout">Layout</label>
             {#if track.configs.length === 1}
               <input type="hidden" name="configId" value={configId}>
-              <p id="layout" class="fact">{track.configs[0].shortName} ({track.configs[0].type}, {fmtLen(track.configs[0].lengthMi)}, {track.configs[0].turns} turns)</p>
+              <p id="layout" class="fact">{track.configs[0].shortName} <span class="spec">{track.configs[0].type} · {fmtLen(track.configs[0].lengthMi)} · {track.configs[0].turns} turns</span></p>
             {:else}
               <select id="layout" name="configId" bind:value={configId}>
                 <option value="" disabled>Choose a layout</option>
@@ -155,33 +158,51 @@
 
         <fieldset class="field">
           <legend>Weather</legend>
-          {#each data.weather as w (w.id)}
-            <label class="option"><input type="radio" name="weather" value={w.id} bind:group={weather}> <span>{w.label}</span></label>
-          {/each}
+          <div class="chip-row">
+            {#each data.weather as w (w.id)}
+              <label class="chip-opt">
+                <input type="radio" name="weather" value={w.id} bind:group={weather}>
+                <span class="chip-face">{w.label}</span>
+              </label>
+            {/each}
+          </div>
         </fieldset>
 
         <fieldset class="field">
           <legend>Format</legend>
-          {#each data.variations as v (v.id)}
-            <label class="option"><input type="radio" name="variation" value={v.id} bind:group={variation}> <span><strong>{v.label}</strong><br>{v.blurb}</span></label>
-          {/each}
+          <div class="fmt-row">
+            {#each data.variations as v (v.id)}
+              <label class="fmt-opt">
+                <input type="radio" name="variation" value={v.id} bind:group={variation}>
+                <span class="fmt-face">
+                  <strong>{v.label}</strong>
+                  <small>{v.blurb}</small>
+                </span>
+              </label>
+            {/each}
+          </div>
         </fieldset>
 
         <div class="field">
-          <label for="notes">Anything else</label>
+          <div class="note-head">
+            <label for="notes">Anything else</label>
+            <span class="count" class:over={noteLen > data.notesMax}>{noteLen} / {data.notesMax}</span>
+          </div>
           <textarea id="notes" name="notes" rows="3" maxlength={data.notesMax} placeholder="Time of day, clock speed, weather details, etc." bind:value={notes}></textarea>
-          <p class="hint" class:over={noteLen > data.notesMax}>{noteLen} / {data.notesMax} characters</p>
         </div>
 
-        <div class="field">
-          <button class="btn primary" type="submit" disabled={!ready}>Save pick</button>
+        <div class="save-row">
+          <button class="save-btn" type="submit" disabled={!ready}>Save pick</button>
           {#if form?.error && !form?.login}<p class="msg err">{form.error}</p>{/if}
-          {#if form?.saved}<p class="msg ok">Saved. Change it any time while the selection is open.</p>{/if}
+          {#if form?.saved}<p class="msg ok">Saved — change it any time while the selection is open.</p>{/if}
         </div>
       </form>
     {/if}
 
-    <p class="tally">{data.picked} of {data.pickers.length} picked{#if data.typeCounts.length > 1 && data.picked}: {data.typeCounts.filter((t) => t.count).map((t) => `${t.count} ${t.type.toLowerCase()}`).join(', ')}{/if}.</p>
+    <div class="board-head">
+      <h3 class="board-title">The board</h3>
+      <span class="tally"><strong>{data.picked}</strong> of {data.pickers.length} picked{#if data.typeCounts.length > 1 && data.picked}: {data.typeCounts.filter((t) => t.count).map((t) => `${t.count} ${t.type.toLowerCase()}`).join(', ')}{/if}</span>
+    </div>
     <div class="scroll-x">
       <table class="board">
         <thead><tr><th>Driver</th><th>Track</th><th>Layout</th><th>Type</th><th class="num">Length</th><th>Weather</th><th>Format</th><th>Note</th></tr></thead>
@@ -198,7 +219,7 @@
                 <td>{variationLabel[d.pick.variation] ?? d.pick.variation}</td>
                 <td class="note">{d.pick.notes || ''}</td>
               {:else}
-                <td class="muted" colspan="7">Not yet picked</td>
+                <td class="pending" colspan="7">Not yet picked</td>
               {/if}
             </tr>
           {/each}
@@ -209,59 +230,120 @@
 </div>
 
 <style>
-  .sel { max-width: 60rem; margin: 0 auto; line-height: 1.5; }
-  .who { margin: 0 0 1.5rem; color: var(--muted); }
-  .who form { display: inline; }
-  .link { background: none; border: 0; padding: 0; margin-left: 0.5rem; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
-  .code-form { margin: 0 0 1.5rem; }
-  .code-form label { display: block; margin-bottom: 0.4rem; font-weight: 600; }
-  .code-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  /* Same broadcast language as the vote page and standings: site tokens,
+     amber micro-labels, slanted accents, dark panels. */
+  .sel { max-width: 60rem; margin: 0 auto; }
+  .sel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .who { display: flex; align-items: center; gap: 0.6rem; }
+  .who-name { font-family: var(--display); font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .code-form { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
   .code-form input {
-    flex: 1 1 10rem; max-width: 14rem; box-sizing: border-box;
-    font-family: ui-monospace, monospace; font-size: 1rem; letter-spacing: 0.1em; text-transform: uppercase;
-    background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.8rem;
+    width: 9.5rem; text-align: center; letter-spacing: 0.15em; text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    background: #0c0c0c; color: var(--text); border: 1px solid var(--border); padding: 0.45rem 0.5rem;
   }
-  .code-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .code-row .btn { padding: 0.7rem 1.2rem; font-size: 1rem; }
+  .code-form input:focus { outline: none; border-color: var(--accent); }
 
-  .intro { max-width: 46rem; margin: 0 0 1rem; }
-  .muted { color: var(--muted); }
-  .msg { margin: 0.6rem 0 0; }
-  .msg.ok { color: var(--green); }
+  .intro { max-width: 46rem; margin: 1.1rem 0 0; color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
+  .intro strong { color: var(--text); }
+  .gate-hint { color: var(--muted); font-size: 0.9rem; margin: 0.7rem 0 0; max-width: 46rem; }
+  .msg { font-size: 0.9rem; margin: 0; }
+  .msg.ok { color: var(--accent); }
   .msg.err { color: var(--red); }
   .empty { color: var(--muted); margin-top: 2rem; }
 
-  /* ---- The pick form: one column, label above control, nothing fancy ---- */
-  .pick { max-width: 34rem; margin: 2rem 0 0; }
-  .pick h3 { margin: 0 0 1rem; font-size: 1.15rem; font-weight: 600; }
-  .field { margin: 0 0 1.4rem; padding: 0; border: 0; min-width: 0; }
-  .field label, .field legend { display: block; margin: 0 0 0.4rem; padding: 0; font-weight: 600; }
-  .field select, .field textarea {
-    display: block; width: 100%; box-sizing: border-box;
-    background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
-    padding: 0.7rem 0.8rem; font: inherit; font-size: 1rem; line-height: 1.4;
+  /* ---- The pick form: a pit-wall panel with a dark header strip ---- */
+  .round { max-width: 42rem; margin: 2rem 0 0; border: 1px solid var(--border); background: var(--panel-dim); padding: 0 1.4rem 1.4rem; }
+  .round-title {
+    margin: 0 -1.4rem 1.4rem; padding: 0.5rem 1.4rem;
+    background: #0c0c0c; border-bottom: 1px solid var(--border);
+    color: var(--accent); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.18em;
   }
-  .field select:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .field { margin: 0 0 1.5rem; padding: 0; border: 0; min-width: 0; }
+  .field label, .field legend {
+    display: block; margin: 0 0 0.5rem; padding: 0;
+    font-family: var(--display); font-weight: 500; font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.18em; color: var(--accent);
+  }
+  .grid2 { display: grid; grid-template-columns: minmax(9rem, 1fr) 2fr; gap: 1.2rem; }
+  .grid2.single { grid-template-columns: 1fr; }
+  .grid2 .field { margin-bottom: 1.5rem; }
+  .field select, .field textarea {
+    display: block; width: 100%;
+    background: #0c0c0c; color: var(--text); border: 1px solid var(--border);
+    padding: 0.6rem 0.7rem; font: inherit; font-size: 0.95rem; line-height: 1.4;
+  }
   .field textarea { resize: vertical; }
-  .fact { margin: 0; padding: 0.7rem 0; }
-  .hint { margin: 0.4rem 0 0; font-size: 0.9rem; color: var(--muted); }
-  .hint.over { color: var(--red); }
-  .option { display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.5rem 0; font-weight: 400; line-height: 1.5; cursor: pointer; }
-  .option input { margin: 0.35rem 0 0; width: 1.1rem; height: 1.1rem; flex: none; accent-color: var(--accent); }
-  .option strong { font-weight: 600; }
-  .pick .btn.primary { padding: 0.7rem 1.4rem; font-size: 1rem; }
-  .pick .btn.primary:disabled { opacity: 0.45; cursor: default; }
-  .pick .msg { margin: 0.8rem 0 0; }
+  .field textarea:focus { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .fact { margin: 0; padding: 0.15rem 0 0; font-family: var(--display); font-size: 1.05rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+  .fact .spec { margin-left: 0.6rem; color: var(--muted); font-size: 0.82rem; letter-spacing: 0.1em; }
 
-  /* ---- Picks table: scrolls sideways on a phone ---- */
-  .tally { margin: 2.5rem 0 0.6rem; color: var(--muted); }
+  /* Weather: a row of slanted chips; the picked one fills amber. */
+  .chip-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .chip-opt { position: relative; }
+  .chip-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .chip-face {
+    display: inline-block; padding: 0.4rem 1rem; transform: skewX(-11deg);
+    border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+    font-family: var(--display); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.12em;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .chip-opt:hover .chip-face { color: var(--text); border-color: var(--muted); }
+  .chip-opt input:checked + .chip-face { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .chip-opt input:focus-visible + .chip-face { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* Format: two cards side by side; the picked one gets the amber edge. */
+  .fmt-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+  .fmt-opt { position: relative; display: block; cursor: pointer; }
+  .fmt-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .fmt-face {
+    display: block; height: 100%; padding: 0.8rem 1rem;
+    background: #0c0c0c; border: 1px solid var(--border);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .fmt-face strong {
+    display: block; margin-bottom: 0.3rem;
+    font-family: var(--display); font-weight: 500; font-size: 0.95rem;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--text);
+  }
+  .fmt-face small { display: block; font-size: 0.85rem; line-height: 1.5; color: var(--muted); }
+  .fmt-opt:hover .fmt-face { border-color: var(--muted); }
+  .fmt-opt input:checked + .fmt-face { border-color: var(--accent); background: var(--accent-dim); }
+  .fmt-opt input:checked + .fmt-face strong { color: var(--accent); }
+  .fmt-opt input:focus-visible + .fmt-face { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .note-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+  .count { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.12em; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .count.over { color: var(--red); }
+
+  .save-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .save-btn {
+    padding: 0.55rem 1.6rem; transform: skewX(-11deg); cursor: pointer;
+    background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent);
+    font-family: var(--display); font-weight: 600; font-size: 0.9rem;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .save-btn:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent-soft); }
+  .save-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ---- The board: who has picked what, timing-screen table ---- */
+  .board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: 2.75rem 0 0.9rem; border-top: 2px solid var(--accent); padding-top: 0.9rem; }
+  .board-title { color: var(--accent); font-size: 0.8rem; font-weight: 500; letter-spacing: 0.2em; }
+  .tally { color: var(--muted); font-size: 0.88rem; }
+  .tally strong { color: var(--text); font-variant-numeric: tabular-nums; }
   .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .board { width: 100%; border-collapse: collapse; }
-  .board th, .board td { text-align: left; padding: 0.7rem 1rem 0.7rem 0; border-bottom: 1px solid var(--border); vertical-align: top; }
-  .board th { font-weight: 600; white-space: nowrap; }
-  .board .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .board .driver { white-space: nowrap; }
+  .board td { vertical-align: top; }
+  .board .driver { font-family: var(--display); font-weight: 500; letter-spacing: 0.03em; white-space: nowrap; }
   .board .muted { color: var(--muted); }
+  .board .pending { color: var(--muted); font-style: italic; }
   .board .note { min-width: 14rem; color: var(--muted); }
   .board tr.mine td { background: var(--accent-dim); }
+  .board tr.mine .driver { color: var(--accent); }
+
+  @media (max-width: 640px) {
+    .round { padding: 0 1rem 1.1rem; }
+    .round-title { margin: 0 -1rem 1.2rem; padding: 0.5rem 1rem; }
+    .grid2, .fmt-row { grid-template-columns: 1fr; }
+  }
 </style>
