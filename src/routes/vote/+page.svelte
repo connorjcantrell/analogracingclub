@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import { flip } from 'svelte/animate';
   import PageTitle from '$lib/PageTitle.svelte';
+  import { LEAGUE_TZ } from '$lib/format.js';
 
   let { data, form } = $props();
 
@@ -10,6 +11,11 @@
   // Live tally: seeded by the server load, replaced by SSE pushes.
   let live = $state(null);
   const totals = $derived(live?.totals ?? data.totals ?? {});
+  // The up/down halves behind each net, and how many drivers sit on each side.
+  const ups = $derived(live?.up ?? data.up ?? {});
+  const downs = $derived(live?.down ?? data.down ?? {});
+  const upBy = $derived(live?.upBy ?? data.upBy ?? {});
+  const downBy = $derived(live?.downBy ?? data.downBy ?? {});
   const voters = $derived(live?.voters ?? data.voters ?? 0);
 
   // The clock drives the countdown and the open/closed flip, so the page
@@ -30,7 +36,8 @@
     const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
     return d ? `${d}d ${h}h ${m}m` : h ? `${h}h ${m}m ${s % 60}s` : `${m}m ${s % 60}s`;
   };
-  const fmtAt = (iso) => new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // Vote times are shown on the league clock (Pacific), with the zone named.
+  const fmtAt = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: LEAGUE_TZ, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
 
   // Live updates while the vote is open.
   $effect(() => {
@@ -44,16 +51,39 @@
     return () => es.close();
   });
 
-  // Ranking follows the *saved* totals, so rows only re-order when a ballot is
-  // saved (mine or another voter's via the stream) — not as the voter clicks.
-  // Bar widths still track the optimistic working total, scaled to the leader.
+  // Ranking follows the *saved* net totals, so rows only re-order when a ballot
+  // is saved (mine or another voter's via the stream) — not as the voter clicks.
+  // Bar geometry still tracks the optimistic working total.
   const ranked = $derived([...(session?.cars ?? [])].sort((a, b) => (totals[b.id] ?? 0) - (totals[a.id] ?? 0)));
-  const maxPts = $derived(Math.max(1, ...(session?.cars ?? []).map((c) => totalOf(c.id))));
+  // Every bar shares one axis from zero to the longest bar: the net in yellow
+  // plus the grey downvoted share stacked after it. Yellow never runs left of
+  // zero: a car voted below zero shows only grey while its printed total
+  // carries the minus.
+  const axisMax = $derived.by(() => {
+    let hi = 1;
+    for (const c of session?.cars ?? []) {
+      for (const v of [othersOf(c.id), totalOf(c.id), greyStart(c.id) + greyOf(c.id)]) if (v > hi) hi = v;
+    }
+    return hi;
+  });
+  const x = (v) => (Math.max(0, v) / axisMax) * 100;
+  // Inline style for a bar segment running from score a to score b (clamped at zero).
+  const seg = (a, b) => `left:${x(Math.min(a, b))}%;width:${Math.abs(x(b) - x(a))}%`;
+  // The leader is the highest net once any vote is in; a tie brightens all of
+  // them. An untouched car (0) outranks one that was only voted against.
+  const anyVotes = $derived((session?.cars ?? []).some((c) => totalOf(c.id) !== 0));
+  const topNet = $derived(Math.max(0, ...(session?.cars ?? []).map((c) => totalOf(c.id))));
+  const leading = (id) => anyVotes && totalOf(id) === topNet;
   const winnerNames = $derived.by(() => {
     if (status !== 'closed') return null;
-    const top = Math.max(0, ...(session?.cars ?? []).map((c) => totals[c.id] ?? 0));
-    return top ? ranked.filter((c) => (totals[c.id] ?? 0) === top).map((c) => c.name) : [];
+    const cars = session?.cars ?? [];
+    if (!cars.some((c) => totals[c.id])) return [];
+    const top = Math.max(0, ...cars.map((c) => totals[c.id] ?? 0));
+    return ranked.filter((c) => (totals[c.id] ?? 0) === top).map((c) => c.name);
   });
+  // Scores print with a true minus; the voter's own stake also carries a plus.
+  const fmtNet = (n) => (n < 0 ? `−${-n}` : String(n));
+  const fmtMine = (n) => (n > 0 ? `+${n}` : fmtNet(n));
 
   // The passcode is remembered in localStorage: a returning driver whose
   // cookie lapsed is signed back in automatically. A failed attempt (typed or
@@ -85,23 +115,52 @@
     if (data.me && session) alloc = Object.fromEntries(session.cars.map((c) => [c.id, data.me.allocation[c.id] ?? 0]));
   });
   const budget = $derived(data.me?.budget ?? 0);
-  const spent = $derived(Object.values(alloc).reduce((a, b) => a + (Number(b) || 0), 0));
+  // Every vote costs one, cast for or against.
+  const spent = $derived(Object.values(alloc).reduce((a, b) => a + Math.abs(Number(b) || 0), 0));
   const remaining = $derived(budget - spent);
   const editing = $derived(status === 'open' && !!data.me);
 
-  // Each car's bar splits into the voter's own points and everyone else's. The
+  // Each car's bar splits into the voter's own votes and everyone else's. The
   // server totals already fold in the voter's *saved* ballot, so peel that off
-  // and add the *working* figure — the bar then grows as they click, before Save.
-  const othersOf = (id) => Math.max(0, (totals[id] ?? 0) - (data.me?.allocation?.[id] ?? 0));
+  // and add the *working* figure — the bar then moves as they click, before Save.
+  const othersOf = (id) => (totals[id] ?? 0) - (data.me?.allocation?.[id] ?? 0);
   const mineOf = (id) => {
     if (!data.me) return 0;
     return editing ? (Number(alloc[id]) || 0) : (data.me.allocation[id] ?? 0);
   };
   const totalOf = (id) => othersOf(id) + mineOf(id);
 
-  // One-tap edits; nothing counts until Save. Increments can't exceed the budget.
-  const inc = (id) => { if (remaining > 0) alloc[id] = (Number(alloc[id]) || 0) + 1; };
-  const dec = (id) => { alloc[id] = Math.max(0, (Number(alloc[id]) || 0) - 1); };
+  // The grey share of a bar is the downvotes, drawn after the yellow net so
+  // the whole bar reads as "what it would have had, less what was taken away".
+  // While editing, the voter's own downvotes are the red segment instead, so
+  // grey is only everyone else's.
+  const mySaved = (id) => data.me?.allocation?.[id] ?? 0;
+  const othersDown = (id) => (downs[id] ?? 0) - Math.max(0, -mySaved(id));
+  const greyOf = (id) => (editing ? othersDown(id) : (downs[id] ?? 0));
+  const greyStart = (id) => (editing ? Math.max(0, othersOf(id) + Math.max(0, mineOf(id))) : Math.max(0, totalOf(id)));
+
+  // Tooltip: the popular vote behind the weighted one — how many drivers are
+  // for and against the car, with the votes each side spent. While editing,
+  // the voter's own side follows their working ballot.
+  const sideCount = (saved, id, sign) => {
+    let n = saved[id] ?? 0;
+    if (editing) n += (Math.sign(mineOf(id)) === sign ? 1 : 0) - (Math.sign(mySaved(id)) === sign ? 1 : 0);
+    return n;
+  };
+  const upVotesOf = (id) => (ups[id] ?? 0) - Math.max(0, mySaved(id)) + (editing ? Math.max(0, mineOf(id)) : Math.max(0, mySaved(id)));
+  const downVotesOf = (id) => othersDown(id) + (editing ? Math.max(0, -mineOf(id)) : Math.max(0, -mySaved(id)));
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const tipOf = (id) => {
+    const f = sideCount(upBy, id, 1), a = sideCount(downBy, id, -1);
+    if (!f && !a) return 'No votes yet';
+    return `${plural(f, 'driver')} for (+${upVotesOf(id)}) · ${plural(a, 'driver')} against (−${downVotesOf(id)})`;
+  };
+
+  // One-tap edits; nothing counts until Save. A step toward zero refunds a
+  // vote; a step away from it spends one, so neither direction can exceed the
+  // budget. Going past zero flips the car from "for" to "against" (or back).
+  const inc = (id) => { const v = Number(alloc[id]) || 0; if (v < 0 || remaining > 0) alloc[id] = v + 1; };
+  const dec = (id) => { const v = Number(alloc[id]) || 0; if (v > 0 || remaining > 0) alloc[id] = v - 1; };
   const clearAll = () => { for (const k of Object.keys(alloc)) alloc[k] = 0; };
 </script>
 
@@ -126,8 +185,17 @@
       </form>
     {/if}
   </div>
-  {#if session && status !== 'closed' && !data.me}
-    <p class="gate-hint">Spend the championship points you earned this season — enter the passcode you were DMed. No code? Ping an admin in Discord.{#if form?.login && form?.error} <span class="msg err">{form.error}</span>{/if}</p>
+  {#if session && status !== 'closed'}
+    <ul class="rules">
+      <li><strong>Eight rounds.</strong> At least half are road courses. Ovals and dirt ovals are allowed as long as that holds.</li>
+      <li><strong>The top 8 pick the tracks.</strong> Each of this season's top 8 in the championship chooses one round.</li>
+      <li><strong>This vote picks the car.</strong> One vote per 10 {session.seriesName} points, rounded up. Spend <strong>+</strong> on cars you want to race, <strong>−</strong> on ones you don't. Highest net wins.</li>
+    </ul>
+    {#if data.me}
+      <p class="gate-hint">Your <strong>{data.me.points}</strong> points give you <strong>{data.me.budget}</strong> vote{data.me.budget === 1 ? '' : 's'}.</p>
+    {:else}
+      <p class="gate-hint">Enter your passcode above to vote.{#if form?.login && form?.error} <span class="msg err">{form.error}</span>{/if}</p>
+    {/if}
   {/if}
 
   {#if !session}
@@ -161,11 +229,13 @@
     {/if}
 
     {#if editing}
-      <!-- Interactive tally: spend your points right on the bars. The bright
-           part of each bar is yours; the dim part is everyone else's. -->
+      <!-- Interactive tally: spend your votes right on the bars. The bright
+           yellow is yours; the dim yellow is everyone else's net. Your
+           downvote is drawn in red eating back into the others' net; everyone
+           else's downvotes are the grey share stacked after it. -->
       <form class="ballot" method="post" action="?/allocate" use:enhance>
         <div class="budget">
-          <span class="budget-label">Points remaining</span>
+          <span class="budget-label">Votes remaining</span>
           <span class="budget-count"><strong>{remaining}</strong></span>
           <div class="budget-actions">
             <button class="btn sm" type="button" disabled={spent === 0} onclick={clearAll}>Clear all</button>
@@ -173,23 +243,26 @@
           </div>
         </div>
         {#if form?.error}<p class="msg err ballot-msg">{form.error}</p>{/if}
-        {#if form?.saved}<p class="msg ok ballot-msg">Saved — {form.spent} of {form.budget} points in. Change it anytime before the vote closes.</p>{/if}
+        {#if form?.saved}<p class="msg ok ballot-msg">Saved — {form.spent} of {form.budget} votes in. Change it anytime before the vote closes.</p>{/if}
 
         <div class="board">
           {#each ranked as car (car.id)}
             {@const mine = mineOf(car.id)}
+            {@const others = othersOf(car.id)}
             <div class="vrow" animate:flip={{ duration: 400 }}>
               <span class="car">{car.name}</span>
-              <div class="track lane">
-                {#if mine > 0}<div class="seg mine" style:width="{(mine / maxPts) * 100}%"></div>{/if}
-                {#if othersOf(car.id) > 0}<div class="seg others" style:width="{(othersOf(car.id) / maxPts) * 100}%"></div>{/if}
+              <div class="track lane" role="img" aria-label={tipOf(car.id)}>
+                {#if others !== 0}<div class="seg others" class:down={others < 0} style={seg(0, others)}></div>{/if}
+                {#if mine !== 0}<div class="seg mine" class:down={mine < 0} style={seg(others, others + mine)}></div>{/if}
+                {#if greyOf(car.id)}<div class="seg cut" style={seg(greyStart(car.id), greyStart(car.id) + greyOf(car.id))}></div>{/if}
+                <span class="tip" role="tooltip">{tipOf(car.id)}</span>
               </div>
               <div class="ctl">
-                <button class="step" type="button" aria-label="Remove a point from {car.name}" disabled={mine <= 0} onclick={() => dec(car.id)}>−</button>
-                <span class="mine-badge" title="Your points on {car.name}">{mine}</span>
-                <button class="step" type="button" aria-label="Add a point to {car.name}" disabled={remaining <= 0} onclick={() => inc(car.id)}>+</button>
+                <button class="step down" type="button" aria-label="Vote against {car.name}" title="Vote against" disabled={mine <= 0 && remaining <= 0} onclick={() => dec(car.id)}>−</button>
+                <span class="mine-badge" class:down={mine < 0} title="Your votes on {car.name}">{fmtMine(mine)}</span>
+                <button class="step" type="button" aria-label="Vote for {car.name}" title="Vote for" disabled={mine >= 0 && remaining <= 0} onclick={() => inc(car.id)}>+</button>
               </div>
-              <span class="total">{totalOf(car.id)}</span>
+              <span class="total" class:down={totalOf(car.id) < 0}>{fmtNet(totalOf(car.id))}</span>
               <input type="hidden" name="car:{car.id}" value={alloc[car.id] ?? 0}>
             </div>
           {/each}
@@ -197,20 +270,25 @@
 
       </form>
     {:else}
-      <!-- Watch-only tally — bars scale to the current leader. -->
+      <!-- Watch-only tally — net score per car in yellow with the downvoted
+           share in grey after it, on the shared axis; the leader(s) brightened. -->
       <div class="board">
-        {#each ranked as car, i (car.id)}
+        {#each ranked as car (car.id)}
           {@const pts = totalOf(car.id)}
-          <div class="vrow watch" class:leader={i === 0 && pts > 0} animate:flip={{ duration: 500 }}>
+          <div class="vrow watch" class:leader={leading(car.id)} animate:flip={{ duration: 500 }}>
             <span class="car">{car.name}</span>
-            <div class="track"><div class="bar" style:width="{(pts / maxPts) * 100}%"></div></div>
-            <span class="total">{pts}</span>
+            <div class="track" role="img" aria-label={tipOf(car.id)}>
+              <div class="bar" style={seg(0, pts)}></div>
+              {#if greyOf(car.id)}<div class="seg cut" style={seg(greyStart(car.id), greyStart(car.id) + greyOf(car.id))}></div>{/if}
+              <span class="tip" role="tooltip">{tipOf(car.id)}</span>
+            </div>
+            <span class="total" class:down={pts < 0}>{fmtNet(pts)}</span>
           </div>
         {/each}
       </div>
 
       {#if status === 'upcoming'}
-        <p class="empty">Voting opens {fmtAt(session.startsAt)}{#if data.me} — your budget is ready{/if}.</p>
+        <p class="empty">Voting opens {fmtAt(session.startsAt)}{#if data.me} — your votes are ready{/if}.</p>
       {/if}
     {/if}
   {/if}
@@ -247,6 +325,7 @@
   }
 
   /* ---- Live bars ---- */
+  .vote { --down: #e05c5c; }
   .board { border-top: 2px solid var(--accent); padding-top: 1rem; display: grid; gap: 0.55rem; }
   .vrow { align-items: center; }
   .vrow .car { font-family: var(--display); font-weight: 500; font-size: 0.98rem; letter-spacing: 0.02em; }
@@ -254,10 +333,27 @@
     text-align: right; font-family: var(--display); font-weight: 700; font-style: italic;
     font-variant-numeric: tabular-nums; color: var(--text);
   }
-  .track { height: 1.35rem; transform: skewX(-11deg); }
-  .bar { height: 100%; background: var(--accent); opacity: 0.45; transition: width 0.6s ease; }
+  /* Bars are positioned on a shared axis (see `seg`), so segments can start
+     anywhere right of zero; a negative net draws no yellow. The grey `cut`
+     segment is the downvoted share, stacked after the net. */
+  .track { position: relative; height: 1.35rem; transform: skewX(-11deg); }
+  .bar, .seg { position: absolute; top: 0; height: 100%; }
+  .bar { background: var(--accent); opacity: 0.45; transition: width 0.6s ease, left 0.6s ease; }
+  .seg.cut { background: rgba(255, 255, 255, 0.13); transition: width 0.6s ease, left 0.6s ease; }
+  .total.down { color: var(--down); }
 
-  /* Watch-only rows: one bar, scaled to the leader, which is brightened. */
+  /* Hover (or tap) a bar for the popular vote: drivers for vs against. The
+     same text is the track's accessible name. The track is skewed, so the
+     tip skews back to sit square. */
+  .tip {
+    position: absolute; left: 0; bottom: calc(100% + 0.4rem); z-index: 2; display: none;
+    transform: skewX(11deg); white-space: nowrap; pointer-events: none;
+    font-family: var(--display); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text); background: #0c0c0c; border: 1px solid var(--border); padding: 0.3rem 0.55rem;
+  }
+  .track:hover .tip { display: block; }
+
+  /* Watch-only rows: one bar, scaled to the leader; every car tied on top is brightened. */
   .vrow.watch { display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr 3.5rem; gap: 0.75rem; }
   .vrow.watch.leader .bar { opacity: 1; }
   .vrow.watch.leader .total { color: var(--accent); }
@@ -288,10 +384,12 @@
   .ballot .vrow .ctl { grid-area: ctl; }
   .ballot .vrow .total { grid-area: total; }
   .vrow input[type="hidden"] { display: none; }
-  .track.lane { background: rgba(255, 255, 255, 0.05); display: flex; }
-  .seg { height: 100%; transition: width 0.3s ease; }
+  .track.lane { background: rgba(255, 255, 255, 0.05); }
+  .seg { transition: width 0.3s ease, left 0.3s ease; }
   .seg.mine { background: var(--accent); }
-  .seg.others { background: rgba(255, 255, 255, 0.16); }
+  .seg.mine.down { background: var(--down); }
+  .seg.others { background: var(--accent); opacity: 0.4; }
+  .seg.others.down { background: var(--down); }
 
   .ctl { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
   .step {
@@ -300,12 +398,17 @@
     border: 1px solid var(--border); cursor: pointer; transform: skewX(-11deg);
   }
   .step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .step.down:hover:not(:disabled) { border-color: var(--down); color: var(--down); }
   .step:disabled { opacity: 0.35; cursor: default; }
   .mine-badge {
     min-width: 2.2rem; text-align: center; font-family: var(--display); font-weight: 700; font-style: italic;
     font-variant-numeric: tabular-nums; color: var(--accent); font-size: 1.1rem;
   }
+  .mine-badge.down { color: var(--down); }
   /* ---- Sign-in ---- */
+  .rules { list-style: none; margin: 0.9rem 0 0; padding: 0; max-width: 46rem; color: var(--muted); font-size: 0.9rem; }
+  .rules li { margin: 0 0 0.35rem; padding-left: 0.9rem; border-left: 2px solid var(--accent); }
+  .rules strong, .gate-hint strong { color: var(--text); }
   .gate-hint { color: var(--muted); font-size: 0.9rem; margin: 0.7rem 0 0; max-width: 46rem; }
   .code-form { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
   .code-form input {

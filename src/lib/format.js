@@ -60,6 +60,16 @@ export const startEpoch = (s, tz = LEAGUE_TZ) => {
   return t;
 };
 
+// The inverse: an instant (Date/ISO/ms) as the "YYYY-MM-DDTHH:mm" wall-clock
+// in `tz`, the value a datetime-local picker shows. Round-trips startEpoch.
+export const wallClock = (at, tz = LEAGUE_TZ) => {
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    .formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+};
+
 // A schedule round's start ("YYYY-MM-DDTHH:mm", league wall-clock) shown in a
 // given zone with its abbreviation, e.g. "Thu, Sep 17, 7:30 PM PDT". The
 // server renders the league zone; the browser re-renders in the viewer's.

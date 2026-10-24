@@ -1,10 +1,12 @@
 <script>
   import { enhance } from '$app/forms';
   import PageTitle from '$lib/PageTitle.svelte';
+  import { LEAGUE_TZ, wallClock } from '$lib/format.js';
 
   let { data, form } = $props();
   const session = $derived(data.session);
-  const fmtAt = (iso) => new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // Vote times are shown on the league clock (Pacific), with the zone named.
+  const fmtAt = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: LEAGUE_TZ, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   const msgFor = (panel) => (form?.panel === panel ? form : null);
   const statusLabel = { upcoming: 'Upcoming', open: 'Open — live', closed: 'Closed' };
   const defaultSeries = $derived((data.series.find((s) => s.status === 'complete') ?? data.series[0])?.slug);
@@ -41,14 +43,52 @@
       points from <strong>{session.seriesSlug}</strong> · {session.voters} ballot{session.voters === 1 ? '' : 's'}
       {#if session.winners}· Winner: <strong>{session.winners.join(' · ') || '—'}</strong>{/if}
     </p>
+    <!-- Net (for minus against) is what ranks the cars; the halves show how contested each one is. -->
     <table>
-      <thead><tr><th>Car</th><th class="num">Points</th></tr></thead>
+      <thead><tr><th>Car</th><th class="num">Net</th><th class="num">For</th><th class="num">Against</th></tr></thead>
       <tbody>
         {#each session.cars as c (c.id)}
-          <tr><td>{c.name}</td><td class="num">{session.totals[c.id] ?? 0}</td></tr>
+          {@const net = session.totals[c.id] ?? 0}
+          <tr>
+            <td>{c.name}</td>
+            <td class="num" class:down={net < 0}><strong>{net < 0 ? `−${-net}` : net}</strong></td>
+            <td class="num">{session.up[c.id] ?? 0}</td>
+            <td class="num" class:down={(session.down[c.id] ?? 0) > 0}>{session.down[c.id] ?? 0}</td>
+          </tr>
         {/each}
       </tbody>
     </table>
+
+    <h4>Ballots</h4>
+    {#if !session.ballots.length}
+      <p class="empty">No ballots saved yet.</p>
+    {:else}
+      <table>
+        <thead><tr><th>Driver</th><th class="num">Spent</th><th>Split</th></tr></thead>
+        <tbody>
+          {#each session.ballots as b (b.custId)}
+            <tr>
+              <td>{b.driverName}</td>
+              <td class="num">{b.spent}<span class="muted"> / {data.budgets[b.custId] ?? 0}</span></td>
+              <td class="split">{#each b.split as x, i (x.car)}{#if i}<span class="muted"> · </span>{/if}{x.car} <strong class:down={x.pts < 0}>{x.pts > 0 ? `+${x.pts}` : `−${-x.pts}`}</strong>{/each}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+    {#if session.pending.length && session.status !== 'closed'}
+      <p class="desc pending">Not yet voted: {session.pending.join(', ')}</p>
+    {/if}
+
+    <!-- Both pickers are Pacific wall-clock; the server resolves the zone, so a
+         countdown set here lands on the league clock whatever the admin's. -->
+    <form method="post" action="?/reschedule" use:enhance class="row" style="margin-top:0.8rem">
+      <input type="hidden" name="id" value={session.id}>
+      <label class="field">Starts (Pacific) <input type="datetime-local" name="startsAt" value={wallClock(session.startsAt)}></label>
+      <label class="field">Ends (Pacific) <input type="datetime-local" name="endsAt" value={wallClock(session.endsAt)}></label>
+      <button class="btn sm" type="submit">Update window</button>
+    </form>
+
     <div class="row" style="margin-top:0.8rem">
       {#if session.status !== 'closed'}
         <form method="post" action="?/close" use:enhance onsubmit={(e) => { if (!confirm('End the vote now and declare the winner?')) e.preventDefault(); }}>
@@ -68,7 +108,7 @@
 <!-- ---- New session ---- -->
 <section class="panel">
   <h3>New vote</h3>
-  <p class="desc">Drivers spend their final championship points from the chosen series. Leave the start blank to open immediately; the vote runs for the given number of days.</p>
+  <p class="desc">Drivers spend a tenth of their championship points from the chosen series, rounded up (43 pts → 5), casting each vote for or against a car; the highest net score wins. Leave the start blank to open immediately; set an end time, or leave it blank and the vote runs for the given number of days. Times are Pacific.</p>
   <form method="post" action="?/create" use:enhance>
     <div class="row">
       <label class="field">Title <input type="text" name="title" size="28" placeholder="Season 3 car vote"></label>
@@ -79,8 +119,9 @@
           {#each data.series as s (s.slug)}<option value={s.slug} selected={s.slug === defaultSeries}>{s.name} ({s.status})</option>{/each}
         </select>
       </label>
-      <label class="field">Starts <input type="datetime-local" name="startsAt"></label>
-      <label class="field">Days <input type="number" name="days" value="3" min="1" step="0.5" style="width:4.5rem"></label>
+      <label class="field">Starts (Pacific) <input type="datetime-local" name="startsAt"></label>
+      <label class="field">Ends (Pacific) <input type="datetime-local" name="endsAt"></label>
+      <label class="field">or days <input type="number" name="days" value="3" min="1" step="0.5" style="width:4.5rem"></label>
     </div>
     <fieldset class="cars-pick">
       <legend>Eligible cars</legend>
@@ -98,7 +139,7 @@
 <!-- ---- Driver passcodes ---- -->
 <section class="panel">
   <h3>Driver passcodes</h3>
-  <p class="desc">Each driver signs in on /vote with their passcode — Copy puts a DM-ready line on the clipboard. Regenerate kills a leaked code on the spot. Budget is the driver's points in the current vote.</p>
+  <p class="desc">Each driver signs in on /vote with their passcode — Copy puts a DM-ready line on the clipboard. Regenerate kills a leaked code on the spot. Budget is the driver's scaled points in the current vote.</p>
   <div class="row" style="margin-bottom:0.8rem">
     <form method="post" action="?/generateCodes" use:enhance>
       <button class="btn primary" type="submit">Generate missing passcodes</button>
@@ -142,6 +183,10 @@
   th.num, td.num { text-align: right; }
   .muted { color: var(--muted); }
   td.code { font-family: ui-monospace, monospace; letter-spacing: 0.08em; }
+  h4 { margin: 1.2rem 0 0.4rem; font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  td.split strong { color: var(--accent); }
+  td.down, td.split strong.down { color: #e05c5c; }
+  .pending { margin-top: 0.6rem; }
   .cars-pick {
     margin-top: 0.8rem; border: 1px solid var(--border); padding: 0.7rem 0.9rem;
     display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 0.3rem 1rem;

@@ -1,11 +1,22 @@
 import { fail } from '@sveltejs/kit';
 import { collections } from '$lib/server/db/index.js';
 import { computeStandings } from '$lib/server/standings/index.js';
+import { startEpoch } from '$lib/format.js';
 import {
-  getCurrentSession, sessionStatus, tally, winners,
+  getCurrentSession, sessionStatus, tally, ballots, winners,
   listCodes, generateMissingCodes, regenerateCode,
-  createSession, deleteSession, closeSession, CARS,
+  createSession, deleteSession, closeSession, rescheduleSession, scaleBudget, CARS,
 } from '$lib/server/vote/index.js';
+
+// A datetime-local value typed on the admin page is league (Pacific)
+// wall-clock, whatever zone the server or the admin's browser is in — never
+// parse it as local/UTC. Blank → null; unreadable → undefined.
+const leagueTime = (raw) => {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  const ms = startEpoch(s.slice(0, 16));
+  return ms == null ? undefined : new Date(ms);
+};
 
 // Admin side of the car vote: define the session (cars, window, points
 // source) and issue each driver's sign-in passcode (handed out by DM). The
@@ -22,16 +33,22 @@ export async function load({ locals }) {
   let sessionView = null;
   let budgets = {}; // custId -> points available in the current session
   if (session) {
-    const [{ totals, voters }, { standings }] = await Promise.all([
+    const [{ totals, up, down, voters }, { standings }, cast] = await Promise.all([
       tally(db, session._id),
       computeStandings(db, { seriesSlug: session.seriesSlug }),
+      ballots(db, session),
     ]);
-    budgets = Object.fromEntries(standings.map((r) => [r.custId, r.total]));
+    budgets = Object.fromEntries(standings.map((r) => [r.custId, scaleBudget(r.total)]));
     const status = sessionStatus(session);
+    // Drivers with votes to spend who haven't saved a ballot — the chase list.
+    const voted = new Set(cast.map((b) => b.custId));
+    const pending = codes
+      .filter((d) => (budgets[d.custId] ?? 0) > 0 && !voted.has(d.custId))
+      .map((d) => d.displayName);
     sessionView = {
       id: session._id, title: session.title, seriesSlug: session.seriesSlug, cars: session.cars,
       startsAt: new Date(session.startsAt).toISOString(), endsAt: new Date(session.endsAt).toISOString(),
-      status, totals, voters,
+      status, totals, up, down, voters, ballots: cast, pending,
       winners: status === 'closed' ? winners(session, totals).map((c) => c.name) : null,
     };
   }
@@ -58,13 +75,17 @@ export const actions = {
     const seriesSlug = String(form.get('seriesSlug') ?? '');
     // Cars come from the fixed catalog (checkboxes); keep only recognized names.
     const carNames = form.getAll('cars').map(String).filter((n) => CARS.includes(n));
-    const startRaw = String(form.get('startsAt') ?? '').trim();
     const days = Number(form.get('days') ?? 3);
     if (!title) return fail(400, { panel: 'create', error: 'Give the vote a title.' });
     if (!seriesSlug) return fail(400, { panel: 'create', error: 'Pick the series whose points are spent.' });
-    if (!Number.isFinite(days) || days <= 0) return fail(400, { panel: 'create', error: 'Duration must be a positive number of days.' });
-    const start = startRaw ? new Date(startRaw) : new Date();
-    if (Number.isNaN(start.getTime())) return fail(400, { panel: 'create', error: 'Unreadable start time.' });
+    const startAt = leagueTime(form.get('startsAt'));
+    if (startAt === undefined) return fail(400, { panel: 'create', error: 'Unreadable start time.' });
+    const start = startAt ?? new Date();
+    // An explicit end (Pacific) wins; otherwise the vote runs for `days`.
+    const endAt = leagueTime(form.get('endsAt'));
+    if (endAt === undefined) return fail(400, { panel: 'create', error: 'Unreadable end time.' });
+    if (!endAt && (!Number.isFinite(days) || days <= 0)) return fail(400, { panel: 'create', error: 'Set an end time or a positive number of days.' });
+    const end = endAt ?? new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
     // Budgets are this series' standings totals; without results everyone
     // would have 0 points and nobody could vote.
     const { standings } = await computeStandings(db, { seriesSlug });
@@ -72,13 +93,25 @@ export const actions = {
       return fail(400, { panel: 'create', error: 'That series has no scored results — every driver would have 0 points. Pick the completed season.' });
     }
     try {
-      await createSession(db, {
-        title, seriesSlug, carNames,
-        startsAt: start, endsAt: new Date(start.getTime() + days * 24 * 60 * 60 * 1000),
-      });
+      await createSession(db, { title, seriesSlug, carNames, startsAt: start, endsAt: end });
       return { panel: 'create', ok: 'Vote created.' };
     } catch (e) {
       return fail(400, { panel: 'create', error: e.message });
+    }
+  },
+
+  // Move the window of the current vote — both pickers are Pacific wall-clock.
+  reschedule: async ({ request, locals }) => {
+    const form = await request.formData();
+    const startsAt = leagueTime(form.get('startsAt'));
+    const endsAt = leagueTime(form.get('endsAt'));
+    if (startsAt === undefined || endsAt === undefined) return fail(400, { panel: 'session', error: 'Unreadable time.' });
+    if (!startsAt && !endsAt) return fail(400, { panel: 'session', error: 'Set a start or an end time.' });
+    try {
+      await rescheduleSession(locals.db, String(form.get('id')), { startsAt, endsAt });
+      return { panel: 'session', ok: 'Vote window updated.' };
+    } catch (e) {
+      return fail(400, { panel: 'session', error: e.message });
     }
   },
 

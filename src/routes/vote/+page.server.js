@@ -3,7 +3,7 @@ import { collections } from '$lib/server/db/index.js';
 import { clientIp, loginLocked, recordLogin } from '$lib/server/admin/auth.js';
 import { getVoter, issueVoterSession, voterCookieOptions, VOTER_COOKIE } from '$lib/server/vote/auth.js';
 import {
-  getCurrentSession, sessionStatus, budgetFor, getBallot,
+  getCurrentSession, sessionStatus, pointsAndBudgetFor, getBallot,
   driverForCode, saveBallot, tally, winners,
 } from '$lib/server/vote/index.js';
 
@@ -18,25 +18,32 @@ export async function load(event) {
   if (!session) return { session: null, me: null };
 
   const status = sessionStatus(session);
-  const { totals, voters } = await tally(db, session._id);
+  const [{ totals, up, down, upBy, downBy, voters }, series] = await Promise.all([
+    tally(db, session._id),
+    collections(db).series.findOne({ slug: session.seriesSlug }, { projection: { name: 1 } }),
+  ]);
 
   let me = null;
   if (voter) {
-    const [budget, ballot, driver] = await Promise.all([
-      budgetFor(db, session, voter.custId),
+    const [{ points, budget }, ballot, driver] = await Promise.all([
+      pointsAndBudgetFor(db, session, voter.custId),
       getBallot(db, session._id, voter.custId),
       collections(db).drivers.findOne({ _id: voter.custId }),
     ]);
-    me = { custId: voter.custId, driverName: driver?.displayName ?? `#${voter.custId}`, budget, allocation: ballot?.allocation ?? {} };
+    me = { custId: voter.custId, driverName: driver?.displayName ?? `#${voter.custId}`, points, budget, allocation: ballot?.allocation ?? {} };
   }
 
   return {
     session: {
       id: session._id, title: session.title, cars: session.cars, seriesSlug: session.seriesSlug,
+      seriesName: series?.name ?? session.seriesSlug,
       startsAt: new Date(session.startsAt).toISOString(), endsAt: new Date(session.endsAt).toISOString(),
     },
     status,
     totals,
+    // The up/down split draws the downvoted share of each bar; the driver
+    // counts feed the bar tooltips (the popular vote behind the weighted one).
+    up, down, upBy, downBy,
     voters,
     winners: status === 'closed' ? winners(session, totals).map((c) => c.name) : null,
     me,
