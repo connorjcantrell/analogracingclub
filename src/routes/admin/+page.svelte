@@ -373,6 +373,7 @@
   <PageTitle inline>Admin</PageTitle>
   <button class="btn sm" type="button" onclick={refresh}>↻ Refresh</button>
   <a class="btn sm" href="/admin/vote">Car vote →</a>
+  <a class="btn sm" href="/admin/track-selection">Track selection →</a>
 </div>
 
 <section class="panel">

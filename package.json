@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "start": "node build",
     "ingest": "node src/lib/server/import/cli.js",
+    "tracks": "node src/lib/server/tracks/cli.js",
     "test": "node --test"
   },
   "dependencies": {

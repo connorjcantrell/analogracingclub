@@ -50,12 +50,23 @@ export const collections = (db) => ({
   voteSessions: db.collection('voteSessions'),
   voteCodes: db.collection('voteCodes'),
   voteBallots: db.collection('voteBallots'),
+  // iRacing's track catalog (see src/lib/server/tracks): one doc per track,
+  // _id its slug, with every layout's type, length, turns and short name.
+  // Loaded from Sim Racer Hub by `npm run tracks`.
+  tracks: db.collection('tracks'),
+  // Next season's track selection (see src/lib/server/track-selection):
+  // trackSelections names the drivers who pick and the allowed track types;
+  // trackPicks is one doc per driver per selection with their round.
+  trackSelections: db.collection('trackSelections'),
+  trackPicks: db.collection('trackPicks'),
 });
 
 async function ensureIndexes(db) {
-  const { series, subsessions, posts, videos, voteBallots } = collections(db);
+  const { series, subsessions, posts, videos, voteBallots, trackPicks } = collections(db);
   // The live tally re-reads a session's ballots every few seconds.
   await voteBallots.createIndex({ sessionId: 1 });
+  // One track per selection, whatever the layout (see track-selection/savePick).
+  await trackPicks.createIndex({ selectionId: 1, trackId: 1 }, { unique: true });
   // _id on subsessions is `<seriesSlug>:<subsession_id>`; _id on drivers is cust_id.
   await subsessions.createIndex({ seriesSlug: 1, round: 1 });
   await series.createIndex({ slug: 1 }, { unique: true });
