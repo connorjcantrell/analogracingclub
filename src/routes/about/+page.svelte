@@ -26,7 +26,7 @@
     </ol>
   </div>
   <p>To be accepted, drivers need either a Sports Car safety rating of <strong>class A 4.00</strong>
-  or a recommendation from a <a class="link" href="/drivers">ranked member</a>.</p>
+  or a recommendation from a <a class="link" href="/drivers">current member</a>.</p>
   <p>Race-night RSVPs, announcements, and the post-race chat all live on Discord.</p>
   <a class="discord-btn" href={DISCORD_URL} target="_blank" rel="noopener">
     <img src="/assets/Discord-Symbol-White.svg" alt="">
