@@ -136,3 +136,27 @@ test('an entrant who completed no laps is dropped from that session', () => {
   const feature = doc.simsessions.find((s) => s.kind === 'feature');
   assert.deepEqual(feature.results.map((r) => [r.custId, r.finish]), [[1, 1], [4, 2], [2, 3]]);
 });
+
+// ---- Fast Four v2: 21 for the win and a point for every finisher to 32nd ----
+const v2 = FORMATS['fast-four-v2'].pointsConfig;
+
+test('v2 feature pays 22-19-17-15-13, down by one to 2 at P16, then 1 through P32 and nothing past', () => {
+  const pts = Array.from({ length: 33 }, (_, i) => computePoints(v2, { kind: 'feature', finish: i + 1 }).total);
+  assert.deepEqual(pts, [22, 19, 17, 15, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, ...Array(16).fill(1), 0]);
+});
+
+test('v2 keeps qualifying 7-5-3-1 and the once-per-round lap-led point', () => {
+  assert.deepEqual([1, 2, 3, 4, 5].map((p) => computePoints(v2, { kind: 'qualifying', finish: p }).total), [7, 5, 3, 1, 0]);
+  assert.equal(computePoints(v2, { kind: 'sprint', finish: 9, lapsLead: 3 }).total, 1);
+  assert.equal(computePoints(v2, { kind: 'feature', finish: 1, lapsLead: 1 }).total, 23);
+});
+
+test('v2 is the default for new series and the v1 preset is unchanged', async () => {
+  const { DEFAULT_FORMAT, pointsConfigFor } = await import('../src/lib/server/scoring/formats.js');
+  const { eventTypeOptions } = await import('../src/lib/server/event-types.js');
+  assert.equal(DEFAULT_FORMAT, 'fast-four-v2');
+  for (const t of eventTypeOptions()) assert.ok(FORMATS[t.defaultFormat], `${t.id} defaults to a known format`);
+  assert.equal(pointsConfigFor('fast-four').feature.base[1], 20);
+  assert.equal(pointsConfigFor('fast-four').feature.base[17], undefined);
+  assert.equal(pointsConfigFor('fast-four-v2').feature.base[1], 22);
+});

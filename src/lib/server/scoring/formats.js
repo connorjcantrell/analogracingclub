@@ -10,14 +10,31 @@
 // a driver leads in both the sprint and the feature.
 const scale = (pts) => Object.fromEntries(pts.map((p, i) => [i + 1, p]));
 
+// The Fast Four feature scale, v2: 22 for the win, then 19-17-15-13 and down
+// by one to two points at 16th; every place from 17th to 32nd scores one, so
+// finishing the feature always pays. v1 paid 20 for the win and nothing past
+// 16th.
+const FEATURE_V1 = [20, 18, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+const FEATURE_V2 = [22, 19, 17, 15, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, ...Array(16).fill(1)];
+
 export const FORMATS = {
+  'fast-four-v2': {
+    name: 'Fast Four v2',
+    description: 'Qualifying 7-5-3-1 · Feature 22-19-17-15-13-12-11-10-9-8-7-6-5-4-3-2, then 1 pt per place from 17th to 32nd · 1 pt for leading a lap in the sprint or feature (once per round)',
+    pointsConfig: {
+      qualifying: { base: scale([7, 5, 3, 1]) },
+      sprint: { base: {}, lapLedBonus: 1 },
+      feature: { base: scale(FEATURE_V2), lapLedBonus: 1 },
+      practice: { base: {} },
+    },
+  },
   'fast-four': {
-    name: 'Fast Four',
+    name: 'Fast Four v1',
     description: 'Qualifying 7-5-3-1 · Feature 20-18-16-14-12-11-10-9-8-7-6-5-4-3-2-1 · 1 pt for leading a lap in the sprint or feature (once per round)',
     pointsConfig: {
       qualifying: { base: scale([7, 5, 3, 1]) },
       sprint: { base: {}, lapLedBonus: 1 },
-      feature: { base: scale([20, 18, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]), lapLedBonus: 1 },
+      feature: { base: scale(FEATURE_V1), lapLedBonus: 1 },
       practice: { base: {} },
     },
   },
@@ -27,7 +44,7 @@ export const FORMATS = {
     pointsConfig: {
       qualifying: { base: {} },
       sprint: { base: {} },
-      feature: { base: scale([20, 18, 16, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]), lapLedBonus: 1 },
+      feature: { base: scale(FEATURE_V1), lapLedBonus: 1 },
       practice: { base: {} },
     },
   },
@@ -43,7 +60,9 @@ export const FORMATS = {
   },
 };
 
-export const DEFAULT_FORMAT = 'fast-four';
+// New series score under the current Fast Four scale; existing series keep
+// the copy they were created with until the admin switches them.
+export const DEFAULT_FORMAT = 'fast-four-v2';
 export const KINDS = ['qualifying', 'sprint', 'feature', 'practice'];
 
 // Deep copy so a series never shares an object with the preset.

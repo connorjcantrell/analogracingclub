@@ -20,7 +20,7 @@ export const EVENT_TYPES = {
       { kind: 'sprint', label: 'Heat' },
       { kind: 'feature', label: 'Feature' },
     ],
-    defaultFormat: 'fast-four',
+    defaultFormat: 'fast-four-v2',
     // display drives the results page: which extra summary cards to show, and
     // whether a combined "Overall" (points across the round) tab makes sense.
     display: { overall: true, cards: ['fast-four', 'heat-feature-winners'] },
@@ -34,7 +34,7 @@ export const EVENT_TYPES = {
       { kind: 'qualifying', label: 'Qualifying' },
       { kind: 'feature', label: 'Race' },
     ],
-    defaultFormat: 'fast-four',
+    defaultFormat: 'fast-four-v2',
     // No cards: with a single race the feature finish already names the winner.
     display: { overall: true, cards: [] },
   },
