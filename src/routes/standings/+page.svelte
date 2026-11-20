@@ -1,5 +1,5 @@
 <script>
-  import SeriesPicker from '$lib/SeriesPicker.svelte';
+  import SeriesPicker, { hasChoices } from '$lib/SeriesPicker.svelte';
   import PageTitle from '$lib/PageTitle.svelte';
   import { driverName } from '$lib/format.js';
 
@@ -7,7 +7,10 @@
   const d = $derived(data.standings);
   // The Fast Four tally only means something for a Fast Four series.
   const isFastFour = $derived(!!d?.series?.eventType?.display?.cards?.includes('fast-four'));
-  // Meta shown as broadcast chips beside the series name.
+  // The picker already names the series when it shows, so the line beneath
+  // repeats the name only when there is no picker.
+  const showName = $derived(!hasChoices(data.pick));
+  // Format shown as chips on that line.
   const metaChips = $derived.by(() => {
     const s = d?.series;
     if (!s) return [];
@@ -42,12 +45,12 @@
   <!-- Page title + season picker (picker only shows with more than one season). -->
   <div class="tv-head">
     <PageTitle inline>Standings</PageTitle>
-    <div class="tv-pick"><SeriesPicker containers={data.pick.containers} hasSpecial={data.pick.hasSpecial} value={data.pick.slug} /></div>
+    <div class="tv-pick"><SeriesPicker containers={data.pick.containers} value={data.pick.slug} /></div>
   </div>
 
   {#if d}
     <div class="tv-meta">
-      <span class="tv-series">{d.series.name}</span>
+      {#if showName}<span class="tv-series">{d.series.name}</span>{/if}
       {#each metaChips as c (c)}<span class="tv-chip">{c}</span>{/each}
     </div>
   {/if}
@@ -111,22 +114,6 @@
   .tv-head {
     display: flex; align-items: flex-end; justify-content: space-between;
     gap: 1rem; flex-wrap: wrap; margin: 0;
-  }
-
-  /* ---- Series line + meta ---- */
-  .tv-meta {
-    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
-    margin: 1rem 0 1.6rem;
-  }
-  .tv-series {
-    font-family: var(--display); font-weight: 500;
-    text-transform: uppercase; letter-spacing: 0.06em; color: var(--text);
-    font-size: 1.05rem;
-  }
-  .tv-chip {
-    font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--muted);
-    border: 1px solid var(--border); border-radius: var(--radius); padding: 0.15rem 0.55rem;
   }
 
   /* ---- The sheet ---- */

@@ -1,24 +1,27 @@
-<script>
-  // Series picker for the standings/results pages. The page's load decides the
-  // choices and the current pick (?series= wins, else the first active series);
-  // changing it re-runs that load via the URL. Renders a <select> only when
-  // there is more than one choice.
-  import { goto } from '$app/navigation';
-  import { SPECIAL_SLUG } from './format.js';
+<script module>
+  // Whether the picker renders for a page's `pick` data: only with more than
+  // one series. Pages use this to avoid naming the series twice.
+  export const hasChoices = (pick) => (pick?.containers?.length ?? 0) > 1;
+</script>
 
-  let { containers = [], hasSpecial = false, value = null } = $props();
-  const choices = $derived(containers.length + (hasSpecial ? 1 : 0));
+<script>
+  // Series picker for the standings page. The page's load decides the choices
+  // and the current pick (?series= wins, else the first active series);
+  // changing it re-runs that load via the URL. Options carry the series name
+  // only; its format shows as chips on the line beneath.
+  import { goto } from '$app/navigation';
+
+  let { containers = [], value = null } = $props();
 
   function change(e) {
     goto(`?series=${encodeURIComponent(e.currentTarget.value)}`, { replaceState: true, noScroll: true, keepFocus: true });
   }
 </script>
 
-{#if choices > 1}
+{#if hasChoices({ containers })}
   <select class="series-pick" {value} onchange={change}>
     {#each containers as s (s.slug)}
-      <option value={s.slug}>{s.name} · {s.typeLabel}{s.status !== 'active' ? ` (${s.status})` : ''}</option>
+      <option value={s.slug}>{s.name}{s.status !== 'active' ? ` (${s.status})` : ''}</option>
     {/each}
-    {#if hasSpecial}<option value={SPECIAL_SLUG}>Special events</option>{/if}
   </select>
 {/if}

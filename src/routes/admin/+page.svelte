@@ -65,7 +65,7 @@
   });
   $effect(() => { leagueRound = nextRound; });
 
-  // The result JSON carries the track; seed a special event's name from it.
+  // The result JSON carries the track; seed a single session's name from it.
   async function seedName() {
     const f = fileInput?.files?.[0];
     if (!f || specialName.trim()) return;
@@ -82,11 +82,11 @@
     let q;
     if (isSpecial) {
       const name = specialName.trim();
-      if (!specialTypes.length) return uploadMsg.set('No special event type is configured.', 'err');
+      if (!specialTypes.length) return uploadMsg.set('No single-session event type is configured.', 'err');
       if (!name) return uploadMsg.set('Name the event first.', 'err');
       q = new URLSearchParams({ special: '1', eventType: specialType || specialTypes[0].id, title: name, format: specialFormat });
     } else {
-      if (!leagueSeries) return uploadMsg.set('No series yet — create one first, or upload as a special event.', 'err');
+      if (!leagueSeries) return uploadMsg.set('No series yet — create one first, or upload as a single session.', 'err');
       q = new URLSearchParams({ series: leagueSeries, round: String(leagueRound) });
     }
     if (!countStake) q.set('stake', '0');
@@ -96,7 +96,7 @@
     }).then((r) => r.json());
     if (!res.ok) return uploadMsg.set(`Error: ${res.error}`, 'err');
     const stake = !countStake ? 'left out of stake' : res.stakeSeason ? `stake → ${seasonName(res.stakeSeason)}` : 'no season covers its date, so no stake';
-    uploadMsg.set(`Saved ${res.subsessionId} to ${res.series ?? 'special events'}: ${res.drivers} drivers, ${res.results} results; ${stake}.`, 'ok');
+    uploadMsg.set(`Saved ${res.subsessionId} to ${res.series ?? 'single sessions'}: ${res.drivers} drivers, ${res.results} results; ${stake}.`, 'ok');
     fileInput.value = ''; specialName = '';
     await refresh();
   }
@@ -418,7 +418,7 @@
   }
   const eventLabel = (e) => !e ? 'No race before it'
     : e.seriesSlug ? `${seriesName(e.seriesSlug)} R${e.round ?? '?'}${e.track ? ` · ${e.track}` : ''}`
-    : e.title || e.track || 'Special event';
+    : e.title || e.track || 'Single session';
 </script>
 
 <svelte:head>
@@ -438,11 +438,11 @@
   <p class="desc">Choose an iRacing event-result JSON, then say where it belongs.</p>
   <div class="row" style="margin-bottom:0.8rem">
     <input type="file" accept="application/json,.json" bind:this={fileInput} onchange={seedName}>
-    <label class="field"><input type="checkbox" bind:checked={isSpecial}> Special event</label>
+    <label class="field"><input type="checkbox" bind:checked={isSpecial}> Standalone (single session or special event)</label>
   </div>
-  <!-- The "Special event" checkbox splits a league round (filed into an open
-       series, which already encodes its format) from a standalone special
-       event (a one-off type like Hosted qual+race). -->
+  <!-- The "Standalone" checkbox splits a league round (filed into an open
+       series, which already encodes its format) from a one-off: a single
+       session (Hosted qual+race) or a special event, by its type. -->
   {#if !isSpecial}
     <div class="row">
       <label class="field">Series
@@ -497,7 +497,7 @@
       <tbody>
         {#each subs as s (s._id)}
           <tr>
-            <td>{#if s.seriesSlug}{seriesName(s.seriesSlug)}{:else}<span class="muted">{s.title || 'Special event'}</span>{/if}</td>
+            <td>{#if s.seriesSlug}{seriesName(s.seriesSlug)}{:else}<span class="muted">{s.title || 'Single session'}</span>{/if}</td>
             <td class="pos">{s.round == null ? '—' : s.round}</td>
             <td>{trackOf(s)}</td>
             <td>{fmtDate(s.startTime)}</td>
@@ -540,7 +540,7 @@
 
 <section class="panel">
   <h3>Seasons</h3>
-  <p class="desc">A season is a window of time: a start date and, optionally, an end. Without an end it runs until the next season starts, so one season is current at a time. Every uploaded result — a league round or a special event — pays its points into the stake of the season its race date falls in, unless left out at upload. Dates are Pacific calendar days.</p>
+  <p class="desc">A season is a window of time: a start date and, optionally, an end. Without an end it runs until the next season starts, so one season is current at a time. Every uploaded result — a league round or a single session — pays its points into the stake of the season its race date falls in, unless left out at upload. Dates are Pacific calendar days.</p>
   {#if seasons.length}
     <table>
       <thead><tr><th>Name</th><th>Starts</th><th>Ends</th><th>Series</th><th>Results</th><th></th></tr></thead>

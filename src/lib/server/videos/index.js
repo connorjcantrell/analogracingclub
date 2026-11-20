@@ -103,7 +103,7 @@ export async function listVideosPublic(db) {
         round: e.seriesSlug ? e.round ?? null : null,
         title: e.seriesSlug ? null : e.title ?? null,
         track: e.track?.name ?? null,
-        href: e.seriesSlug ? `/results?series=${encodeURIComponent(e.seriesSlug)}&round=${e.round ?? ''}` : '/results?series=__special__',
+        href: `/results?event=${encodeURIComponent(e._id)}`,
       },
     };
   });

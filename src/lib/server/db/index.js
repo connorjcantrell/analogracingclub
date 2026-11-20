@@ -18,13 +18,13 @@ export async function getDb() {
 
 // Sessions stored before stake was filed per session (see ../stake): file
 // every session into the season its start time falls in (none excluded), and
-// give a special event uploaded before specials carried a points format the
+// give a single session uploaded before specials carried a points format the
 // unscored one it was scored under. Idempotent. The refile lives in
 // ../season.js, which imports this module, so it is loaded lazily.
 async function backfillStake(db) {
   const { subsessions } = collections(db);
   const r = await subsessions.updateMany({ seriesSlug: null, format: { $exists: false } }, { $set: { format: 'unscored' } });
-  if (r.modifiedCount) console.log(`backfilled format=unscored on ${r.modifiedCount} special event(s)`);
+  if (r.modifiedCount) console.log(`backfilled format=unscored on ${r.modifiedCount} single session(s)`);
   const { refileStake } = await import('../season.js');
   const moved = await refileStake(db);
   if (moved) console.log(`filed ${moved} session(s) into seasons for stake`);

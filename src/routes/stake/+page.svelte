@@ -1,7 +1,7 @@
 <script>
   import { goto } from '$app/navigation';
   import PageTitle from '$lib/PageTitle.svelte';
-  import { driverName, fmtDate, realConfig, SPECIAL_SLUG } from '$lib/format.js';
+  import { driverName, fmtDate, realConfig, resultsLink } from '$lib/format.js';
 
   let { data } = $props();
   const d = $derived(data.stake);
@@ -15,15 +15,11 @@
   // One series in a season is the norm; with more, each round names its series.
   const manySeries = $derived((d?.series?.length ?? 0) > 1);
   const trackText = (st) => [st.track, realConfig(st.config)].filter(Boolean).join(' · ');
-  // A round reads "R3", a special event "★"; the header spells either out.
+  // A round reads "R3", a single session "★"; the header spells either out.
   const tick = (st) => (st.round != null ? `R${st.round}` : '★');
   const stepTitle = (st) => (st.round != null
     ? `Round ${st.round}${manySeries && st.seriesName ? ` · ${st.seriesName}` : ''}${st.track ? ` · ${trackText(st)}` : ''}`
-    : st.title || trackText(st) || 'Special event');
-  // Where the event's results live: ?round= for a league round, ?event= for a special.
-  const resultsLink = (st) => (st.seriesSlug
-    ? `/results?series=${encodeURIComponent(st.seriesSlug)}&round=${st.round ?? ''}`
-    : `/results?series=${encodeURIComponent(SPECIAL_SLUG)}&event=${encodeURIComponent(st.id)}`);
+    : st.title || trackText(st) || 'Single session');
   const windowText = (s) => `${fmtDate(s.startsAt)} – ${s.endsAt ? fmtDate(s.endsAt) : 'open'}`;
   function pickSeason(e) {
     goto(`?season=${encodeURIComponent(e.currentTarget.value)}`, { replaceState: true, noScroll: true, keepFocus: true });
@@ -83,7 +79,7 @@
 
   {#if d?.season}
     <div class="tv-meta">
-      <span class="tv-series">{d.season.name}</span>
+      {#if seasons.length <= 1}<span class="tv-series">{d.season.name}</span>{/if}
       <span class="tv-chip">{windowText(d.season)}</span>
       {#each d.series as s (s.slug)}<span class="tv-chip">{s.name}</span>{/each}
     </div>
@@ -92,7 +88,7 @@
   <!-- What stake is and what it buys. -->
   <section class="intro">
     <h3 class="intro-title">How it works</h3>
-    <p>Stake is a driver’s share of every point paid out in the season so far, in its league rounds and in any special event raced during it. Nothing is dropped.</p>
+    <p>Stake is a driver’s share of every point paid out in the season so far, in its league rounds and in any single session raced during it. Nothing is dropped.</p>
     <p>It is how the club is steered. When the season closes, each driver’s stake becomes their weight in the vote on what comes next: the cars we drive and the tracks we select for the following season. The more of the season you have won, the more of its direction is yours to call.</p>
   </section>
 
@@ -181,7 +177,7 @@
                   <td class="num">{finishText(p)}</td>
                   <td class="num">{earnedText(p)}</td>
                   <td class="num total">{pctText(p.stake)}</td>
-                  <td class="num">{#if st}<a class="link" href={resultsLink(st)}>Results →</a>{/if}</td>
+                  <td class="num">{#if st}<a class="link" href={resultsLink(st.id)}>Results →</a>{/if}</td>
                 </tr>
               {/each}
             </tbody>
@@ -198,12 +194,6 @@
   /* Same sheet language as the standings page: site tokens, hairline rules,
      tabular figures. */
   .tv-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-  .tv-meta { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0 1.6rem; }
-  .tv-series { font-family: var(--display); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; font-size: 1.05rem; }
-  .tv-chip {
-    font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.15rem 0.55rem;
-  }
 
   /* ---- Intro ---- */
   .intro { max-width: 62ch; margin: 0 0 2rem; }

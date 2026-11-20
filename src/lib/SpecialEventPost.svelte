@@ -1,10 +1,10 @@
 <script>
-  // The results post for a one-off Special event. Self-contained: it owns its
+  // The results post for a one-off single session. Self-contained: it owns its
   // table schema (Pos · Driver · Start · Laps led · Delta · Points) drawn from
   // the deciding race, in finishing order. No Fast Four / championship copy.
   import DriverName from './DriverName.svelte';
   import VideoStrip from './VideoStrip.svelte';
-  import { driverName, fmtDate, trackName, session, raceSessions, gap, duration, SPECIAL_SLUG } from './format.js';
+  import { driverName, fmtDate, trackName, session, raceSessions, gap, duration, resultsLink as linkTo } from './format.js';
   import { roundBadges } from './badges.js';
 
   let { post } = $props();
@@ -21,7 +21,7 @@
   const scored = $derived(all.some((x) => (x.points?.total ?? 0) !== 0));
   const badges = $derived(roundBadges(sub, { qualifyingPlaces: 0 }));
 
-  const resultsLink = `/results?series=${encodeURIComponent(SPECIAL_SLUG)}`;
+  const resultsLink = $derived(linkTo(sub._id));
 
   // The leader shows total race time (derived from average lap × laps, as no
   // absolute finish time is stored); everyone else shows the gap, or laps down.
@@ -37,7 +37,7 @@
 </script>
 
 <article class="post result-post">
-  <p class="sched-round">Special event</p>
+  <p class="sched-round">Single session</p>
   <h2 class="lp-h">{post.title}</h2>
   <p class="lp-sub">{[track, fmtDate(sub.startTime)].filter(Boolean).join(' · ')}</p>
   {#if post.body}<p class="post-body">{post.body}</p>{/if}

@@ -44,7 +44,8 @@ header {
   display: flex; align-items: center; gap: 0.65rem 1rem; flex-wrap: wrap;
 }
 header .brand { display: flex; align-items: center; text-decoration: none; line-height: 0; }
-header .brand-logo { height: 30px; width: auto; display: block; }
+/* The square mark carries its own padding, so it sits a little taller than a wordmark would. */
+header .brand-logo { height: 48px; width: auto; display: block; }
 nav { margin-left: 2.75rem; display: flex; gap: 1.6rem; }
 nav a {
   position: relative; padding: 0.2rem 0; color: var(--muted); text-decoration: none;
@@ -57,8 +58,6 @@ nav a:hover { color: var(--text); }
 nav a.active { color: var(--text); }
 nav a.active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -0.2rem; height: 2px; background: var(--accent); }
 header .platform { margin-left: auto; line-height: 0; opacity: 0.55; transition: opacity 0.15s; }
-/* A second right-side icon (e.g. iRacing after Discord) sits beside the first. */
-header .platform + .platform { margin-left: 1rem; }
 header .platform:hover { opacity: 1; }
 header .platform img { height: 18px; width: auto; display: block; }
 /* Mobile menu button (see nav.js); hidden on wide screens where the links show inline. */
@@ -269,33 +268,60 @@ footer a:hover { color: var(--text); }
   border-radius: 0; padding: 0.35rem 0.2rem; font-family: var(--display);
   font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em;
   cursor: pointer; transition: border-color 0.15s, color 0.15s;
+  /* A select sizes to its longest option; cap it so a long name can never
+     push the page wider than the phone and let it pan sideways. */
+  max-width: 100%; text-overflow: ellipsis;
 }
+.page-head > div, .tv-pick { max-width: 100%; min-width: 0; }
 .series-pick:hover { border-bottom-color: var(--text); color: var(--text); }
 .series-pick option { background: var(--bg); color: var(--text); font-family: var(--body); letter-spacing: normal; text-transform: none; }
 .series-pick optgroup { background: var(--bg); color: var(--muted); font-family: var(--body); letter-spacing: normal; text-transform: none; }
 
-/* Results: the event dropdown under the series line, then the detail. */
-.event-pick-label { display: inline-flex; align-items: baseline; gap: 0.8rem; margin: 0.6rem 0 0; max-width: 100%; }
+/* Results: the kind toggles (with counts) under the season picker, then the
+   event dropdown, then the detail. A toggle looks like a chip; a hidden kind
+   fades and loses its count's weight. */
+.kind-filter { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 0.4rem; }
+.kind-chip {
+  font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); background: none; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 0.15rem 0.55rem;
+  transition: color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.kind-chip .n { color: var(--text); margin-left: 0.35rem; font-variant-numeric: tabular-nums; }
+.kind-chip:hover { border-color: var(--rule-strong); color: var(--text); }
+.kind-chip.off { opacity: 0.45; border-style: dashed; }
+.kind-chip.off .n { color: inherit; }
+/* Results: the event dropdown under the kind toggles, then the detail. */
+.event-pick-label { display: flex; align-items: baseline; gap: 0.8rem; margin: 0.6rem 0 0; max-width: 100%; }
 .event-pick-caption {
   font-family: var(--display); color: var(--muted); font-size: 0.78rem;
   text-transform: uppercase; letter-spacing: 0.14em;
 }
-.event-pick { max-width: 100%; text-overflow: ellipsis; }
+/* The select shrinks beside its caption instead of overflowing the row. */
+.event-pick { flex: 0 1 auto; min-width: 0; }
 .event-detail .detail-title { margin-top: 2.25rem; padding-top: 1.75rem; margin-bottom: 0.3rem; font-size: clamp(1.4rem, 3vw, 1.8rem); }
 .event-detail .detail-date { margin: 0 0 1.25rem; }
 
-/* Page subtitle under a page-head */
-#seriesName {
-  font-family: var(--display); text-transform: uppercase; letter-spacing: 0.14em;
-  font-size: 0.78rem; margin: 0 0 2rem;
+/* Series line under the page head: the name (only when there is no picker
+   naming it already) and the format as chips. Shared by standings, results
+   and stake. */
+.tv-meta { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0 1.6rem; }
+.tv-series {
+  font-family: var(--display); font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text); font-size: 1.05rem;
+}
+.tv-chip {
+  font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 0.15rem 0.55rem;
 }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 640px) {
   :root { --gutter: 1.2rem; }
   header { padding: 0.9rem var(--gutter); gap: 0.6rem 1rem; }
-  header .brand-logo { height: 32px; }
-  /* Page links collapse behind a hamburger; the brand and platform icons stay
+  header .brand-logo { height: 44px; }
+  /* Page links collapse behind a hamburger; the brand and iRacing mark stay
      on the top row with the button at the far right. */
   header .platform { order: 0; }
   .nav-toggle {
@@ -311,6 +337,8 @@ footer a:hover { color: var(--text); }
   header.nav-open nav { display: flex; }
   nav a { padding: 0.8rem 0; border-bottom: var(--rule); font-size: 1rem; }
   nav a:last-child { border-bottom: 0; }
+  /* In the dropdown the current page's text colour is enough; no amber underline. */
+  nav a.active::after { display: none; }
   header .platform img { height: 17px; }
   main { padding: 2rem var(--gutter) 3rem; }
   .lp-section { padding: 2.5rem 0; }

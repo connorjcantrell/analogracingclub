@@ -1,8 +1,7 @@
 <script>
   // Site chrome shared by every page: brand, page links (behind a hamburger on
-  // narrow screens), the platform icons or a page-supplied `right` snippet,
+  // narrow screens), the iRacing mark or a page-supplied `right` snippet,
   // the <main> wrapper and the footer.
-  import { DISCORD_URL } from './links.js';
 
   let { active = null, mainClass = '', links = 'site', right, children } = $props();
 
@@ -28,7 +27,7 @@
 
 <header class={{ 'nav-open': open }} bind:this={header}>
   <a class="brand" href="/" aria-label="Analog Racing Club">
-    <img class="brand-logo" src="/assets/logo.png" alt="Analog Racing Club">
+    <img class="brand-logo" src="/assets/analog_sq.png" alt="Analog Racing Club">
   </a>
   {#if items.length}
     <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded={open} aria-controls="siteNav"
@@ -42,7 +41,6 @@
   {#if right}
     {@render right()}
   {:else if links !== 'none'}
-    <a class="platform" href={DISCORD_URL} target="_blank" rel="noopener" aria-label="Join our Discord"><img src="/assets/Discord-Symbol-White.svg" alt="Discord"></a>
     <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   {/if}
 </header>

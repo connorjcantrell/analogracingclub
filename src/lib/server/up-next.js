@@ -19,8 +19,8 @@ export async function buildUpNext(db) {
       // run in (the event JSON names every driver's car).
       const car = s.car || done.find((d) => d.cars?.length)?.cars.join(' · ') || null;
       return {
-        // A league season is named; anything hosted reads as a special event.
-        series: { slug: s.slug, name: s.name, car, kind: resolveEventType(s.eventType).category === 'league' ? s.name : 'Special event' },
+        // A league season is named; anything hosted reads as a single session.
+        series: { slug: s.slug, name: s.name, car, kind: resolveEventType(s.eventType).category === 'league' ? s.name : 'Single session' },
         round: row.round,
         track: row.track ?? null, date: row.date ?? null, startTime: row.startTime ?? null, link: row.link ?? null, image: row.image ?? null,
         multiplier: row.multiplier ?? 1,

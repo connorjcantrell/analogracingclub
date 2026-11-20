@@ -1,7 +1,7 @@
 <script>
   // "Up next": a horizontal banner for the next scheduled round — the round's
   // picture (when it has one) on the left, and beside it the season and round
-  // (or "Special event"), the car at the track, and the start in the viewer's
+  // (or "Single session"), the car at the track, and the start in the viewer's
   // zone with the RSVP call to action. The whole banner links to the round's
   // event page, or the Discord invite.
   import { DISCORD_URL } from './links.js';

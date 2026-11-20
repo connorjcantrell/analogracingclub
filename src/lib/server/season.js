@@ -7,7 +7,7 @@ export { seasonAt, seasonWindows, seasonConflict };
 // Seasons (the `seasons` collection, _id the slug): a start date and an
 // optional end, see ../seasons.js for the window rules. Windows never overlap,
 // so at any instant at most one season is current. Every uploaded session —
-// a league round or a special event — pays its points into the season its
+// a league round or a single session — pays its points into the season its
 // start time falls in (`stakeSeason` on the subsession, see ./stake) unless
 // the admin excluded it at upload (`stakeExcluded`). A series is the
 // official "<season> series - <car>" of a season, linked by `series.season`.

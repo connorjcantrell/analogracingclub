@@ -3,7 +3,7 @@
 //
 // A league (Fast Four) round is titled by its round winner and, when someone
 // else won the feature, that driver too; the track is named without its
-// config/"version" suffix. A one-off Special event is "<name> wins <event>".
+// config/"version" suffix. A one-off single session is "<name> wins <event>".
 // Drivers go by surname, the way a race report reads.
 //
 // Pure and DB-free, so it is unit-testable.

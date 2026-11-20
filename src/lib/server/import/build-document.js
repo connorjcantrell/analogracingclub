@@ -13,7 +13,7 @@ import { computePoints } from '../scoring/calculator.js';
 // opts: { seriesSlug?, round?, eventType?, title?, format?, pointsConfig,
 //         rawType?, stakeExcluded? }
 // A league round carries its container's eventType and a round; a standalone
-// special event has seriesSlug null, its own eventType, an optional title, and
+// single session has seriesSlug null, its own eventType, an optional title, and
 // its own points format (the id and a copy of its config, so a rescore can
 // rebuild it the way a series' rounds rebuild from the series). `stakeExcluded`
 // keeps the session's points out of stake; the caller files the season

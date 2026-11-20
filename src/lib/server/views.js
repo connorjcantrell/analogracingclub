@@ -43,17 +43,17 @@ export async function seriesRounds(db, s) {
   return [...byRound.values()].sort((a, b) => a.round - b.round);
 }
 
-// The standalone special events, shaped like a series' rounds so the results
+// The standalone single sessions (one-off hosted races, no series), shaped like a series' rounds so the results
 // page can render them with the same machinery (each event is its own row).
 export async function specialEventsView(db) {
   const [docs, videos] = await Promise.all([listSpecialEvents(db), videosByEvent(db)]);
   return {
-    series: { name: 'Special events', typeLabel: 'Special events', special: true, singleRound: true },
+    series: { name: 'Single Sessions', typeLabel: 'Single Sessions', special: true, singleRound: true },
     rounds: docs.map((d) => ({ round: null, track: null, date: null, multiplier: 1, subsessions: [{ ...withEventType(d), videos: videos.get(d._id) ?? [] }] })),
   };
 }
 
-// Results view for a series slug, or the specials collection for SPECIAL.
+// Results view for a series slug, or the single-sessions collection for SPECIAL.
 export const SPECIAL_SLUG = '__special__';
 export async function resultsView(db, slug) {
   if (slug === SPECIAL_SLUG) return specialEventsView(db);

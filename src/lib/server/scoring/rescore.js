@@ -6,7 +6,7 @@ import { listSeasons, stakeSeasonFor } from '../season.js';
 
 // Rebuild a series' subsessions (or all) from their stored raw event JSON with
 // the series' current pointsConfig. Run after a points config changes. A
-// special event rebuilds under its own stored format instead.
+// single session rebuilds under its own stored format instead.
 export async function rescore(db, { seriesSlug = null } = {}) {
   const { subsessions, series } = collections(db);
   const match = seriesSlug == null ? {} : { seriesSlug };

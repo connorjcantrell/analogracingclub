@@ -38,6 +38,19 @@ export const EVENT_TYPES = {
     // No cards: with a single race the feature finish already names the winner.
     display: { overall: true, cards: [] },
   },
+  // A special event (an annual race, say): the same one-off shape as a hosted
+  // session, but the results page files it under its own kind.
+  'special-qual-race': {
+    name: 'Special Event · Qual + Race',
+    category: 'special',
+    container: false,
+    sessions: [
+      { kind: 'qualifying', label: 'Qualifying' },
+      { kind: 'feature', label: 'Race' },
+    ],
+    defaultFormat: 'fast-four-v2',
+    display: { overall: true, cards: [] },
+  },
 };
 
 export const DEFAULT_EVENT_TYPE = 'hosted-qual-race';

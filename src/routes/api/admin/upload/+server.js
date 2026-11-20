@@ -9,7 +9,7 @@ import { FORMATS } from '$lib/server/scoring/formats.js';
 //   ?series=&round=                file it as a round of an existing series
 //                                  (scored under the series' format), or
 //   ?special=1&eventType=&title=&format=
-//                                  file it as a standalone special event (no
+//                                  file it as a standalone single session (no
 //                                  series, its own event type, scored under the
 //                                  named points format — the type's default
 //                                  when omitted).
@@ -22,7 +22,7 @@ export async function POST({ locals, request, url }) {
   if (q.get('special') === '1') {
     const eventType = q.get('eventType');
     if (!isEventType(eventType) || isContainerType(eventType)) {
-      return json({ error: 'special events need a one-off (non-series) event type' }, { status: 400 });
+      return json({ error: 'single sessions need a one-off (non-series) event type' }, { status: 400 });
     }
     const format = q.get('format') || null;
     if (format && !FORMATS[format]) return json({ error: `format must be one of ${Object.keys(FORMATS).join(', ')}` }, { status: 400 });

@@ -61,7 +61,7 @@ export const FORMATS = {
     },
   },
   'unscored': {
-    name: 'Unscored (special event)',
+    name: 'Unscored (single session)',
     description: 'No points at all — for one-off races that do not feed a championship',
     pointsConfig: {
       qualifying: { base: {} },

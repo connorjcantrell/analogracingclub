@@ -59,7 +59,7 @@ Everything scored is a **series** with a **type**:
 
 | Type | Use |
 |---|---|
-| `event` | a one-off special event (defaults to 1 round) |
+| `event` | a one-off single session (defaults to 1 round) |
 | `season` | a seasonal series |
 | `championship` | the annual championship |
 
@@ -111,7 +111,7 @@ runaway value can dominate.
 | 15% | Share of the race's led laps | higher is better |
 
 **Overall** is the result of the weekend as a whole, and what that means depends on the
-event: a scored series round is decided on **total points**, while a special event awards
+event: a scored series round is decided on **total points**, while a single session awards
 none, so the **feature finish** is the result (falling back to the sprint if there was no
 feature). `overallOrder()` detects which applies from whether any points were awarded, so it
 handles a scored series whose format happens to pay nothing.
@@ -155,7 +155,7 @@ The **Upload results** panel takes one iRacing event-result JSON, then asks what
 - **Round of a series** — pick the series and round number. An event counting toward two
   series (a season round that is also a championship round) is uploaded to each, and scored
   under each one's format.
-- **One-off special event** — just type a name. The event is created on the fly as unscored
+- **One-off single session** — just type a name. The event is created on the fly as unscored
   with a single round; no series setup needed. It then appears on the home page and results
   page like any other race, photos and all.
 
@@ -164,7 +164,7 @@ Re-uploading the same session to the same series replaces it rather than duplica
 ### What each page shows
 
 The site never assumes an event ran qualifying, a sprint and a feature. Both the home page
-and the results page read the sessions actually present in the uploaded result, so a special
+and the results page read the sessions actually present in the uploaded result, so a single
 event that is only a feature gets one tab and one winner, not three with two empty. Columns
 with nothing in them (points on an unscored event, grid slots that were never recorded) drop
 out too.

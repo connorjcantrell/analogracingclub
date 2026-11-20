@@ -130,7 +130,7 @@ export const cardsOf = (et) => et?.display?.cards ?? [];
 // The scoring qualifiers, in qualifying order. "Fast Four" is a points-format
 // convention, not something the session itself implies: the ARC standard pays
 // the top four, so those four are worth naming. A format that scores no
-// qualifying places (a special event, say) has none, and `places` of 0 gives
+// qualifying places (a single session, say) has none, and `places` of 0 gives
 // an empty list rather than an invented top four.
 export const topQualifiers = (sub, places) => (places > 0
   ? (session(sub, 'qualifying')?.results ?? [])
@@ -209,5 +209,5 @@ export const SESSION_COLS = {
   feature: RACE_COLS,
 };
 
-// The sentinel a picker uses for the single "Special events" collection.
-export const SPECIAL_SLUG = '__special__';
+// The results page's deep link to one event (league round or standalone).
+export const resultsLink = (id) => `/results?event=${encodeURIComponent(id)}`;

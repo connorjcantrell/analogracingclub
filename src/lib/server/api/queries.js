@@ -51,7 +51,7 @@ export async function listSubsessionsFull(db, { seriesSlug }) {
     .toArray();
 }
 
-// Standalone special events (no series), newest first — full docs minus raw.
+// Standalone single sessions (no series), newest first — full docs minus raw.
 export async function listSpecialEvents(db) {
   return collections(db)
     .subsessions.find({ seriesSlug: null }, { projection: { raw: 0 } })

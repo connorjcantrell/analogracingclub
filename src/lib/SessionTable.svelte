@@ -3,7 +3,7 @@
   // for it and the points it awarded for the finish — the lap-led bonus is
   // left out here and marked on the Overall table instead. Columns with
   // nothing in them are dropped:
-  // an unscored special event has no points, and a standing-start-only event
+  // an unscored single session has no points, and a standing-start-only event
   // has no grid positions. Shared by the results page; the homepage feed's
   // per-type posts render their own tables.
   import { driverName, session, SESSION_COLS } from './format.js';

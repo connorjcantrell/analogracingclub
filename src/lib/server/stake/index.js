@@ -9,7 +9,7 @@ import { publicSeason } from '../season.js';
 // just where it stands but how it moved, session by session.
 //
 // A season is a window of time (see ../season.js), and every session that ran
-// inside it counts — the rounds of its series and any special event — unless
+// inside it counts — the rounds of its series and any single session — unless
 // the admin excluded it at upload (`stakeSeason` on the subsession). Nothing
 // is dropped: the standings' drop rule is a championship rule, not a stake
 // one. Points are each session's scored totals (a round's multiplier
@@ -34,7 +34,7 @@ const byStart = (a, b) =>
  *              title, track, config, date, pool } where pool is every point
  *              paid across the field up to and including that session, and
  *              round is null for a session that is not one of the season's
- *              rounds (seriesSlug is null for a special event)
+ *              rounds (seriesSlug is null for a single session)
  *   pool     — the final pool
  *   drivers  — sorted by current stake, then points: { custId, displayName,
  *              points, stake, change, path: [{ id, points, stake, earned,

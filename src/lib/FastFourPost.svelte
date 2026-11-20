@@ -5,7 +5,7 @@
   // posts, so the schema can diverge freely per type.
   import DriverName from './DriverName.svelte';
   import VideoStrip from './VideoStrip.svelte';
-  import { driverName, fmtDate, roundTable, roundPositionsGained, posCell, signed, cardsOf, topQualifiers } from './format.js';
+  import { driverName, fmtDate, roundTable, roundPositionsGained, posCell, signed, cardsOf, topQualifiers, resultsLink as linkTo } from './format.js';
   import { roundBadges } from './badges.js';
 
   let { post } = $props();
@@ -24,7 +24,7 @@
   const ffLabel = $derived(qualifyingPlaces === 4 ? 'Fast Four' : `Top ${qualifyingPlaces}`);
 
   const kicker = $derived([series?.typeLabel, series?.name, series?.singleRound || sub.round == null ? null : `Round ${sub.round}`].filter(Boolean).join(' · '));
-  const resultsLink = $derived(`/results?series=${encodeURIComponent(series?.slug ?? '')}&round=${sub.round ?? ''}`);
+  const resultsLink = $derived(linkTo(sub._id));
 </script>
 
 <article class="post result-post">

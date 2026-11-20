@@ -61,7 +61,7 @@ export const recentWindow = (docs) => [...docs]
 
 // "Overall" means the result of the weekend as a whole, and what that means
 // depends on the event. A scored series round is won on total points across
-// its sessions; a special event awards none, so the feature finish IS the
+// its sessions; a single session awards none, so the feature finish IS the
 // result. Returns driver ids best-first, or null when the event cannot be
 // ranked overall.
 export function overallOrder(doc) {
@@ -78,7 +78,7 @@ export function overallOrder(doc) {
     }
   }
 
-  // Unscored (a special event, or a series whose points are all zero): fall
+  // Unscored (a single session, or a series whose points are all zero): fall
   // back to the feature, then the sprint — whichever race actually ran.
   if (!anyPoints) {
     const race = sessions.find((s) => s.kind === 'feature') ?? sessions.find((s) => s.kind === 'sprint');
