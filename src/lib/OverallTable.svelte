@@ -34,9 +34,11 @@
     <tr>
       <th class="pos">Pos</th>
       <th>Driver</th>
-      {#each kinds as k (k)}<th class="num">{sessionLabel(sub.eventType, k)}</th>{/each}
-      {#if gained}<th class="num" title="Places made up from the heat grid to the feature finish">Positions gained</th>{/if}
-      <th class="num" title={lapsLedTip}>Laps led</th>
+      <!-- `more` marks what a phone drops in the results list: everything but
+           the deciding race's finish and the points. -->
+      {#each kinds as k (k)}<th class={['num', { more: k !== 'feature' }]}>{sessionLabel(sub.eventType, k)}</th>{/each}
+      {#if gained}<th class="num more" title="Places made up from the heat grid to the feature finish">Positions gained</th>{/if}
+      <th class="num more" title={lapsLedTip}>Laps led</th>
       {#if scored}<th class="num">{mult > 1 ? 'Points 2×' : 'Points'}</th>{/if}
     </tr>
   </thead>
@@ -46,9 +48,9 @@
       <tr>
         <td class="pos"><span class="pos-box">{i + 1}</span></td>
         <td><DriverName name={driverName(d.name)} keys={badges.get(d.custId)} /></td>
-        {#each kinds as k (k)}<td class="num">{posCell(d[k])}</td>{/each}
-        {#if gained}{@const g = roundPositionsGained(d)}<td class={['num', { muted: g == null }]}>{signed(g)}</td>{/if}
-        <td class={['num', { muted: !led }]}>{led || '—'}</td>
+        {#each kinds as k (k)}<td class={['num', { more: k !== 'feature' }]}>{posCell(d[k])}</td>{/each}
+        {#if gained}{@const g = roundPositionsGained(d)}<td class={['num', 'more', { muted: g == null }]}>{signed(g)}</td>{/if}
+        <td class={['num', 'more', { muted: !led }]}>{led || '—'}</td>
         {#if scored}<td class="num total">{d.total * mult}</td>{/if}
       </tr>
     {/each}

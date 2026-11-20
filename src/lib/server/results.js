@@ -1,5 +1,6 @@
 import { collections } from './db/index.js';
-import { listSeries } from './api/queries.js';
+import { listSeries, getSeries } from './api/queries.js';
+import { KIND_NAMES } from '../format.js';
 import { listSeasons, publicSeason } from './season.js';
 import { seasonAt } from '../seasons.js';
 import { withEventType } from './views.js';
@@ -13,11 +14,7 @@ import { videosByEvent } from './videos/index.js';
 // A race's kind: a round filed in a series is a league session; a standalone
 // upload is a single session, or a special event when its event type says so
 // (an annual race, say — see event-types.js).
-export const KINDS = [
-  { id: 'league', label: 'League Sessions' },
-  { id: 'single', label: 'Single Sessions' },
-  { id: 'special', label: 'Special Events' },
-];
+export const KINDS = Object.entries(KIND_NAMES).map(([id, name]) => ({ id, label: `${name}s` }));
 
 export const kindOf = (doc, series) => (series ? 'league' : resolveEventType(doc.eventType).category === 'special' ? 'special' : 'single');
 
@@ -82,4 +79,27 @@ export async function resultsIndex(db, seasonSlug = null) {
     events: season ? all.events.filter((e) => e.season === season) : all.events,
     upcoming: season ? all.upcoming.filter((r) => r.season === season) : all.upcoming,
   };
+}
+
+/** One event for its own page, or null. */
+export async function resultEvent(db, id) {
+  const doc = await collections(db).subsessions.findOne({ _id: id }, { projection: { raw: 0 } });
+  if (!doc) return null;
+  const [series, seasons, videos] = await Promise.all([
+    doc.seriesSlug ? getSeries(db, doc.seriesSlug) : null,
+    listSeasons(db),
+    videosByEvent(db),
+  ]);
+  const { events } = indexEvents({ docs: [doc], series: series ? [series] : [], seasons, videos });
+  const ev = events[0];
+  return { ...ev, seasonName: seasons.find((s) => s.slug === ev.season)?.name ?? null };
+}
+
+/** The event an older link names (?event=<id>, or ?series=&round=), or null. */
+export async function legacyEventId(db, url) {
+  const q = url.searchParams;
+  if (q.get('event')) return (await collections(db).subsessions.findOne({ _id: q.get('event') }, { projection: { _id: 1 } }))?._id ?? null;
+  const round = Number(q.get('round'));
+  if (!q.get('series') || !Number.isInteger(round)) return null;
+  return (await collections(db).subsessions.findOne({ seriesSlug: q.get('series'), round }, { projection: { _id: 1 } }))?._id ?? null;
 }

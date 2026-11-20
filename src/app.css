@@ -297,16 +297,21 @@ footer a:hover { color: var(--text); }
 .kind-chip:hover { border-color: var(--rule-strong); color: var(--text); }
 .kind-chip.off { opacity: 0.45; border-style: dashed; }
 .kind-chip.off .n { color: inherit; }
-/* Results: the event dropdown under the kind toggles, then the detail. */
-.event-pick-label { display: flex; align-items: baseline; gap: 0.8rem; margin: 0.6rem 0 0; max-width: 100%; }
-.event-pick-caption {
-  font-family: var(--display); color: var(--muted); font-size: 0.78rem;
-  text-transform: uppercase; letter-spacing: 0.14em;
-}
-/* The select shrinks beside its caption instead of overflowing the row. */
-.event-pick { flex: 0 1 auto; min-width: 0; }
-.event-detail .detail-title { margin-top: 2.25rem; padding-top: 1.75rem; margin-bottom: 0.3rem; font-size: clamp(1.4rem, 3vw, 1.8rem); }
-.event-detail .detail-date { margin: 0 0 1.25rem; }
+/* Results list: one block per race, newest first, each with its top ten on
+   points and a link to its own page. */
+.result-list { margin-top: 1.4rem; }
+.result-item { padding: 1.75rem 0 2rem; border-top: var(--rule); }
+.event-title { margin: 0 0 0.3rem; font-size: clamp(1.4rem, 3vw, 1.8rem); color: var(--text); }
+.event-title a { color: inherit; text-decoration: none; }
+.event-title a:hover { color: var(--accent); }
+.event-meta { margin: 0 0 1.25rem; }
+.result-more { margin: 1rem 0 0; font-size: 0.95rem; }
+.upcoming { margin-top: 2rem; padding-top: 1.6rem; border-top: var(--rule); }
+.upcoming ul { list-style: none; margin: 0; padding: 0; color: var(--muted); font-size: 0.95rem; }
+.upcoming li { padding: 0.35rem 0; }
+/* One event's page: a crumb back to the list, then the full detail. */
+.crumb { margin: 0 0 1.4rem; font-size: 0.95rem; }
+.event-page .event-title { margin-bottom: 0.3rem; }
 
 /* Series line under the page head: the name (only when there is no picker
    naming it already) and the format as chips. Shared by standings, results
@@ -347,6 +352,10 @@ footer a:hover { color: var(--text); }
   /* In the dropdown the current page's text colour is enough; no amber underline. */
   nav a.active::after { display: none; }
   main { padding: 2rem var(--gutter) 3rem; }
+  /* The results list keeps its top-ten tables at full width: position,
+     driver, the race finish and points; the rest waits on the event's page. */
+  .result-item table { display: table; width: 100%; }
+  .result-item table .more { display: none; }
   .lp-section { padding: 2.5rem 0; }
   .join-details { gap: 1.75rem 2.5rem; }
   .sched-card { grid-template-columns: 1fr; }
@@ -363,11 +372,6 @@ footer a:hover { color: var(--text); }
 /* Standalone page titles (no series picker beside them). */
 main > h2 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin-bottom: 2rem; }
 .prose > h2 { margin-bottom: 1.5rem; }
-.detail-title {
-  margin: 3.5rem 0 1.25rem; padding-top: 2rem;
-  border-top: var(--rule); font-size: 1.3rem; color: var(--text);
-}
-
 /* Opening statement on the About page. */
 .prose .lede {
   font-size: 1.15rem; line-height: 1.6; color: var(--text); margin: 0 0 1.5rem;

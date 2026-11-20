@@ -209,5 +209,21 @@ export const SESSION_COLS = {
   feature: RACE_COLS,
 };
 
-// The results page's deep link to one event (league round or standalone).
-export const resultsLink = (id) => `/results?event=${encodeURIComponent(id)}`;
+// ---- Results events (shaped by server/results.js) ----
+// The three kinds of race, as the results page names one of them.
+export const KIND_NAMES = { league: 'League Session', single: 'Single Session', special: 'Special Event' };
+// An event's dedicated results page.
+export const resultsLink = (id) => `/results/${encodeURIComponent(id)}`;
+// What an event is called: a league round by its round and track, a
+// standalone by its title.
+export const eventTitle = (ev) => (ev.kind === 'league'
+  ? [`Round ${ev.round}`, ev.multiplier > 1 ? `${ev.multiplier}×` : null, trackName(ev.sub)].filter(Boolean).join(' · ')
+  : ev.sub.title || trackName(ev.sub));
+// The line under the title: date, the series (a league round) or the kind
+// (a standalone), the multiplier, the cars.
+export const eventMeta = (ev) => [
+  fmtDate(ev.startTime),
+  ev.kind === 'league' ? ev.seriesName : KIND_NAMES[ev.kind] ?? null,
+  ev.multiplier > 1 ? `${ev.multiplier}× points` : null,
+  ev.sub.cars?.length ? ev.sub.cars.join(' · ') : null,
+].filter(Boolean).join(' · ');
