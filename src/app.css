@@ -40,12 +40,13 @@ h2, h3, h4 { font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em
 
 /* ---------- Header ---------- */
 header {
-  border-bottom: var(--rule); padding: 1.2rem var(--gutter);
+  border-bottom: var(--rule); padding: 0.8rem var(--gutter);
   display: flex; align-items: center; gap: 0.65rem 1rem; flex-wrap: wrap;
 }
 header .brand { display: flex; align-items: center; text-decoration: none; line-height: 0; }
-/* The square mark carries its own padding, so it sits a little taller than a wordmark would. */
-header .brand-logo { height: 48px; width: auto; display: block; }
+/* The square mark carries its own padding, so it runs taller than a wordmark
+   would; the header's padding is trimmed to match so the bar grows only a little. */
+header .brand-logo { height: 72px; width: auto; display: block; }
 nav { margin-left: 2.75rem; display: flex; gap: 1.6rem; }
 nav a {
   position: relative; padding: 0.2rem 0; color: var(--muted); text-decoration: none;
@@ -319,8 +320,8 @@ footer a:hover { color: var(--text); }
 /* ---------- Mobile ---------- */
 @media (max-width: 640px) {
   :root { --gutter: 1.2rem; }
-  header { padding: 0.9rem var(--gutter); gap: 0.6rem 1rem; }
-  header .brand-logo { height: 44px; }
+  header { padding: 0.6rem var(--gutter); gap: 0.6rem 1rem; }
+  header .brand-logo { height: 66px; }
   /* Page links collapse behind a hamburger; the brand and iRacing mark stay
      on the top row with the button at the far right. */
   header .platform { order: 0; }
