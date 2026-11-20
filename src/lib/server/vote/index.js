@@ -179,14 +179,18 @@ export async function ballots(db, session) {
 }
 
 /**
- * The winning car(s): the highest net score once any vote has been cast — a
- * tie returns several, and an untouched car (net 0) can beat one that was
- * only downvoted. Only meaningful once closed.
+ * The winner(s) among `options`: the highest net score once any vote has
+ * been cast — a tie returns several, and an untouched option (net 0) can beat
+ * one that was only downvoted. With `slots` > 1 (the community track vote
+ * filling several rounds) the top `slots` win, plus anything tied at the
+ * cut. Only meaningful once closed. Returned best first.
  */
-export function winners(session, totals) {
-  if (!session.cars.some((c) => totals[c.id])) return [];
-  const max = Math.max(...session.cars.map((c) => totals[c.id] ?? 0));
-  return session.cars.filter((c) => (totals[c.id] ?? 0) === max);
+export function winners(options, totals, slots = 1) {
+  if (!options.some((o) => totals[o.id])) return [];
+  const net = (o) => totals[o.id] ?? 0;
+  const sorted = [...options].sort((a, b) => net(b) - net(a));
+  const cut = net(sorted[Math.min(Math.max(1, slots), sorted.length) - 1]);
+  return sorted.filter((o) => net(o) >= cut);
 }
 
 // ---- Driver passcodes (admin-managed, handed out by DM) -------------------

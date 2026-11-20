@@ -62,6 +62,16 @@ export const startEpoch = (s, tz = LEAGUE_TZ) => {
 
 // The inverse: an instant (Date/ISO/ms) as the "YYYY-MM-DDTHH:mm" wall-clock
 // in `tz`, the value a datetime-local picker shows. Round-trips startEpoch.
+// A datetime-local value typed on an admin page is league wall-clock,
+// whatever zone the server or the admin's browser is in — never parse it as
+// local/UTC. Blank → null; unreadable → undefined.
+export const leagueTime = (raw) => {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  const ms = startEpoch(s.slice(0, 16));
+  return ms == null ? undefined : new Date(ms);
+};
+
 export const wallClock = (at, tz = LEAGUE_TZ) => {
   const d = new Date(at);
   if (Number.isNaN(d.getTime())) return '';

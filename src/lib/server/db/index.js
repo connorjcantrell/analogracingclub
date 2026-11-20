@@ -12,7 +12,22 @@ export async function getDb() {
   _db = _client.db(MONGO_DB);
   await ensureIndexes(_db);
   await backfillEventTypes(_db);
+  await backfillStake(_db);
   return _db;
+}
+
+// Sessions stored before stake was filed per session (see ../stake): file
+// every session into the season its start time falls in (none excluded), and
+// give a special event uploaded before specials carried a points format the
+// unscored one it was scored under. Idempotent. The refile lives in
+// ../season.js, which imports this module, so it is loaded lazily.
+async function backfillStake(db) {
+  const { subsessions } = collections(db);
+  const r = await subsessions.updateMany({ seriesSlug: null, format: { $exists: false } }, { $set: { format: 'unscored' } });
+  if (r.modifiedCount) console.log(`backfilled format=unscored on ${r.modifiedCount} special event(s)`);
+  const { refileStake } = await import('../season.js');
+  const moved = await refileStake(db);
+  if (moved) console.log(`filed ${moved} session(s) into seasons for stake`);
 }
 
 // Rounds ingested before event types existed have no `eventType`; stamp each
@@ -29,9 +44,14 @@ async function backfillEventTypes(db) {
 
 /** Collection accessors. */
 export const collections = (db) => ({
+  // A season is a window of time (see ../season.js): _id its slug, a start
+  // and an optional end. Windows never overlap, so one season is current at
+  // a time. A subsession's `stakeSeason` is the season its start time falls
+  // in, where its points count for stake (unless `stakeExcluded`).
+  seasons: db.collection('seasons'),
   // A series is any competition (see src/event-types.js for its event type,
-  // which sets structure + layout). Several can be active at once; each has its
-  // own points format.
+  // which sets structure + layout). Each has its own points format, applied
+  // to every round; `season` names the season it is the official series of.
   series: db.collection('series'),
   drivers: db.collection('drivers'),
   subsessions: db.collection('subsessions'),
@@ -55,20 +75,28 @@ export const collections = (db) => ({
   // Loaded from Sim Racer Hub by `npm run tracks`.
   tracks: db.collection('tracks'),
   // Next season's track selection (see src/lib/server/track-selection):
-  // trackSelections names the drivers who pick and the allowed track types;
-  // trackPicks is one doc per driver per selection with their round.
+  // trackSelections names the drivers who pick and the allowed track types,
+  // plus any drivers removed (opted out) and the community vote that fills
+  // their rounds; trackPicks is one doc per driver per selection with their
+  // round; trackVoteBallots is one doc per driver per selection with their
+  // community-vote allocation (same shape as voteBallots).
   trackSelections: db.collection('trackSelections'),
   trackPicks: db.collection('trackPicks'),
+  trackVoteBallots: db.collection('trackVoteBallots'),
 });
 
 async function ensureIndexes(db) {
-  const { series, subsessions, posts, videos, voteBallots, trackPicks } = collections(db);
-  // The live tally re-reads a session's ballots every few seconds.
+  const { series, subsessions, posts, videos, voteBallots, trackPicks, trackVoteBallots } = collections(db);
+  // The live tallies re-read a session's ballots every few seconds.
   await voteBallots.createIndex({ sessionId: 1 });
+  await trackVoteBallots.createIndex({ selectionId: 1 });
   // One track per selection, whatever the layout (see track-selection/savePick).
   await trackPicks.createIndex({ selectionId: 1, trackId: 1 }, { unique: true });
   // _id on subsessions is `<seriesSlug>:<subsession_id>`; _id on drivers is cust_id.
   await subsessions.createIndex({ seriesSlug: 1, round: 1 });
+  // Stake reads every session filed to a season (see ../stake).
+  await subsessions.createIndex({ stakeSeason: 1 });
+  await series.createIndex({ season: 1 });
   await series.createIndex({ slug: 1 }, { unique: true });
   await series.createIndex({ status: 1, eventType: 1 });
   // The feed reads authored posts newest-first, merged with subsessions.

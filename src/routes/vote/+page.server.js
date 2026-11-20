@@ -45,7 +45,7 @@ export async function load(event) {
     // counts feed the bar tooltips (the popular vote behind the weighted one).
     up, down, upBy, downBy,
     voters,
-    winners: status === 'closed' ? winners(session, totals).map((c) => c.name) : null,
+    winners: status === 'closed' ? winners(session.cars, totals).map((c) => c.name) : null,
     me,
   };
 }

@@ -11,9 +11,9 @@
 <style>
   .page-title {
     margin: 0 0 1.6rem; color: var(--text);
-    font-family: var(--display); font-weight: 700; font-style: italic;
-    text-transform: uppercase; letter-spacing: 0.03em;
-    font-size: clamp(1.3rem, 3vw, 1.7rem); line-height: 1.1;
+    font-family: var(--display); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.02em;
+    font-size: clamp(1.9rem, 4vw, 2.5rem); line-height: 1;
   }
   .inline { margin: 0; }
 </style>

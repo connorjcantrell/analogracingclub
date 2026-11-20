@@ -22,26 +22,46 @@
 </script>
 
 {#if qualifiers.length || winners.length}
-  <div class="cards">
+  <!-- One readout line under the event heading: the Fast Four in qualifying
+       order, then who won each race. Groups wrap onto new lines on a phone. -->
+  <dl class="readout">
     {#if qualifiers.length}
-      <div class="card">
-        <h3 class="card-title">{qualifyingPlaces === 4 ? 'Fast Four' : `Top ${qualifyingPlaces} qualifiers`}</h3>
-        <dl class="card-rows">
-          {#each qualifiers as q (q.finish)}
-            <div class="card-row"><dt>Q{q.finish}</dt><dd>{q.name}</dd></div>
-          {/each}
-        </dl>
+      <div class="group">
+        <dt>{qualifyingPlaces === 4 ? 'Fast Four' : `Top ${qualifyingPlaces} qualifiers`}</dt>
+        {#each qualifiers as q (q.finish)}
+          <dd><span class="k">Q{q.finish}</span>{q.name}</dd>
+        {/each}
       </div>
     {/if}
     {#if winners.length}
-      <div class="card">
-        <h3 class="card-title">Winners</h3>
-        <dl class="card-rows">
-          {#each winners as [label, name] (label)}
-            <div class="card-row"><dt>{label}</dt><dd>{name || '—'}</dd></div>
-          {/each}
-        </dl>
+      <div class="group">
+        <dt>Winners</dt>
+        {#each winners as [label, name] (label)}
+          <dd><span class="k">{label}</span>{name || '–'}</dd>
+        {/each}
       </div>
     {/if}
-  </div>
+  </dl>
 {/if}
+
+<style>
+  .readout {
+    display: flex; flex-wrap: wrap; gap: 0.6rem 2.5rem;
+    margin: 0 0 1.75rem; padding: 0.9rem 0; border-top: var(--rule); border-bottom: var(--rule);
+  }
+  .group { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1.1rem; }
+  dt {
+    font-family: var(--display); color: var(--muted); font-size: 0.78rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.12em; margin-right: 0.2rem;
+  }
+  dd {
+    margin: 0; font-family: var(--display); font-size: 1.05rem; font-weight: 500; letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .k { color: var(--muted); font-size: 0.8rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; margin-right: 0.4rem; }
+  @media (max-width: 640px) {
+    .readout { flex-direction: column; gap: 0.8rem; }
+    .group { gap: 0.25rem 0.9rem; }
+    dt { width: 100%; }
+  }
+</style>

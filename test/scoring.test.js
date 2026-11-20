@@ -160,3 +160,28 @@ test('v2 is the default for new series and the v1 preset is unchanged', async ()
   assert.equal(pointsConfigFor('fast-four').feature.base[17], undefined);
   assert.equal(pointsConfigFor('fast-four-v2').feature.base[1], 22);
 });
+
+test('a field-sized scale pays 1 for last and one more per position, so the win is worth the field', () => {
+  const cfg = FORMATS['field-size'].pointsConfig;
+  assert.equal(computePoints(cfg, { kind: 'feature', finish: 1, lapsLead: 3, field: 12 }).total, 12, 'no lap-led bonus');
+  assert.equal(computePoints(cfg, { kind: 'feature', finish: 12, lapsLead: 0, field: 12 }).total, 1);
+  assert.equal(computePoints(cfg, { kind: 'sprint', finish: 2, lapsLead: 0, field: 5 }).total, 4);
+  assert.equal(computePoints(cfg, { kind: 'qualifying', finish: 1, lapsLead: 0, field: 12 }).total, 0);
+  assert.equal(computePoints(cfg, { kind: 'feature', finish: null, lapsLead: 0, field: 12 }).total, 0, 'unclassified scores nothing');
+  assert.equal(computePoints(cfg, { kind: 'feature', finish: 1, lapsLead: 0 }).total, 0, 'no field known, nothing to pay');
+  // The builder sizes the field per session from the classified rows, AI
+  // dropped: two finishers in the feature (cust 2 unclassified), three in the heat.
+  const doc = buildSubsessionDocument(event, { seriesSlug: 'fall', round: 2, eventType: 'league-fast-four', pointsConfig: cfg, rawType: 'event_result' });
+  const feature = doc.simsessions.find((s) => s.kind === 'feature');
+  assert.deepEqual(feature.results.map((r) => [r.custId, r.finish, r.points.total]), [[3, 1, 2], [1, 2, 1], [2, null, 0]]);
+  const sprint = doc.simsessions.find((s) => s.kind === 'sprint');
+  assert.deepEqual(sprint.results.map((r) => [r.custId, r.points.total]), [[2, 3], [1, 2], [3, 1]]);
+  assert.ok(doc.simsessions.find((s) => s.kind === 'qualifying').results.every((r) => r.points.total === 0));
+});
+
+test('validatePointsConfig keeps a field scale and rejects an unknown one', () => {
+  const ok = validatePointsConfig({ feature: { scale: 'field', lapLedBonus: 1 }, sprint: { base: { 1: 3 } } });
+  assert.deepEqual(ok.feature, { scale: 'field', lapLedBonus: 1 });
+  assert.deepEqual(ok.sprint, { base: { 1: 3 } });
+  assert.throws(() => validatePointsConfig({ feature: { scale: 'grid' } }), /scale/);
+});

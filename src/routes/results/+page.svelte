@@ -67,11 +67,14 @@
   };
   const detailTitle = (r, sub) => [
     oneOff ? null : `Round ${r.round}`,
+    sub.title && oneOff ? sub.title : trackName(sub),
+  ].filter(Boolean).join(' · ');
+  const detailMeta = (r, sub) => [
+    fmtDate(sub.startTime),
     r.multiplier > 1 ? `${r.multiplier}× points` : null,
-    trackName(sub),
     sub.cars?.length ? sub.cars.join(' · ') : null,
   ].filter(Boolean).join(' · ');
-  const EMPTY = 'No races run yet — results appear after the first round.';
+  const EMPTY = 'No races run yet. Results appear after the first round.';
 </script>
 
 <svelte:head><title>Results · Analog Racing Club</title></svelte:head>
@@ -114,7 +117,7 @@
     {@const active = views.some(([v]) => v === view) ? view : (views[0]?.[0] ?? 'overall')}
     <section class="event-detail">
       <h2 class="detail-title">{detailTitle(sel, sub)}</h2>
-      <p class="lp-sub detail-date">{fmtDate(sub.startTime)}</p>
+      <p class="lp-sub detail-date">{detailMeta(sel, sub)}</p>
       <SummaryCards {sub} qualifyingPlaces={d.series?.qualifyingPlaces ?? 0} />
       <div class="tabs" role="tablist">
         {#each views as [v, title] (v)}

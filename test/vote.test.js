@@ -40,8 +40,10 @@ test('the tally nets votes against off votes for and keeps both halves', () => {
 });
 
 test('the highest net score wins, and ties share it', () => {
-  const names = (t) => winners(session, t).map((c) => c.name);
+  const names = (t, slots) => winners(session.cars, t, slots).map((c) => c.name);
   assert.deepEqual(names({}), [], 'nothing cast, no winner');
   assert.deepEqual(names({ a: 2, b: 2, c: -1 }), ['A', 'B']);
   assert.deepEqual(names({ a: -3 }), ['B', 'C'], 'an untouched car outranks one only voted against');
+  assert.deepEqual(names({ a: 1, b: 5, c: 3 }, 2), ['B', 'C'], 'several slots take the top few, best first');
+  assert.deepEqual(names({ a: 3, b: 5, c: 3 }, 2), ['B', 'A', 'C'], 'a tie at the cut keeps everyone tied');
 });

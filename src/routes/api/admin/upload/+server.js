@@ -3,11 +3,19 @@ import { collections } from '$lib/server/db/index.js';
 import { ingestEventResult } from '$lib/server/import/ingest.js';
 import { isEventType, isContainerType } from '$lib/server/event-types.js';
 import { UPLOAD_MAX_BYTES } from '$lib/server/config.js';
+import { FORMATS } from '$lib/server/scoring/formats.js';
 
 // POST — body: iRacing event-result JSON.
-//   ?series=&round=                file it as a round of an existing series, or
-//   ?special=1&eventType=&title=   file it as a standalone special event
-//                                  (no series, unscored, its own event type).
+//   ?series=&round=                file it as a round of an existing series
+//                                  (scored under the series' format), or
+//   ?special=1&eventType=&title=&format=
+//                                  file it as a standalone special event (no
+//                                  series, its own event type, scored under the
+//                                  named points format — the type's default
+//                                  when omitted).
+//   &stake=0                       leave the session out of stake. Otherwise it
+//                                  pays into the season its start time falls
+//                                  in (see season.js).
 export async function POST({ locals, request, url }) {
   const q = url.searchParams;
   let ingestOpts;
@@ -16,7 +24,9 @@ export async function POST({ locals, request, url }) {
     if (!isEventType(eventType) || isContainerType(eventType)) {
       return json({ error: 'special events need a one-off (non-series) event type' }, { status: 400 });
     }
-    ingestOpts = { eventType, title: (q.get('title') ?? '').trim() || null };
+    const format = q.get('format') || null;
+    if (format && !FORMATS[format]) return json({ error: `format must be one of ${Object.keys(FORMATS).join(', ')}` }, { status: 400 });
+    ingestOpts = { eventType, title: (q.get('title') ?? '').trim() || null, format };
   } else {
     const slug = q.get('series') || null;
     const round = q.get('round') ? Number(q.get('round')) : null;
@@ -24,6 +34,7 @@ export async function POST({ locals, request, url }) {
     if (!Number.isInteger(round) || round < 1) return json({ error: 'round (integer >= 1) required' }, { status: 400 });
     ingestOpts = { seriesSlug: slug, round };
   }
+  ingestOpts.stakeExcluded = q.get('stake') === '0';
 
   let payload;
   try {
@@ -49,7 +60,7 @@ export async function POST({ locals, request, url }) {
         await series.updateOne({ slug: ingestOpts.seriesSlug }, { $set: { schedule } });
       }
     }
-    return json({ ok: true, series: ingestOpts.seriesSlug ?? null, ...result });
+    return json({ ok: true, series: ingestOpts.seriesSlug ?? null, format: ingestOpts.format ?? null, ...result });
   } catch (e) {
     return json({ error: `ingest failed: ${e.message}` }, { status: 400 });
   }

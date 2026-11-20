@@ -9,7 +9,8 @@ export async function GET({ locals }) {
   return json(await listAdminSeries(locals.db));
 }
 
-// POST { slug, name, eventType, rounds?, format?, dropCount? } — create a series.
+// POST { slug, name, eventType, rounds?, format?, dropCount?, season?, car? } —
+// create a series: the official series of `season` (a season slug), run in `car`.
 export async function POST({ locals, request }) {
   const { series } = collections(locals.db);
   const { body, error } = await readJson(request);
@@ -27,10 +28,13 @@ export async function POST({ locals, request }) {
   // How many of each driver's lowest rounds the championship discards.
   const dropCount = body?.dropCount == null ? 0 : body.dropCount;
   if (!Number.isInteger(dropCount) || dropCount < 0) return json({ error: 'dropCount must be an integer >= 0' }, { status: 400 });
+  const season = body?.season ? String(body.season) : null;
+  if (season && !(await collections(locals.db).seasons.countDocuments({ _id: season }))) return json({ error: 'season not found' }, { status: 400 });
+  const car = String(body?.car ?? '').trim().slice(0, 80) || null;
   if (await series.findOne({ slug })) return json({ error: 'slug already exists' }, { status: 409 });
   const rounds = Number.isInteger(body?.rounds) && body.rounds > 0 ? body.rounds : 3;
   await series.insertOne({
-    slug, name, eventType, status: 'upcoming', dropCount,
+    slug, name, eventType, status: 'upcoming', dropCount, season, car,
     schedule: Array.from({ length: rounds }, (_, i) => ({ round: i + 1, track: null, date: null })),
     format, pointsConfig: pointsConfigFor(format),
     createdAt: new Date(),

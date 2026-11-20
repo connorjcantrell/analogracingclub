@@ -295,7 +295,7 @@
 </div>
 
 <style>
-  /* Same broadcast language as the standings tower: site tokens, slanted
+  /* Same broadcast language as the standings tower: site tokens, plain
      accents, tabular numerals. */
   .vote { max-width: 60rem; margin: 0 auto; }
   .vote-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
@@ -303,40 +303,40 @@
   .who-name { font-family: var(--display); font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
   .vote-meta { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 1.1rem 0 1.5rem; }
-  .vote-title { font-family: var(--display); font-weight: 600; font-style: italic; text-transform: uppercase; letter-spacing: 0.08em; }
+  .vote-title { font-family: var(--display); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
   .chip {
-    font-family: var(--display); font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--accent); border: 1px solid var(--accent); padding: 0.12rem 0.55rem; transform: skewX(-11deg);
+    font-family: var(--display); font-size: 0.74rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.15rem 0.55rem;
   }
   .chip.dim { color: var(--muted); border-color: var(--border); }
-  .chip.live { background: var(--accent); color: #121212; }
+  .chip.live { background: var(--accent); color: var(--on-accent); }
 
   .winner {
     display: flex; align-items: baseline; gap: 0.8rem; margin: 0 0 1.4rem;
-    border: 1px solid var(--accent); background: var(--accent-dim); padding: 0.8rem 1rem;
+    border: 1px solid var(--border); border-left: 2px solid var(--accent); border-radius: var(--radius); padding: 0.8rem 1rem;
   }
   .winner-label {
-    font-family: var(--display); font-size: 0.7rem; letter-spacing: 0.2em;
-    text-transform: uppercase; color: var(--accent);
+    font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted);
   }
   .winner-name {
-    font-family: var(--display); font-weight: 700; font-style: italic; font-size: 1.4rem;
+    font-family: var(--display); font-weight: 600; font-size: 1.4rem;
     text-transform: uppercase; color: var(--text);
   }
 
   /* ---- Live bars ---- */
-  .vote { --down: #e05c5c; }
-  .board { border-top: 2px solid var(--accent); padding-top: 1rem; display: grid; gap: 0.55rem; }
+  .vote { --down: var(--red); }
+  .board { border-top: 1px solid var(--accent); padding-top: 1rem; display: grid; gap: 0.55rem; }
   .vrow { align-items: center; }
   .vrow .car { font-family: var(--display); font-weight: 500; font-size: 0.98rem; letter-spacing: 0.02em; }
   .vrow .total {
-    text-align: right; font-family: var(--display); font-weight: 700; font-style: italic;
+    text-align: right; font-family: var(--display); font-weight: 600;
     font-variant-numeric: tabular-nums; color: var(--text);
   }
   /* Bars are positioned on a shared axis (see `seg`), so segments can start
      anywhere right of zero; a negative net draws no yellow. The grey `cut`
      segment is the downvoted share, stacked after the net. */
-  .track { position: relative; height: 1.35rem; transform: skewX(-11deg); }
+  .track { position: relative; height: 1.1rem; background: rgba(255, 255, 255, 0.04); }
   .bar, .seg { position: absolute; top: 0; height: 100%; }
   .bar { background: var(--accent); opacity: 0.45; transition: width 0.6s ease, left 0.6s ease; }
   .seg.cut { background: rgba(255, 255, 255, 0.13); transition: width 0.6s ease, left 0.6s ease; }
@@ -347,9 +347,9 @@
      tip skews back to sit square. */
   .tip {
     position: absolute; left: 0; bottom: calc(100% + 0.4rem); z-index: 2; display: none;
-    transform: skewX(11deg); white-space: nowrap; pointer-events: none;
-    font-family: var(--display); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--text); background: #0c0c0c; border: 1px solid var(--border); padding: 0.3rem 0.55rem;
+    white-space: nowrap; pointer-events: none;
+    font-family: var(--display); font-size: 0.76rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text); background: var(--panel-dim); border: 1px solid var(--border); padding: 0.3rem 0.55rem;
   }
   .track:hover .tip { display: block; }
 
@@ -361,11 +361,11 @@
   /* ---- Budget header (points remaining) ---- */
   .budget {
     display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
-    border: 1px solid var(--border); background: #0c0c0c; padding: 0.6rem 1rem; margin-bottom: 1.2rem;
+    border: 1px solid var(--border); background: var(--panel-dim); padding: 0.6rem 1rem; margin-bottom: 1.2rem;
   }
-  .budget-label { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .budget-label { font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .budget-count {
-    font-family: var(--display); font-weight: 700; font-style: italic; font-size: 1.5rem;
+    font-family: var(--display); font-weight: 600; font-size: 1.5rem;
     font-variant-numeric: tabular-nums; line-height: 1;
   }
   .budget-count strong { color: var(--accent); }
@@ -394,35 +394,35 @@
   .ctl { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
   .step {
     width: 1.9rem; height: 1.9rem; display: inline-flex; align-items: center; justify-content: center;
-    font-size: 1.15rem; line-height: 1; background: #0c0c0c; color: var(--text);
-    border: 1px solid var(--border); cursor: pointer; transform: skewX(-11deg);
+    font-size: 1.15rem; line-height: 1; background: var(--panel-dim); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
   }
   .step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
   .step.down:hover:not(:disabled) { border-color: var(--down); color: var(--down); }
   .step:disabled { opacity: 0.35; cursor: default; }
   .mine-badge {
-    min-width: 2.2rem; text-align: center; font-family: var(--display); font-weight: 700; font-style: italic;
+    min-width: 2.2rem; text-align: center; font-family: var(--display); font-weight: 600;
     font-variant-numeric: tabular-nums; color: var(--accent); font-size: 1.1rem;
   }
   .mine-badge.down { color: var(--down); }
   /* ---- Sign-in ---- */
   .rules { list-style: none; margin: 0.9rem 0 0; padding: 0; max-width: 46rem; color: var(--muted); font-size: 0.9rem; }
-  .rules li { margin: 0 0 0.35rem; padding-left: 0.9rem; border-left: 2px solid var(--accent); }
+  .rules li { margin: 0 0 0.35rem; padding-left: 0.9rem; border-left: 2px solid var(--rule-strong); }
   .rules strong, .gate-hint strong { color: var(--text); }
   .gate-hint { color: var(--muted); font-size: 0.9rem; margin: 0.7rem 0 0; max-width: 46rem; }
   .code-form { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
   .code-form input {
     width: 9.5rem; text-align: center; letter-spacing: 0.15em; text-transform: uppercase;
     font-variant-numeric: tabular-nums;
-    background: #0c0c0c; color: var(--text); border: 1px solid var(--border); padding: 0.45rem 0.5rem;
+    background: var(--panel-dim); color: var(--text); border: 1px solid var(--border); padding: 0.45rem 0.5rem;
   }
   .code-form input:focus { outline: none; border-color: var(--accent); }
 
   /* ---- Ballot wrapper ---- */
   .ballot { margin: 2rem 0 0; border: 1px solid var(--border); background: var(--panel); padding: 1.1rem 1.2rem; }
   .msg { font-size: 0.9rem; }
-  .msg.ok { color: var(--accent); }
-  .msg.err { color: #e05c5c; }
+  .msg.ok { color: var(--green); }
+  .msg.err { color: var(--red); }
 
   .empty { color: var(--muted); margin-top: 2rem; }
 

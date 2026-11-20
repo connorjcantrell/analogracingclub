@@ -4,7 +4,9 @@ import { SERIES_STATUSES } from '$lib/server/series.js';
 import { isContainerType } from '$lib/server/event-types.js';
 import { cleanSchedule, readJson } from '$lib/server/admin/ops.js';
 
-// POST { slug, name?, status?, eventType?, schedule?, dropCount? }
+// POST { slug, name?, car?, status?, eventType?, schedule?, dropCount?, season? }
+// `season` is the slug of the season this series is the official series of
+// (null to unassign).
 export async function POST({ locals, request }) {
   const { series, subsessions } = collections(locals.db);
   const { body, error } = await readJson(request);
@@ -23,6 +25,11 @@ export async function POST({ locals, request }) {
     if (!Array.isArray(body.schedule)) return json({ error: 'schedule must be an array' }, { status: 400 });
     try { set.schedule = cleanSchedule(body.schedule); }
     catch (e) { return json({ error: e.message }, { status: 400 }); }
+  }
+  if (body.season !== undefined) {
+    if (body.season === null || body.season === '') set.season = null;
+    else if (await collections(locals.db).seasons.countDocuments({ _id: String(body.season) })) set.season = String(body.season);
+    else return json({ error: 'season not found' }, { status: 400 });
   }
   if (body.dropCount != null) { if (!Number.isInteger(body.dropCount) || body.dropCount < 0) return json({ error: 'dropCount must be an integer >= 0' }, { status: 400 }); set.dropCount = body.dropCount; }
   if (!Object.keys(set).length) return json({ error: 'nothing to update' }, { status: 400 });

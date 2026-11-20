@@ -4,6 +4,8 @@
 //
 // pointsConfig shape, per session kind (qualifying | sprint | feature | practice):
 //   { base: { <finish position>: points, ... }, lapLedBonus?: points }
+//   or { scale: 'field' } — points by field size: 1 for last, one more per
+//   position up, so the win pays the number of classified finishers.
 //
 // lapLedBonus is a flat award for leading at least one lap, and is paid at
 // most once per round — see build-document.js, which strips the duplicate when
@@ -35,6 +37,16 @@ export const FORMATS = {
       qualifying: { base: scale([7, 5, 3, 1]) },
       sprint: { base: {}, lapLedBonus: 1 },
       feature: { base: scale(FEATURE_V1), lapLedBonus: 1 },
+      practice: { base: {} },
+    },
+  },
+  'field-size': {
+    name: 'Incremental (field size)',
+    description: 'Each race pays by the size of its field: last place scores 1 and every position up pays one more, so the win is worth the number of finishers · heat and feature both pay · no qualifying points, no lap-led bonus',
+    pointsConfig: {
+      qualifying: { base: {} },
+      sprint: { scale: 'field' },
+      feature: { scale: 'field' },
       practice: { base: {} },
     },
   },
@@ -75,12 +87,13 @@ export function validatePointsConfig(input) {
   for (const kind of KINDS) {
     const c = input[kind] ?? { base: {} };
     if (typeof c !== 'object' || Array.isArray(c)) throw new Error(`${kind} must be an object`);
+    if (c.scale != null && c.scale !== 'field') throw new Error(`${kind}.scale must be 'field' (points by field size) or absent`);
     const base = {};
     for (const [pos, pts] of Object.entries(c.base ?? {})) {
       if (!/^[1-9]\d*$/.test(pos) || typeof pts !== 'number' || !Number.isFinite(pts)) throw new Error(`${kind}.base: positions must be integers >= 1 with numeric points`);
       base[pos] = pts;
     }
-    out[kind] = { base };
+    out[kind] = c.scale === 'field' ? { scale: 'field' } : { base };
     if (c.lapLedBonus != null) {
       if (typeof c.lapLedBonus !== 'number' || !Number.isFinite(c.lapLedBonus)) throw new Error(`${kind}.lapLedBonus must be a number`);
       out[kind].lapLedBonus = c.lapLedBonus;

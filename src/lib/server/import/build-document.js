@@ -10,15 +10,20 @@ import { computePoints } from '../scoring/calculator.js';
 // there. The complete event JSON is stored verbatim under `raw`, so a rescore
 // only needs a rebuild from raw (see src/scoring/rescore.js).
 //
-// opts: { seriesSlug?, round?, eventType?, title?, pointsConfig, rawType? }
+// opts: { seriesSlug?, round?, eventType?, title?, format?, pointsConfig,
+//         rawType?, stakeExcluded? }
 // A league round carries its container's eventType and a round; a standalone
-// special event has seriesSlug null, its own eventType, and an optional title.
+// special event has seriesSlug null, its own eventType, an optional title, and
+// its own points format (the id and a copy of its config, so a rescore can
+// rebuild it the way a series' rounds rebuild from the series). `stakeExcluded`
+// keeps the session's points out of stake; the caller files the season
+// (`stakeSeason`) from the start time, see ../season.js.
 // iRacing reports "N/A" as the config for tracks with only one layout; store
 // null so nothing downstream has to special-case it.
 const trackConfig = (c) => (c && !/^n\/?a$/i.test(c.trim()) ? c : null);
 
 export function buildSubsessionDocument(eventResult, opts = {}) {
-  const { seriesSlug = null, round = null, eventType = null, title = null, pointsConfig = {}, rawType = null } = opts;
+  const { seriesSlug = null, round = null, eventType = null, title = null, format = null, pointsConfig = {}, rawType = null, stakeExcluded = false } = opts;
   const track = eventResult.track ?? {};
 
   // iRacing lists every registered entrant in every session, whether or not
@@ -64,7 +69,9 @@ export function buildSubsessionDocument(eventResult, opts = {}) {
           // in qualifying, the winner's time in a race. 0 for the leader.
           interval: r.interval >= 0 ? r.interval : null,
           reasonOut: r.reason_out ?? null,
-          points: computePoints(pointsConfig, { kind, finish, lapsLead }),
+          // The field is everyone classified in this session (a field-sized
+          // format pays the winner one point per finisher).
+          points: computePoints(pointsConfig, { kind, finish, lapsLead, field: finishRank.size }),
         };
       })
       .sort((a, b) => (a.finish ?? Infinity) - (b.finish ?? Infinity));
@@ -119,6 +126,13 @@ export function buildSubsessionDocument(eventResult, opts = {}) {
     // a human title (falls back to the track name).
     eventType,
     title: seriesSlug ? null : (title || track.track_name || null),
+    // A special's own points format; a round scores under its series' format.
+    format: seriesSlug ? null : format,
+    pointsConfig: seriesSlug ? null : pointsConfig,
+    // Whether these points stay out of stake; `stakeSeason` (the season they
+    // pay into, see ../season.js) is filed by the caller from startTime.
+    stakeExcluded: !!stakeExcluded,
+    stakeSeason: null,
     leagueName: eventResult.league_name ?? null,
     seriesName: eventResult.series_name ?? null,
     track: { id: track.track_id ?? null, name: track.track_name ?? null, config: trackConfig(track.config_name) },

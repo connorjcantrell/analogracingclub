@@ -1,22 +1,12 @@
 import { fail } from '@sveltejs/kit';
 import { collections } from '$lib/server/db/index.js';
 import { computeStandings } from '$lib/server/standings/index.js';
-import { startEpoch } from '$lib/format.js';
+import { leagueTime } from '$lib/format.js';
 import {
   getCurrentSession, sessionStatus, tally, ballots, winners,
   listCodes, generateMissingCodes, regenerateCode,
   createSession, deleteSession, closeSession, rescheduleSession, scaleBudget, CARS,
 } from '$lib/server/vote/index.js';
-
-// A datetime-local value typed on the admin page is league (Pacific)
-// wall-clock, whatever zone the server or the admin's browser is in — never
-// parse it as local/UTC. Blank → null; unreadable → undefined.
-const leagueTime = (raw) => {
-  const s = String(raw ?? '').trim();
-  if (!s) return null;
-  const ms = startEpoch(s.slice(0, 16));
-  return ms == null ? undefined : new Date(ms);
-};
 
 // Admin side of the car vote: define the session (cars, window, points
 // source) and issue each driver's sign-in passcode (handed out by DM). The
@@ -49,7 +39,7 @@ export async function load({ locals }) {
       id: session._id, title: session.title, seriesSlug: session.seriesSlug, cars: session.cars,
       startsAt: new Date(session.startsAt).toISOString(), endsAt: new Date(session.endsAt).toISOString(),
       status, totals, up, down, voters, ballots: cast, pending,
-      winners: status === 'closed' ? winners(session, totals).map((c) => c.name) : null,
+      winners: status === 'closed' ? winners(session.cars, totals).map((c) => c.name) : null,
     };
   }
 

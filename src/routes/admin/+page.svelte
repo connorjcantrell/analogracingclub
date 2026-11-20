@@ -5,10 +5,12 @@
   import PageTitle from '$lib/PageTitle.svelte';
   import { post } from '$lib/api.js';
   import { compress } from '$lib/compress.js';
-  import { fmtDate, realConfig } from '$lib/format.js';
+  import { fmtDate, realConfig, wallClock } from '$lib/format.js';
+  import { seasonAt } from '$lib/seasons.js';
 
   let { data } = $props();
   const meta = $derived(data.meta);
+  const seasons = $derived(data.seasons);
   const series = $derived(data.series);
   const subs = $derived(data.subsessions);
   const posts = $derived(data.posts);
@@ -23,10 +25,13 @@
     kind = $state('');
     set(text, kind = '') { this.text = text; this.kind = kind; }
   }
-  const uploadMsg = new Msg(), newMsg = new Msg(), seriesMsg = new Msg(), schedMsg = new Msg(), pointsMsg = new Msg(), postMsg = new Msg(), videoMsg = new Msg();
+  const uploadMsg = new Msg(), seasonMsg = new Msg(), newMsg = new Msg(), seriesMsg = new Msg(), schedMsg = new Msg(), pointsMsg = new Msg(), postMsg = new Msg(), videoMsg = new Msg();
 
   const eventTypeName = (id) => meta.eventTypes.find((t) => t.id === id)?.name ?? id;
   const formatName = (id) => meta.formats.find((f) => f.id === id)?.name ?? id;
+  const seasonName = (slug) => seasons.find((x) => x.slug === slug)?.name ?? slug;
+  // An instant as the league-calendar day a date input shows.
+  const dayOf = (at) => (at ? wallClock(at).slice(0, 10) : '');
   // A series is a container: only container-capable types can back one; special
   // (one-off) types are exactly the rest.
   const seriesTypes = $derived(meta.eventTypes.filter((t) => t.container));
@@ -42,11 +47,17 @@
   let leagueRound = $state(1);
   let specialType = $state('');
   let specialName = $state('');
+  let specialFormat = $state('');
+  // Whether the result's points pay into stake (see src/lib/server/stake): it
+  // files into the season its race date falls in, so the hint names today's.
+  let countStake = $state(true);
+  const seasonToday = $derived(seasonAt(seasons, new Date()));
   // Keep the series choice valid as the list changes, and default the round to
   // one past the highest already uploaded to that series.
   $effect(() => {
     if (!openSeries.some((s) => s.slug === leagueSeries)) leagueSeries = openSeries[0]?.slug ?? '';
     if (!specialTypes.some((t) => t.id === specialType)) specialType = specialTypes[0]?.id ?? '';
+    if (!meta.formats.some((f) => f.id === specialFormat)) specialFormat = specialTypes.find((t) => t.id === specialType)?.defaultFormat ?? meta.default;
   });
   const nextRound = $derived.by(() => {
     const rounds = subs.filter((s) => s.seriesSlug === leagueSeries && s.round != null).map((s) => s.round);
@@ -73,18 +84,54 @@
       const name = specialName.trim();
       if (!specialTypes.length) return uploadMsg.set('No special event type is configured.', 'err');
       if (!name) return uploadMsg.set('Name the event first.', 'err');
-      q = new URLSearchParams({ special: '1', eventType: specialType || specialTypes[0].id, title: name });
+      q = new URLSearchParams({ special: '1', eventType: specialType || specialTypes[0].id, title: name, format: specialFormat });
     } else {
       if (!leagueSeries) return uploadMsg.set('No series yet — create one first, or upload as a special event.', 'err');
       q = new URLSearchParams({ series: leagueSeries, round: String(leagueRound) });
     }
+    if (!countStake) q.set('stake', '0');
     uploadMsg.set('Uploading…');
     const res = await fetch(`/api/admin/upload?${q}`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: await f.text(),
     }).then((r) => r.json());
     if (!res.ok) return uploadMsg.set(`Error: ${res.error}`, 'err');
-    uploadMsg.set(`Saved ${res.subsessionId} to ${res.series ?? 'special events'}: ${res.drivers} drivers, ${res.results} results.`, 'ok');
+    const stake = !countStake ? 'left out of stake' : res.stakeSeason ? `stake → ${seasonName(res.stakeSeason)}` : 'no season covers its date, so no stake';
+    uploadMsg.set(`Saved ${res.subsessionId} to ${res.series ?? 'special events'}: ${res.drivers} drivers, ${res.results} results; ${stake}.`, 'ok');
     fileInput.value = ''; specialName = '';
+    await refresh();
+  }
+
+  // ---- Seasons --------------------------------------------------------------
+  // Each row edits in place; the server re-files every stored result into the
+  // season its date falls in after any change.
+  let newSeasonName = $state('');
+  let newSeasonStart = $state('');
+  let newSeasonEnd = $state('');
+  let seasonEdits = $state({});
+  $effect(() => {
+    for (const x of seasons) seasonEdits[x.slug] ??= { name: x.name, startsAt: dayOf(x.startsAt), endsAt: dayOf(x.endsAt) };
+  });
+  const seasonSeries = (slug) => series.filter((x) => x.season === slug).map((x) => x.name).join(', ');
+  const seasonSessions = (slug) => subs.filter((x) => x.stakeSeason === slug).length;
+  async function createSeason() {
+    const res = await post('/api/admin/seasons', { name: newSeasonName.trim(), startsAt: newSeasonStart, endsAt: newSeasonEnd || null });
+    seasonMsg.set(res.ok ? `Created ${res.slug}.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+    if (res.ok) { newSeasonName = ''; newSeasonStart = ''; newSeasonEnd = ''; }
+    await refresh();
+  }
+  async function saveSeason(slug) {
+    const e = seasonEdits[slug];
+    const res = await post(`/api/admin/seasons/${encodeURIComponent(slug)}`, { name: e.name.trim(), startsAt: e.startsAt, endsAt: e.endsAt || null }, 'PATCH');
+    seasonMsg.set(res.ok ? `Saved ${seasonName(slug)}.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+    if (res.ok) delete seasonEdits[slug];
+    await refresh();
+  }
+  async function deleteSeason(slug) {
+    const n = seasonSessions(slug);
+    if (!confirm(`Delete the season "${seasonName(slug)}"? Its series stay, and its ${n} result${n === 1 ? '' : 's'} re-file into whatever season now covers their dates.`)) return;
+    const res = await post(`/api/admin/seasons/${encodeURIComponent(slug)}`, null, 'DELETE');
+    seasonMsg.set(res.ok ? `Deleted ${slug}.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
+    if (res.ok) delete seasonEdits[slug];
     await refresh();
   }
 
@@ -95,10 +142,17 @@
   let newRounds = $state(3);
   let newDrop = $state(0);
   let newFormat = $state('');
+  let newSeason = $state('');
+  let newCar = $state('');
   $effect(() => {
     if (!seriesTypes.some((t) => t.id === newEventType)) newEventType = seriesTypes[0]?.id ?? meta.defaultEventType;
     if (!meta.formats.some((f) => f.id === newFormat)) newFormat = meta.default;
+    if (newSeason && !seasons.some((x) => x.slug === newSeason)) newSeason = '';
   });
+  // The official series of a season is named for it and its car: "Fall 2026
+  // Series - Euro NASCAR". Typed names win; blank takes the convention.
+  const seededName = $derived([newSeason ? `${seasonName(newSeason)} Series` : '', newCar.trim()].filter(Boolean).join(' - '));
+  const seededSlug = $derived(seededName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
   const newFormatDesc = $derived(meta.formats.find((f) => f.id === newFormat)?.description ?? '');
   // Picking an event type defaults the points format to what it expects.
   function pickNewType(e) {
@@ -108,11 +162,12 @@
   }
   async function createSeries() {
     const res = await post('/api/admin/series', {
-      slug: newSlug.trim(), name: newName.trim(), eventType: newEventType,
+      slug: newSlug.trim() || seededSlug, name: newName.trim() || seededName, eventType: newEventType,
       rounds: Number(newRounds) || 1, dropCount: Number(newDrop) || 0, format: newFormat,
+      season: newSeason || null, car: newCar.trim() || null,
     });
     newMsg.set(res.ok ? `Created ${res.slug}. Set its status to active when it starts.` : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
-    if (res.ok) { newSlug = ''; newName = ''; }
+    if (res.ok) { newSlug = ''; newName = ''; newCar = ''; }
     await refresh();
     if (res.ok) selectSeries(res.slug);
   }
@@ -122,6 +177,7 @@
   let editName = $state('');
   let editCar = $state('');
   let editStatus = $state('upcoming');
+  let editSeason = $state('');
   let editDrop = $state(0);
   let sched = $state([]);
   let editFormat = $state('');
@@ -140,6 +196,7 @@
     editName = s?.name ?? '';
     editCar = s?.car ?? '';
     editStatus = s?.status ?? 'upcoming';
+    editSeason = s?.season ?? '';
     editDrop = s?.dropCount ?? 0;
     sched = (s?.schedule ?? []).map((r) => ({ round: r.round, track: r.track ?? '', date: r.date ?? '', startTime: r.startTime ?? '', link: r.link ?? '', image: r.image ?? null, double: Number(r.multiplier) > 1 }));
     editFormat = s && meta.formats.some((f) => f.id === s.format) ? s.format : meta.default;
@@ -157,7 +214,7 @@
     round: r.round, track: r.track.trim() || null, date: r.date.trim() || null, startTime: r.startTime || null, link: r.link.trim() || null, image: r.image || null, multiplier: r.double ? 2 : 1,
   })).sort((a, b) => a.round - b.round);
   async function saveSeries() {
-    const res = await post('/api/admin/series-update', { slug: editSlug, name: editName, car: editCar, status: editStatus, dropCount: Number(editDrop) || 0, schedule: scheduleRows() });
+    const res = await post('/api/admin/series-update', { slug: editSlug, name: editName, car: editCar, status: editStatus, season: editSeason || null, dropCount: Number(editDrop) || 0, schedule: scheduleRows() });
     seriesMsg.set(res.ok ? 'Saved (including the schedule).' : `Error: ${res.error}`, res.ok ? 'ok' : 'err');
     await refresh();
   }
@@ -405,8 +462,24 @@
         </label>
       {/if}
       <label class="field">Event name <input type="text" placeholder="Bathurst 1000" size="22" bind:value={specialName}></label>
+      <label class="field" title={meta.formats.find((f) => f.id === specialFormat)?.description ?? ''}>Points
+        <select bind:value={specialFormat}>
+          {#each meta.formats as f (f.id)}<option value={f.id}>{f.name}</option>{/each}
+        </select>
+      </label>
     </div>
   {/if}
+  <!-- Stake: the result's points pay into the season its race date falls in
+       (see Seasons below) unless left out here. -->
+  <div class="row" style="margin-top:0.8rem">
+    <label class="field"><input type="checkbox" bind:checked={countStake}> Counts toward stake</label>
+    <span class="muted">
+      {#if !countStake}Left out of stake; points still count for the series.
+      {:else if !seasons.length}No season exists yet — create one below, or the result counts toward nothing.
+      {:else if seasonToday}Files into the season the race date falls in — today that is {seasonToday.name}.
+      {:else}Files into the season the race date falls in — no season covers today.{/if}
+    </span>
+  </div>
   <div class="row" style="margin-top:0.8rem">
     <button class="btn primary" type="button" onclick={upload}>Upload &amp; score</button>
   </div>
@@ -420,7 +493,7 @@
     <p class="empty">No results uploaded yet.</p>
   {:else}
     <table>
-      <thead><tr><th>Series</th><th>Round</th><th>Track</th><th>Date</th><th>Sessions</th><th></th></tr></thead>
+      <thead><tr><th>Series</th><th>Round</th><th>Track</th><th>Date</th><th>Sessions</th><th>Points</th><th>Stake</th><th></th></tr></thead>
       <tbody>
         {#each subs as s (s._id)}
           <tr>
@@ -429,6 +502,8 @@
             <td>{trackOf(s)}</td>
             <td>{fmtDate(s.startTime)}</td>
             <td class="muted">{sessionsOf(s)}</td>
+            <td class="muted">{formatName(s.seriesSlug ? series.find((x) => x.slug === s.seriesSlug)?.format : s.format)}</td>
+            <td class="muted" title="The season whose stake these points pay into">{s.stakeExcluded ? 'left out' : s.stakeSeason ? seasonName(s.stakeSeason) : 'no season'}</td>
             <td>
               <div class="row">
                 <a class="btn sm" href={`/api/admin/subsessions/${encodeURIComponent(s._id)}/download`}>↓ JSON</a>
@@ -440,10 +515,10 @@
           </tr>
           <!-- Each result row is trailed by a collapsed photo panel. -->
           {#if openPanels[s._id]}
-            <tr><td colspan="6"><PhotoPanel sub={s} /></td></tr>
+            <tr><td colspan="8"><PhotoPanel sub={s} /></td></tr>
           {/if}
           {#if openPost[s._id]}
-            <tr><td colspan="6">
+            <tr><td colspan="8">
               <div class="row">
                 <label class="field">Headline <input type="text" size="48" placeholder="Leave blank for the automatic headline" bind:value={postEdits[s._id].postTitle}></label>
               </div>
@@ -464,17 +539,58 @@
 </section>
 
 <section class="panel">
+  <h3>Seasons</h3>
+  <p class="desc">A season is a window of time: a start date and, optionally, an end. Without an end it runs until the next season starts, so one season is current at a time. Every uploaded result — a league round or a special event — pays its points into the stake of the season its race date falls in, unless left out at upload. Dates are Pacific calendar days.</p>
+  {#if seasons.length}
+    <table>
+      <thead><tr><th>Name</th><th>Starts</th><th>Ends</th><th>Series</th><th>Results</th><th></th></tr></thead>
+      <tbody>
+        {#each seasons as x (x.slug)}
+          {@const e = seasonEdits[x.slug]}
+          {#if e}
+            <tr>
+              <td><input type="text" size="14" bind:value={e.name}></td>
+              <td><input type="date" bind:value={e.startsAt}></td>
+              <td><input type="date" bind:value={e.endsAt} title="Leave blank to run until the next season starts"></td>
+              <td class="muted">{seasonSeries(x.slug) || '—'}</td>
+              <td class="num">{seasonSessions(x.slug)}</td>
+              <td>
+                <div class="row">
+                  <button class="btn sm primary" type="button" onclick={() => saveSeason(x.slug)}>Save</button>
+                  <button class="btn sm danger" type="button" onclick={() => deleteSeason(x.slug)}>Delete</button>
+                </div>
+              </td>
+            </tr>
+          {/if}
+        {/each}
+      </tbody>
+    </table>
+  {:else}
+    <p class="empty">No seasons yet — until one exists, no result counts toward stake.</p>
+  {/if}
+  <h4>New season</h4>
+  <div class="row">
+    <label class="field">Name <input type="text" placeholder="Fall 2026" size="14" bind:value={newSeasonName}></label>
+    <label class="field">Starts <input type="date" bind:value={newSeasonStart}></label>
+    <label class="field" title="Optional — blank runs until the next season starts">Ends <input type="date" bind:value={newSeasonEnd}></label>
+    <button class="btn primary" type="button" onclick={createSeason}>Create</button>
+  </div>
+  <p class={['msg', seasonMsg.kind]}>{seasonMsg.text}</p>
+</section>
+
+<section class="panel">
   <h3>Series</h3>
-  <p class="desc">Each series has an event type (which sets its structure and layout) and a points format. Several can run at once; active series are listed on the site, complete ones stay browsable.</p>
+  <p class="desc">A series is a season's official championship — "Fall 2026 Series - Euro NASCAR" — with an event type (which sets its structure and layout) and a points format applied to every round. Active series are listed on the site, complete ones stay browsable.</p>
   {#if !series.length}
     <p class="empty">No series yet — create one below.</p>
   {:else}
     <table>
-      <thead><tr><th>Name</th><th>Event type</th><th>Status</th><th>Rounds</th><th>Points</th><th>Slug</th></tr></thead>
+      <thead><tr><th>Name</th><th>Season</th><th>Event type</th><th>Status</th><th>Rounds</th><th>Points</th><th>Slug</th></tr></thead>
       <tbody>
         {#each series as s (s.slug)}
           <tr>
             <td>{s.name}</td>
+            <td class="muted">{s.season ? seasonName(s.season) : '—'}</td>
             <td class="muted">{eventTypeName(s.eventType)}</td>
             <td><span class={['badge', s.status]}>{s.status}</span></td>
             <td class="num">{s.schedule?.length ?? 0}</td>
@@ -488,13 +604,20 @@
 
   <h4>New series</h4>
   <div class="row">
+    <label class="field">Season
+      <select bind:value={newSeason}>
+        <option value="">—</option>
+        {#each seasons as x (x.slug)}<option value={x.slug}>{x.name}</option>{/each}
+      </select>
+    </label>
+    <label class="field">Car <input type="text" placeholder="Euro NASCAR" size="14" bind:value={newCar}></label>
     <label class="field">Event type
       <select value={newEventType} onchange={pickNewType}>
         {#each seriesTypes as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
       </select>
     </label>
-    <label class="field">Slug <input type="text" placeholder="fall-2026" size="12" bind:value={newSlug}></label>
-    <label class="field">Name <input type="text" placeholder="Fall 2026" size="16" bind:value={newName}></label>
+    <label class="field">Slug <input type="text" placeholder={seededSlug || 'fall-2026-series'} size="14" bind:value={newSlug}></label>
+    <label class="field">Name <input type="text" placeholder={seededName || 'Fall 2026 Series - Euro NASCAR'} size="22" bind:value={newName}></label>
     <label class="field">Rounds <input type="number" min="1" bind:value={newRounds}></label>
     <label class="field" title="Discard each driver's lowest N rounds from the championship total">Drop <input type="number" min="0" bind:value={newDrop}></label>
     <label class="field">Points
@@ -521,6 +644,12 @@
     <label class="field">Status
       <select bind:value={editStatus}>
         {#each meta.statuses as st (st)}<option value={st}>{st}</option>{/each}
+      </select>
+    </label>
+    <label class="field" title="The season this is the official series of">Season
+      <select bind:value={editSeason}>
+        <option value="">—</option>
+        {#each seasons as x (x.slug)}<option value={x.slug}>{x.name}</option>{/each}
       </select>
     </label>
     <label class="field" title="Discard each driver's lowest N rounds from the championship total">Drop <input type="number" min="0" bind:value={editDrop}></label>

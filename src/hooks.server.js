@@ -4,8 +4,8 @@ import { requireAdmin } from '$lib/server/admin/auth.js';
 import { startVideoPoller } from '$lib/server/videos/poller.js';
 
 // The old static site lived at /standings.html and friends; links in the
-// wild (and Discord) still point there.
-const LEGACY = { '/index.html': '/', '/standings.html': '/standings', '/results.html': '/results', '/drivers.html': '/drivers', '/about.html': '/about' };
+// wild (and Discord) still point there. The stake page was /drivers.
+const LEGACY = { '/index.html': '/', '/standings.html': '/standings', '/results.html': '/results', '/drivers.html': '/stake', '/drivers': '/stake', '/about.html': '/about' };
 
 // Everything under /admin and /api/admin is gated, except the login/logout
 // endpoints that establish or end a session.

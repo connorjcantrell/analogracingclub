@@ -1,11 +1,17 @@
 <script>
   import { enhance } from '$app/forms';
   import PageTitle from '$lib/PageTitle.svelte';
+  import { LEAGUE_TZ, wallClock } from '$lib/format.js';
 
   let { data, form } = $props();
   const current = $derived(data.current);
   const msgFor = (panel) => (form?.panel === panel ? form : null);
-  const weatherLabel = { dry: 'Dry', wet: 'Wet', 'dry-to-wet': 'Dry to wet', 'wet-to-dry': 'Wet to dry' };
+  const weatherLabel = $derived(Object.fromEntries(data.weather.map((w) => [w.id, w.label])));
+  const variationLabel = $derived(Object.fromEntries(data.variations.map((v) => [v.id, v.label])));
+  const fmtAt = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: LEAGUE_TZ, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  const statusLabel = { upcoming: 'Upcoming', open: 'Open — live', closed: 'Closed' };
+  const fmtStake = (v) => `${(Math.round((v ?? 0) * 10) / 10).toFixed(1)}%`;
+  const defaultSeries = $derived((data.series.find((s) => s.status === 'complete') ?? data.series[0])?.slug);
 
   // DM-ready line per driver, copied straight into Discord.
   let copied = $state(null);
@@ -62,12 +68,32 @@
                   <input type="hidden" name="custId" value={d.custId}>
                   <button class="btn sm" type="submit">{d.code ? 'Regenerate' : 'Generate'}</button>
                 </form>
+                <!-- Opting out: off the roster, pick deleted, round to the club. Locked once the vote exists. -->
+                <form method="post" action="?/removeDriver" use:enhance onsubmit={(e) => { if (!confirm(`Remove ${d.displayName} from the selection? Their pick is deleted and their round goes to a community vote.`)) e.preventDefault(); }}>
+                  <input type="hidden" name="id" value={current.selection.id}>
+                  <input type="hidden" name="custId" value={d.custId}>
+                  <button class="btn sm danger" type="submit" title="Opted out">Remove</button>
+                </form>
               </div>
             </td>
           </tr>
         {/each}
       </tbody>
     </table>
+    {#if current.removed.length}
+      <div class="desc" style="margin-top:0.8rem">
+        Opted out, round{current.removed.length === 1 ? '' : 's'} to the community vote:
+        {#each current.removed as d (d.custId)}
+          <span class="removed">{d.displayName}
+            <form method="post" action="?/restoreDriver" use:enhance style="display:inline">
+              <input type="hidden" name="id" value={current.selection.id}>
+              <input type="hidden" name="custId" value={d.custId}>
+              <button class="btn sm" type="submit" disabled={!!current.vote && current.removed.length === 1}>Restore</button>
+            </form>
+          </span>
+        {/each}
+      </div>
+    {/if}
     <div class="row" style="margin-top:0.8rem">
       <form method="post" action="?/delete" use:enhance onsubmit={(e) => { if (!confirm('Delete this selection and every pick?')) e.preventDefault(); }}>
         <input type="hidden" name="id" value={current.selection.id}>
@@ -77,6 +103,103 @@
     </div>
   {/if}
 </section>
+
+<!-- ---- Community vote ---- -->
+{#if current?.removed.length}
+  <section class="panel">
+    <h3>Community vote</h3>
+    {#if !current.vote}
+      <p class="desc">
+        {current.removed.length === 1 ? 'One round is' : `${current.removed.length} rounds are`} left to the club. The ballot is every eligible layout, by short name,
+        on tracks the remaining drivers don't hold. Every driver with a passcode splits their stake (share of the chosen series' points) across layouts by
+        clicking: all on one, or evenly over several. {current.removed.length === 1 ? 'The layout with the most stake wins.' : `The top ${current.removed.length} win.`}
+        Weather, format and notes are not voted on: set them when the round goes on the schedule.
+        Leave the start blank to open immediately; set an end time, or leave it blank and the vote runs for the given number of days. Times are Pacific.
+      </p>
+      <form method="post" action="?/openVote" use:enhance>
+        <input type="hidden" name="id" value={current.selection.id}>
+        <div class="row">
+          <label class="field">Stake from
+            <select name="seriesSlug">
+              {#each data.series as s (s.slug)}<option value={s.slug} selected={s.slug === defaultSeries}>{s.name} ({s.status})</option>{/each}
+            </select>
+          </label>
+          <label class="field">Starts (Pacific) <input type="datetime-local" name="startsAt"></label>
+          <label class="field">Ends (Pacific) <input type="datetime-local" name="endsAt"></label>
+          <label class="field">or days <input type="number" name="days" value="3" min="1" step="0.5" style="width:4.5rem"></label>
+        </div>
+        <div class="row" style="margin-top:0.8rem">
+          <button class="btn primary" type="submit">Open vote</button>
+          {#if msgFor('vote')}<span class={msgFor('vote').error ? 'err' : 'ok'}>{msgFor('vote').error ?? msgFor('vote').ok}</span>{/if}
+        </div>
+      </form>
+    {:else}
+      {@const v = current.vote}
+      <p class="desc">
+        {statusLabel[v.status]} · {fmtAt(v.startsAt)} → {fmtAt(v.endsAt)} · stake from <strong>{v.seriesSlug}</strong> ·
+        {v.voters} ballot{v.voters === 1 ? '' : 's'} holding {fmtStake(v.staked)} of the pool
+        {#if v.winners}· {v.winners.length === 1 ? 'Winner' : v.winners.length === v.slots ? 'Winners' : 'Tie'}: <strong>{v.winners.map((w) => w.name).join(' · ') || '—'}</strong>{/if}
+      </p>
+      {#if !v.candidates.length}
+        <p class="empty">Nothing staked yet.</p>
+      {:else}
+        <table>
+          <thead><tr><th>Layout</th><th class="num">Stake</th><th class="num">Backers</th></tr></thead>
+          <tbody>
+            {#each [...v.candidates].sort((a, b) => (v.totals[b.id] ?? 0) - (v.totals[a.id] ?? 0)) as c (c.id)}
+              <tr>
+                <td>{c.name} <span class="muted">({c.type}{c.lengthMi ? `, ${c.lengthMi} mi` : ''})</span></td>
+                <td class="num"><strong>{fmtStake(v.totals[c.id])}</strong></td>
+                <td class="num">{v.backers[c.id] ?? 0}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+
+      <h4>Ballots</h4>
+      {#if !current.ballots.length}
+        <p class="empty">No ballots saved yet.</p>
+      {:else}
+        <table>
+          <thead><tr><th>Driver</th><th class="num">Stake</th><th>Split</th></tr></thead>
+          <tbody>
+            {#each current.ballots as b (b.custId)}
+              <tr>
+                <td>{b.driverName}</td>
+                <td class="num">{fmtStake(b.stake)}</td>
+                <td class="split">{#each b.split as x, i (x.name)}{#if i}<span class="muted"> · </span>{/if}{x.name} <strong>{x.share}%</strong>{/each}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+      {#if current.pending.length && v.status !== 'closed'}
+        <p class="desc pending">Not yet staked: {current.pending.join(', ')}</p>
+      {/if}
+
+      <form method="post" action="?/rescheduleVote" use:enhance class="row" style="margin-top:0.8rem">
+        <input type="hidden" name="id" value={current.selection.id}>
+        <label class="field">Starts (Pacific) <input type="datetime-local" name="startsAt" value={wallClock(v.startsAt)}></label>
+        <label class="field">Ends (Pacific) <input type="datetime-local" name="endsAt" value={wallClock(v.endsAt)}></label>
+        <button class="btn sm" type="submit">Update window</button>
+      </form>
+      <div class="row" style="margin-top:0.8rem">
+        {#if v.status !== 'closed'}
+          <form method="post" action="?/closeVote" use:enhance onsubmit={(e) => { if (!confirm('End the vote now and declare the result?')) e.preventDefault(); }}>
+            <input type="hidden" name="id" value={current.selection.id}>
+            <button class="btn sm" type="submit">End vote now</button>
+          </form>
+        {/if}
+        <form method="post" action="?/deleteVote" use:enhance onsubmit={(e) => { if (!confirm('Delete this vote and every ballot?')) e.preventDefault(); }}>
+          <input type="hidden" name="id" value={current.selection.id}>
+          <button class="btn sm danger" type="submit">Delete vote</button>
+        </form>
+        {#if msgFor('vote')}<span class={msgFor('vote').error ? 'err' : 'ok'}>{msgFor('vote').error ?? msgFor('vote').ok}</span>{/if}
+      </div>
+    {/if}
+  </section>
+{/if}
 
 <!-- ---- New selection ---- -->
 <section class="panel">
@@ -119,4 +242,9 @@
   }
   .opts legend { color: var(--muted); font-size: 0.85rem; padding: 0 0.4rem; }
   .opt { display: flex; align-items: center; gap: 0.45rem; font-size: 0.92rem; }
+  th.num, td.num { text-align: right; }
+  h4 { margin: 1.2rem 0 0.4rem; font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  td.split strong { color: var(--accent); }
+  .pending { margin-top: 0.6rem; }
+  .removed { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: 0.8rem; color: var(--text); }
 </style>

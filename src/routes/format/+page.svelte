@@ -110,15 +110,15 @@
      down the page without the tables jumping about. */
   .format-explainer { --table-w: 26rem; }
   .format-explainer h3 {
-    color: var(--accent); font-size: 1.05rem; letter-spacing: 0.1em;
+    color: var(--text); font-size: 1.15rem; letter-spacing: 0.06em;
     margin: 2.6rem 0 0.8rem;
   }
   .format-explainer p { margin: 0 0 0.8rem; max-width: 62ch; line-height: 1.6; }
   .format-explainer ul { margin: 0 0 1rem; padding-left: 1.3rem; max-width: 62ch; }
   .format-explainer li { margin: 0 0 0.5rem; line-height: 1.6; }
-  .format-explainer li::marker { color: var(--accent); }
-  .format-explainer li strong { color: var(--accent); font-weight: 500; }
-  .format-explainer p strong { color: var(--accent); font-weight: 500; }
+  .format-explainer li::marker { color: var(--muted); }
+  .format-explainer li strong { color: var(--text); font-weight: 500; }
+  .format-explainer p strong { color: var(--text); font-weight: 500; }
   .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 1rem 0 0.4rem; }
 
   /* Tables sit at the body size, not smaller, so they carry the same weight as
