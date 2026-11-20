@@ -58,9 +58,8 @@ nav a:hover { color: var(--text); }
 /* The current page: text colour with an amber underline, the one amber in the chrome. */
 nav a.active { color: var(--text); }
 nav a.active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -0.2rem; height: 2px; background: var(--accent); }
-header .platform { margin-left: auto; line-height: 0; opacity: 0.55; transition: opacity 0.15s; }
-header .platform:hover { opacity: 1; }
-header .platform img { height: 18px; width: auto; display: block; }
+/* The header's right-hand slot (the admin log-out). */
+header .platform { margin-left: auto; line-height: 0; }
 /* Mobile menu button (see nav.js); hidden on wide screens where the links show inline. */
 .nav-toggle { display: none; }
 
@@ -250,9 +249,15 @@ footer {
   border-top: var(--rule); margin-top: 0; padding: 2rem var(--gutter);
   color: var(--muted); font-size: 0.78rem;
   text-transform: uppercase; letter-spacing: 0.14em;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem 2rem; flex-wrap: wrap;
 }
 footer a { color: var(--muted); text-decoration: none; }
 footer a:hover { color: var(--text); }
+/* Discord and iRacing marks, quiet until hovered. */
+.footer-links { display: flex; align-items: center; gap: 1.4rem; }
+.footer-links a { line-height: 0; opacity: 0.55; transition: opacity 0.15s; }
+.footer-links a:hover { opacity: 1; }
+.footer-links img { height: 18px; width: auto; display: block; }
 
 /* ---------- Shared focus ring ---------- */
 :where(a, button, select, input, [tabindex]):focus-visible {
@@ -322,8 +327,9 @@ footer a:hover { color: var(--text); }
   :root { --gutter: 1.2rem; }
   header { padding: 0.6rem var(--gutter); gap: 0.6rem 1rem; }
   header .brand-logo { height: 66px; }
-  /* Page links collapse behind a hamburger; the brand and iRacing mark stay
-     on the top row with the button at the far right. */
+  /* Page links collapse behind a hamburger; the brand (and the admin
+     log-out) stay on the top row with the button at the far right. */
+  header .brand { margin-right: auto; }
   header .platform { order: 0; }
   .nav-toggle {
     display: flex; flex-direction: column; justify-content: center; gap: 5px; order: 1;
@@ -340,7 +346,6 @@ footer a:hover { color: var(--text); }
   nav a:last-child { border-bottom: 0; }
   /* In the dropdown the current page's text colour is enough; no amber underline. */
   nav a.active::after { display: none; }
-  header .platform img { height: 17px; }
   main { padding: 2rem var(--gutter) 3rem; }
   .lp-section { padding: 2.5rem 0; }
   .join-details { gap: 1.75rem 2.5rem; }

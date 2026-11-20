@@ -1,7 +1,8 @@
 <script>
   // Site chrome shared by every page: brand, page links (behind a hamburger on
-  // narrow screens), the iRacing mark or a page-supplied `right` snippet,
-  // the <main> wrapper and the footer.
+  // narrow screens), an optional page-supplied `right` snippet (the admin
+  // log-out), the <main> wrapper and the footer with the platform links.
+  import { DISCORD_URL, IRACING_URL } from './links.js';
 
   let { active = null, mainClass = '', links = 'site', right, children } = $props();
 
@@ -40,11 +41,15 @@
   {/if}
   {#if right}
     {@render right()}
-  {:else if links !== 'none'}
-    <a class="platform" href="https://www.iracing.com/" target="_blank" rel="noopener" aria-label="Powered by iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
   {/if}
 </header>
 <main class={mainClass}>
   {@render children?.()}
 </main>
-<footer>Analog Racing Club · an iRacing league</footer>
+<footer>
+  <span>Analog Racing Club · an iRacing league</span>
+  <span class="footer-links">
+    <a href={DISCORD_URL} target="_blank" rel="noopener" aria-label="Join our Discord"><img src="/assets/Discord-Symbol-White.svg" alt="Discord"></a>
+    <a href={IRACING_URL} target="_blank" rel="noopener" aria-label="Join iRacing"><img src="/assets/iracing.png" alt="iRacing"></a>
+  </span>
+</footer>
