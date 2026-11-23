@@ -4,6 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0e0e0e">
+  <!-- Light by day, dark by night, on the device's clock (a copy of
+       src/lib/theme.js), set on <html> before the first paint so the page
+       never flashes the other theme. -->
+  <script>
+    (function () {
+      var h = new Date().getHours(), t = h >= 7 && h < 19 ? 'light' : 'dark';
+      try {
+        var o = JSON.parse(localStorage.getItem('theme-override') || 'null');
+        if (o && (o.theme === 'light' || o.theme === 'dark') && Date.now() < o.until) t = o.theme;
+      } catch (e) {}
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=Inter:wght@400;500;600&display=swap">

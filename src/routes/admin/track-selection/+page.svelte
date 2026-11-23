@@ -44,7 +44,7 @@
       {current.selection.trackTypes.join(', ')}
     </p>
     <table>
-      <thead><tr><th>Driver</th><th>Track</th><th>Layout</th><th>Weather</th><th>Format</th><th>Note</th><th>Passcode</th><th></th></tr></thead>
+      <thead><tr><th>Driver</th><th>Track</th><th>Layout</th><th>Weather</th><th>Variant</th><th>Note</th><th>Passcode</th><th></th></tr></thead>
       <tbody>
         {#each current.pickers as d (d.custId)}
           <tr>
@@ -204,7 +204,7 @@
 <!-- ---- New selection ---- -->
 <section class="panel">
   <h3>New selection</h3>
-  <p class="desc">Each chosen driver picks one round on /track-selection: a track and layout of an allowed type, the weather, Standard or Long, and a short note. Opening a new selection replaces the current one on the page; the old one and its picks stay in the database. Picks are not tied to a season. Copy them into the schedule by hand.</p>
+  <p class="desc">Each chosen driver picks one round on /track-selection: a track and layout of an allowed type, the weather, the variant (Standard or Long), and a short note. Opening a new selection replaces the current one on the page; the old one and its picks stay in the database. Picks are not tied to a season. Copy them into the schedule by hand.</p>
   <form method="post" action="?/create" use:enhance>
     <div class="row">
       <label class="field">Title <input type="text" name="title" size="28" placeholder="Winter 26/27 tracks"></label>
@@ -229,8 +229,8 @@
 </section>
 
 <style>
-  .ok { color: var(--accent); }
-  .err { color: #e05c5c; }
+  .ok { color: var(--accent-ink); }
+  .err { color: var(--red); }
   table { border-collapse: collapse; }
   th, td { text-align: left; padding: 0.4rem 0.9rem 0.4rem 0; border-bottom: 1px solid var(--border); vertical-align: top; }
   .muted { color: var(--muted); }
@@ -244,7 +244,7 @@
   .opt { display: flex; align-items: center; gap: 0.45rem; font-size: 0.92rem; }
   th.num, td.num { text-align: right; }
   h4 { margin: 1.2rem 0 0.4rem; font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  td.split strong { color: var(--accent); }
+  td.split strong { color: var(--accent-ink); }
   .pending { margin-top: 0.6rem; }
   .removed { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: 0.8rem; color: var(--text); }
 </style>

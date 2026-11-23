@@ -39,7 +39,7 @@
       {#each fastFour as q (q.finish)}
         <span class="ff-name"><b>Q{q.finish}</b>{q.name}</span>
       {/each}
-      <a class="ff-info" href="/format"
+      <a class="ff-info" href="/about#format"
         aria-label="The fastest qualifiers, whose grid was inverted so they started from the back. How the Fast Four format works."
         title="The fastest qualifiers, whose grid was inverted so they started from the back. How the Fast Four format works.">?</a>
     </p>
@@ -65,7 +65,7 @@
           {@const gained = roundPositionsGained(d)}
           <tr>
             <td class="pos"><span class="pos-box">{i + 1}</span></td>
-            <td><DriverName name={driverName(d.name)} keys={badges.get(d.custId)} /></td>
+            <td class="drv"><DriverName name={driverName(d.name)} keys={badges.get(d.custId)} /></td>
             <td class={['num', 'gained', { up: gained > 0, down: gained < 0 }]}>{signed(gained)}</td>
             <td class="num">{posCell(d.feature)}</td>
             {#if scored}<td class="num total">{d.total}</td>{/if}

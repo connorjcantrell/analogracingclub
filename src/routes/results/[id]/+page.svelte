@@ -4,7 +4,7 @@
   import OverallTable from '$lib/OverallTable.svelte';
   import SessionTable from '$lib/SessionTable.svelte';
   import SummaryCards from '$lib/SummaryCards.svelte';
-  import { sessionKindsOf, sessionLabel, eventTitle, eventMeta } from '$lib/format.js';
+  import { sessionKindsOf, sessionLabel, eventTitle, eventMeta, resultsLink } from '$lib/format.js';
 
   // One event in full: its summary, a tab per session the event type
   // declares (plus Overall when it combines more than one), videos, photos.
@@ -55,4 +55,19 @@
       <Gallery images={sub.images} />
     </div>
   {/if}
+  {#if ev.prev || ev.next}
+    <!-- The championship's round before and after this one. -->
+    <nav class="round-nav" aria-label="Other rounds">
+      {#if ev.prev}<a class="link round-prev" href={resultsLink(ev.prev.id)}>← Previous round</a>{:else}<span></span>{/if}
+      {#if ev.next}<a class="link round-next" href={resultsLink(ev.next.id)}>Next round →</a>{/if}
+    </nav>
+  {/if}
 </section>
+
+<style>
+  .round-nav {
+    display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    margin: 2.5rem 0 0; padding-top: 1.25rem; border-top: var(--rule); font-size: 0.98rem;
+  }
+  .round-next { margin-left: auto; text-align: right; }
+</style>

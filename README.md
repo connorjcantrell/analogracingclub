@@ -156,8 +156,8 @@ The **Upload results** panel takes one iRacing event-result JSON, then asks what
   series (a season round that is also a championship round) is uploaded to each, and scored
   under each one's format.
 - **One-off single session** — just type a name. The event is created on the fly as unscored
-  with a single round; no series setup needed. It then appears on the home page and results
-  page like any other race, photos and all.
+  with a single round; no series setup needed. It then appears on the results page like any
+  other race, photos and all, and on the home page while it is the latest race.
 
 Re-uploading the same session to the same series replaces it rather than duplicating.
 
@@ -177,13 +177,13 @@ Fast Four card, and a format scoring no qualifying places shows none.
 ### Race photos
 
 Each stored result has a **Photos** panel in the admin results list: upload one or more
-images (JPEG/PNG/GIF/WebP) and they appear as a gallery on the results page and the home
-page, with a click-to-enlarge lightbox. Oversized files are downscaled in the browser
+images (JPEG/PNG/GIF/WebP) and they appear as a gallery on the race's results page, with a
+click-to-enlarge lightbox. Oversized files are downscaled in the browser
 before upload, so phone and camera shots go up as-is.
 
-Mark one photo per round as **★ Featured** and it becomes the hero image at the top of the
-home page's latest-event section. Removing the featured photo clears the flag rather than
-leaving a broken hero; with none set, the home page falls back to the round's first photo.
+Mark one photo per round as **★ Featured** and it becomes the site's link-preview image while
+that round is the newest (see *Link previews*). Removing the featured photo clears the flag;
+with none set, the preview falls back to the logo.
 Files are stored under `public/assets/rounds/<subsession>/`, named by content hash (so
 re-uploading the same file is a no-op) and kept in the `round-images` volume.
 
@@ -201,8 +201,8 @@ A video is not pinned to a race when stored. It belongs to whichever stored even
 latest to start before it was published (with a three-hour lead so a stream that goes live
 ahead of the green flag counts for that race), worked out on every read — so a result
 uploaded the morning after still claims the night's videos. Matched videos appear as
-click-to-play thumbnails beneath the results table in the home page's post for that race,
-under **Videos** on the results page, and all together, newest first, at `/videos`. The
+click-to-play thumbnails under **Videos** on the race's results page, and all together,
+newest first, at `/videos`. The
 admin's video list shows which race each one lands on; **Hide** keeps a false positive off
 the site, and removing a channel removes its videos.
 
@@ -215,12 +215,16 @@ It asks you to type the series slug before doing anything. The API mirrors that:
 result count; with it, the cascade runs and the response reports how many results and photos
 went. Deleting a single result (`DELETE /api/admin/subsessions/:id`) also removes its photos.
 
-### Up next banner
+### Home page
 
-Above the feed, a banner shows the **next round** of the active (else next upcoming) series —
-track, date, and the optional **2:1 image** from the series schedule — linking to the round's
-optional **event link** (both set per row in the Edit series panel) or, failing that, the
-Discord invite.
+The home page shows, side by side on a wide screen and stacked on a phone, the **latest
+race's top ten** on points (a link leads to its full results) and the **championship's top
+ten** after the rounds run so far ("After Round 3 of 8", linking to the full standings). The
+championship shown is the current season's once it has run a round; until then it is the
+season before's, so the page never shows an empty table while a new season waits for its
+first race. Under the tables, one sideways-scrolling strip of the newest race photos (each
+round's featured one, linking to the race) and videos (playing in place), newest on the
+left, then the Discord invite and the iRacing referral link.
 
 ### Link previews
 

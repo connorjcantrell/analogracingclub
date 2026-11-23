@@ -1,7 +1,7 @@
 <script>
   import SeriesPicker, { hasChoices } from '$lib/SeriesPicker.svelte';
   import PageTitle from '$lib/PageTitle.svelte';
-  import { driverName } from '$lib/format.js';
+  import { driverName, trackName, resultsLink } from '$lib/format.js';
 
   let { data } = $props();
   const d = $derived(data.standings);
@@ -21,6 +21,10 @@
   // Share of a driver's rounds that put them in the Fast Four (qualified in
   // the paying places), as a whole percentage.
   const fastFourPct = (x) => (x.starts ? `${Math.round(100 * (x.fastFours ?? 0) / x.starts)}%` : '—');
+  // The last round run, out of the championship's rounds (scheduled plus any
+  // extra seen), and the track it was at. The track links to that race.
+  const roundsRun = $derived(d?.rounds.filter((r) => d.latest?.round == null || r <= d.latest.round).length ?? 0);
+  const afterTrack = $derived(trackName({ track: d?.latest?.track }) || 'the latest round');
   const EMPTY = 'No results yet. Standings appear after the first round.';
 
   // On a phone the sheet shows position, driver and total; tapping a row
@@ -53,6 +57,10 @@
       {#if showName}<span class="tv-series">{d.series.name}</span>{/if}
       {#each metaChips as c (c)}<span class="tv-chip">{c}</span>{/each}
     </div>
+    {#if d.latest}
+      <!-- The round these standings stand after, linking to that race's page. -->
+      <p class="tv-after">After Round {roundsRun}/{d.rounds.length} · <a class="link" href={resultsLink(d.latest.id)}>{afterTrack}</a></p>
+    {/if}
   {/if}
 
   {#if d?.standings.length}
@@ -103,7 +111,7 @@
     <p class="empty">{EMPTY}</p>
   {/if}
 
-  <p class="format-note"><a class="link" href="/format">How the Fast Four format works →</a></p>
+  <p class="format-note"><a class="link" href="/about#format">How the Fast Four format works →</a></p>
 </div>
 
 <style>
@@ -115,6 +123,10 @@
     display: flex; align-items: flex-end; justify-content: space-between;
     gap: 1rem; flex-wrap: wrap; margin: 0;
   }
+
+  /* ---- "After Round N" line ---- */
+  .tv-meta:has(+ .tv-after) { margin-bottom: 0.4rem; }
+  .tv-after { margin: 0 0 1.6rem; font-size: 0.98rem; color: var(--muted); }
 
   /* ---- The sheet ---- */
   .tv-board { overflow-x: auto; border-top: 1px solid var(--accent); }
@@ -139,7 +151,7 @@
     font-family: var(--display); font-weight: 500; letter-spacing: 0.02em;
     font-size: 1.1rem;
   }
-  table.tower tbody tr:hover td { background: rgba(255, 255, 255, 0.025); }
+  table.tower tbody tr:hover td { background: var(--hover); }
 
   td.pos { width: 3rem; }
   .pos-box {
@@ -149,9 +161,10 @@
   }
   tbody tr:hover .pos-box { color: var(--text); }
 
+  /* The points figure in plain text colour, like the stake page. */
   td.total {
     font-family: var(--display); font-weight: 600;
-    color: var(--accent); font-size: 1.1rem;
+    color: var(--text); font-size: 1.1rem;
   }
   td.dropped { color: var(--muted); text-decoration: line-through; }
   td.muted { color: var(--muted); }
@@ -167,7 +180,7 @@
        so this one stays a real table at full width. */
     table.tower { display: table; width: 100%; }
     table.tower .more { display: none; }
-    table.tower td.drv { width: 100%; }
+    table.tower td.drv { width: 100%; white-space: normal; }
     tr.sheet-row { cursor: pointer; }
     tr.sheet-row:hover td { background: none; }
     tr.sheet-row.open td { border-bottom: 0; }

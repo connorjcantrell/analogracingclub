@@ -10,7 +10,7 @@
 // so no stored result needs migrating.
 export const EVENT_TYPES = {
   'league-fast-four': {
-    name: 'League · Fast Four',
+    name: 'Championship · Fast Four',
     category: 'league',
     // `container: true` means this type can back a multi-round series (the
     // league championship). A one-off-only type (see below) never can.

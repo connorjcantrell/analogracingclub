@@ -176,16 +176,16 @@
 </section>
 
 <style>
-  .ok { color: var(--accent); }
-  .err { color: #e05c5c; }
+  .ok { color: var(--accent-ink); }
+  .err { color: var(--red); }
   table { border-collapse: collapse; }
   th, td { text-align: left; padding: 0.4rem 0.9rem 0.4rem 0; border-bottom: 1px solid var(--border); }
   th.num, td.num { text-align: right; }
   .muted { color: var(--muted); }
   td.code { font-family: ui-monospace, monospace; letter-spacing: 0.08em; }
   h4 { margin: 1.2rem 0 0.4rem; font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  td.split strong { color: var(--accent); }
-  td.down, td.split strong.down { color: #e05c5c; }
+  td.split strong { color: var(--accent-ink); }
+  td.down, td.split strong.down { color: var(--red); }
   .pending { margin-top: 0.6rem; }
   .cars-pick {
     margin-top: 0.8rem; border: 1px solid var(--border); padding: 0.7rem 0.9rem;

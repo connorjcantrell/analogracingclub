@@ -326,7 +326,7 @@
         </fieldset>
 
         <fieldset class="field">
-          <legend>Format</legend>
+          <legend>Variant</legend>
           <div class="fmt-row">
             {#each data.variations as v (v.id)}
               <label class="fmt-opt">
@@ -358,7 +358,7 @@
 
     {#if vote}
       <!-- The community vote: every driver with a passcode splits their stake
-           (share of the season's points) across the shortlisted rounds. -->
+           (share of the season's points, scaled by the clean-driving multiplier; see ../stake) across the shortlisted rounds. -->
       <section class="cv">
         <div class="cv-head">
           <h3 class="cv-title">Community pick{slots === 1 ? '' : 's'}</h3>
@@ -376,7 +376,7 @@
         </div>
         <p class="cv-blurb">
           {slots === 1 ? 'One round' : `${slots} rounds`} for the whole club to choose: any layout on offer that no driver has already taken.
-          Your stake is your share of the season's points. Put it all on one layout, or click several and it splits evenly between them:
+          Your stake is your share of the season's points, scaled for clean racing (<a class="link" href="/stake">how it is calculated</a>). Put it all on one layout, or click several and it splits evenly between them:
           two layouts is 50/50, a second click on one of them makes it two thirds.
           {#if slots > 1}The top {slots} win.{:else}The layout with the most stake wins.{/if} Weather and format are set when the round goes on the schedule.
         </p>
@@ -511,7 +511,7 @@
       <span class="card-track">{pick.track}</span>
       <span class="card-layout">{pick.shortName}</span>
       <span class="card-spec">{pick.type}{pick.lengthMi ? ` · ${fmtLen(pick.lengthMi)}` : ''}{pick.turns ? ` · ${pick.turns} turns` : ''}</span>
-      <!-- A community round has no weather or format yet; the admin sets them on the schedule. -->
+      <!-- A community round has no weather or variant yet; the admin sets them on the schedule. -->
       {#if pick.weather || pick.variation}
         <span class="card-tags">
           <span class="tag">{weatherLabel[pick.weather] ?? pick.weather}</span>
@@ -626,7 +626,7 @@
   .fmt-face small { display: block; font-size: 0.85rem; line-height: 1.5; color: var(--muted); }
   .fmt-opt:hover .fmt-face { border-color: var(--muted); }
   .fmt-opt input:checked + .fmt-face { border-color: var(--accent); background: var(--accent-dim); }
-  .fmt-opt input:checked + .fmt-face strong { color: var(--accent); }
+  .fmt-opt input:checked + .fmt-face strong { color: var(--accent-ink); }
   .fmt-opt input:focus-visible + .fmt-face { outline: 2px solid var(--accent); outline-offset: 3px; }
 
   .note-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
@@ -697,7 +697,7 @@
     text-align: right; font-family: var(--display); font-weight: 600;
     font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap;
   }
-  .lane { position: relative; height: 1.1rem; background: rgba(255, 255, 255, 0.04); }
+  .lane { position: relative; height: 1.1rem; background: var(--lane); }
   .bar, .seg { position: absolute; top: 0; height: 100%; }
   .bar { background: var(--accent); opacity: 0.45; transition: width 0.6s ease, left 0.6s ease; }
   .tip {
@@ -709,7 +709,7 @@
   .lane:hover .tip { display: block; }
   .vrow.watch { display: grid; grid-template-columns: minmax(9rem, 16rem) 1fr 4rem; gap: 0.75rem; }
   .vrow.watch.leader .bar { opacity: 1; }
-  .vrow.watch.leader .total { color: var(--accent); }
+  .vrow.watch.leader .total { color: var(--accent-ink); }
 
   .ballot { margin: 1.2rem 0 0; border: 1px solid var(--border); background: var(--panel-dim); padding: 1.1rem 1.2rem; }
   .ballot .bars { margin-top: 0; }
@@ -719,7 +719,7 @@
   }
   .budget-label { font-family: var(--display); font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .budget-count { font-family: var(--display); font-weight: 600; font-size: 1.5rem; font-variant-numeric: tabular-nums; line-height: 1; }
-  .budget-count strong { color: var(--accent); }
+  .budget-count strong { color: var(--accent-ink); }
   .budget-split { color: var(--muted); font-size: 0.85rem; }
   .budget-actions { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
   .ballot-msg { margin: -0.6rem 0 1.2rem; }
@@ -732,7 +732,7 @@
     background: var(--accent);
   }
   .slice:nth-child(even) .slice-fill { background: var(--accent-soft); }
-  .slice.none .slice-fill { background: rgba(255, 255, 255, 0.05); border: 1px dashed var(--border); }
+  .slice.none .slice-fill { background: var(--lane); border: 1px dashed var(--border); }
   .slice-pct {
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 0.4rem;
     font-family: var(--display); font-weight: 600; font-size: 0.9rem; font-variant-numeric: tabular-nums;
@@ -771,7 +771,7 @@
     padding: 0.25rem 0; border-bottom: 1px solid var(--border);
   }
   .ballot .vrow .cand { grid-area: cand; }
-  .ballot .vrow .lane { grid-area: lane; background: rgba(255, 255, 255, 0.05); }
+  .ballot .vrow .lane { grid-area: lane; background: var(--lane); }
   .ballot .vrow .ctl { grid-area: ctl; }
   .ballot .vrow .total { grid-area: total; }
   .seg { transition: width 0.3s ease, left 0.3s ease; }
@@ -783,11 +783,11 @@
     font-size: 1.15rem; line-height: 1; background: var(--panel-dim); color: var(--text);
     border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
   }
-  .step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
   .step:disabled { opacity: 0.35; cursor: default; }
   .mine-badge {
     min-width: 2.6rem; text-align: center; font-family: var(--display); font-weight: 600;
-    font-variant-numeric: tabular-nums; color: var(--accent); font-size: 1rem;
+    font-variant-numeric: tabular-nums; color: var(--accent-ink); font-size: 1rem;
   }
 
   @media (max-width: 640px) {

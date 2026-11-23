@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { indexEvents, kindOf, KINDS } from '../src/lib/server/results.js';
+import { indexEvents, kindOf, KINDS, roundNeighbours } from '../src/lib/server/results.js';
 
 const seasons = [
   { slug: 'fall-2026', name: 'Fall 2026', startsAt: '2026-09-01T07:00:00Z', endsAt: null },
@@ -50,4 +50,19 @@ test('indexEvents attaches each event its videos', () => {
   const { events } = indexEvents({ docs, series, seasons, videos });
   assert.deepEqual(events.find((e) => e.id === 'r1').sub.videos, [{ id: 'v' }]);
   assert.deepEqual(events.find((e) => e.id === 'r2').sub.videos, []);
+});
+
+test('roundNeighbours names the round before and after, by round order, and nothing past either end', () => {
+  const rounds = [
+    { _id: 'r3', round: 3, track: { name: 'Suzuka' }, startTime: '2026-09-24T20:00:00Z' },
+    { _id: 'r1', round: 1, track: { name: 'Spa' }, startTime: '2026-09-10T20:00:00Z' },
+    { _id: 'r2', round: 2, track: { name: 'Monza' }, startTime: '2026-09-17T20:00:00Z' },
+  ];
+  assert.deepEqual(roundNeighbours(rounds, 'r2'), {
+    prev: { id: 'r1', round: 1, track: { name: 'Spa' } },
+    next: { id: 'r3', round: 3, track: { name: 'Suzuka' } },
+  });
+  assert.equal(roundNeighbours(rounds, 'r1').prev, null);
+  assert.equal(roundNeighbours(rounds, 'r3').next, null);
+  assert.deepEqual(roundNeighbours(rounds, 'missing'), { prev: null, next: null });
 });

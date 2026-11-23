@@ -540,7 +540,7 @@
 
 <section class="panel">
   <h3>Seasons</h3>
-  <p class="desc">A season is a window of time: a start date and, optionally, an end. Without an end it runs until the next season starts, so one season is current at a time. Every uploaded result — a league round or a single session — pays its points into the stake of the season its race date falls in, unless left out at upload. Dates are Pacific calendar days.</p>
+  <p class="desc">A season is a window of time: a start date and, optionally, an end. Without an end it runs until the next season starts, so one season is current at a time. Every uploaded result — a championship round or a single session — pays its points into the stake of the season its race date falls in, unless left out at upload. Dates are Pacific calendar days.</p>
   {#if seasons.length}
     <table>
       <thead><tr><th>Name</th><th>Starts</th><th>Ends</th><th>Series</th><th>Results</th><th></th></tr></thead>
@@ -669,7 +669,7 @@
         <span class="rn">R{r.round}</span>
         <input type="text" placeholder="Track" bind:value={r.track}>
         <input type="text" placeholder="Date (e.g. Thu Oct 2)" bind:value={r.date}>
-        <input type="datetime-local" title="Start time (league local), shown on the homepage's Up next" bind:value={r.startTime}>
+        <input type="datetime-local" title="Start time (club local), shown on the homepage's Up next" bind:value={r.startTime}>
         <input type="url" placeholder="Event link (optional)" title="The round's event page, e.g. a Discord event; the homepage's Next round links here" bind:value={r.link}>
         <label class="field" title="Double points for this round">2× <input type="checkbox" bind:checked={r.double}></label>
         <button class="btn danger sm" type="button" title="Remove this round from the schedule" onclick={() => sched.splice(i, 1)}>×</button>
@@ -781,7 +781,7 @@
 
 <section class="panel">
   <h3>YouTube channels</h3>
-  <p class="desc">Follow the channels that stream or upload the league's races. Any video from them with analogracingclub.com in its description is picked up and shown beneath the results of the race that ran just before it — on the homepage and the results page. Channels are checked every half hour.</p>
+  <p class="desc">Follow the channels that stream or upload the club's races. Any video from them with analogracingclub.com in its description is picked up and shown beneath the results of the race that ran just before it — on the homepage and the results page. Channels are checked every half hour.</p>
   {#if !channels.length}
     <p class="empty">No channels yet.</p>
   {:else}

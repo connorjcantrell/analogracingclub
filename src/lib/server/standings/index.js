@@ -45,11 +45,14 @@ export async function computeStandings(db, { seriesSlug }) {
   // when there is no prior round) get null — no arrow.
   const times = docs.map((d) => new Date(d.startTime ?? 0).getTime());
   const lastTime = times.length ? Math.max(...times) : null;
-  const lastRound = lastTime == null ? null
-    : docs.find((d) => new Date(d.startTime ?? 0).getTime() === lastTime)?.round;
+  const latestDoc = lastTime == null ? null : docs.find((d) => new Date(d.startTime ?? 0).getTime() === lastTime);
+  const lastRound = latestDoc?.round ?? null;
   const priorDocs = lastRound == null ? [] : docs.filter((d) => (d.round ?? d._id) !== lastRound);
   const prior = priorDocs.length ? foldStandings(priorDocs, opts).standings : [];
   attachStandingsChanges(out.standings, prior);
+  // The round these standings stand after: the most recent one run, with the
+  // id of its result doc so the page can link to that race.
+  out.latest = latestDoc ? { id: latestDoc._id, round: latestDoc.round ?? null, track: latestDoc.track ?? null } : null;
   return out;
 }
 

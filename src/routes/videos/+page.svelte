@@ -10,7 +10,7 @@
 
 <div class="videos-page">
   <PageTitle>Videos</PageTitle>
-  <p class="lp-sub">Race broadcasts, onboards and recaps from the league's YouTube channels, newest first.</p>
+  <p class="lp-sub">Race broadcasts, onboards and recaps from the club's YouTube channels, newest first.</p>
 
   {#if !data.videos.length}
     <p class="empty">No videos yet — they appear here as the followed channels upload them.</p>
@@ -18,7 +18,7 @@
     <VideoStrip videos={data.videos} feed />
   {/if}
 
-  <p class="videos-note">Do you stream or upload league races? Reach out to a league admin on
+  <p class="videos-note">Do you stream or upload club races? Reach out to a club admin on
     <a class="link" href={DISCORD_URL} target="_blank" rel="noopener">Discord</a> to have your channel added. Then put
     <strong>analogracingclub.com</strong> in a video's description and it will show up here and under the race it covers.</p>
 </div>

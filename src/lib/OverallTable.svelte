@@ -47,7 +47,7 @@
       {@const led = lapsLed(d)}
       <tr>
         <td class="pos"><span class="pos-box">{i + 1}</span></td>
-        <td><DriverName name={driverName(d.name)} keys={badges.get(d.custId)} /></td>
+        <td class="drv"><DriverName name={driverName(d.name)} keys={badges.get(d.custId)} /></td>
         {#each kinds as k (k)}<td class={['num', { more: k !== 'feature' }]}>{posCell(d[k])}</td>{/each}
         {#if gained}{@const g = roundPositionsGained(d)}<td class={['num', 'more', { muted: g == null }]}>{signed(g)}</td>{/if}
         <td class={['num', 'more', { muted: !led }]}>{led || '—'}</td>

@@ -27,23 +27,18 @@
   const LINE_TOTAL = qualPts(1) + featurePts(LINE);
 </script>
 
-<svelte:head><title>Fast Four Format · Analog Racing Club</title></svelte:head>
-
-<h2>Fast Four Format</h2>
-
-<!-- The format explained top to bottom: the night's three sessions, then each
-     session's rules and the points it pays. -->
+<!-- The Fast Four format, top to bottom: the night's sessions, then each
+     session's rules and the points it pays. Shown in the Format section of
+     the About page; /format redirects there. -->
 <section class="format-explainer">
-  <p>Road racing gets strung out. A few laps in, the field has sorted itself by pace, the gaps open up, and
-  most drivers spend the rest of the race alone. An invert fixes that by putting the fastest cars in traffic.
-  But a plain invert punishes speed: if qualifying on pole only costs you grid spots, nobody tries, and the
-  invert falls apart. Being inverted has to be worth it.</p>
-  <p>The Fast Four format is built around that trade. The quickest qualifiers bank points for the places the
-  invert takes from them, then have to pass their way back to the front. It's designed to produce the best
-  racing product we can, one where winning a round takes race craft, not just a fast lap. Rounds are run as
-  either Standard or Long, and the points table is the same either way.</p>
+  <p>Road racing tends to spread out. Within a few laps the field sorts itself by pace, the gaps grow, and
+  most drivers finish the race alone. Inverting the grid fixes that. But if a fast lap only earns you a worse
+  starting spot, nobody has a reason to set one. Being inverted has to be worth it.</p>
+  <p>The Fast Four format is built around that trade. The four quickest qualifiers bank points for the places
+  the invert takes from them, while the next four earn track position. Either way, winning a round requires
+  race craft, not just pace.</p>
 
-  <h3>Open Qualifying</h3>
+  <h4 id="qualifying">Open Qualifying</h4>
   <p>Qualifying is a 10-minute open session. The top eight qualifiers are inverted for the opening race, so
   pole starts 8th. The top four qualifiers, the <strong>Fast Four</strong>, get points for the grid spots the
   invert costs them.</p>
@@ -67,16 +62,18 @@
     </table>
   </div>
 
-  <h3>Standard and Long</h3>
-  <p><strong>Standard:</strong> a 10-minute heat, then a 20-minute feature.</p>
+  <h4 id="standard">Standard</h4>
+  <p>A 10-minute heat, then a 20-minute feature.</p>
   <ul>
     <li><strong>Heat:</strong> Starts from the inverted grid. It pays no points. Your heat finish sets your feature grid.</li>
     <li><strong>Feature:</strong> 20 minutes, paid on the table below.</li>
   </ul>
-  <p><strong>Long:</strong> No heat. One 40-minute feature that starts from the inverted grid, with limited
-  fuel, so every driver has to make a pit stop.</p>
 
-  <h3>Feature Points</h3>
+  <h4 id="long">Long</h4>
+  <p>No heat. One 40-minute feature that starts from the inverted grid, with limited fuel, so every driver
+  has to make a pit stop.</p>
+
+  <h4 id="feature-points">Feature Points</h4>
   <div class="scroll-x">
     <table class="format-table feature-table">
       <thead><tr><th>Finish</th><th class="num">Points</th></tr></thead>
@@ -91,7 +88,7 @@
   <p><strong>Lap led bonus:</strong> Lead a lap in any race and you get +{LED_BONUS}. It's paid once per round,
   however many races you lead.</p>
 
-  <h3>Where the Line Is</h3>
+  <h4 id="the-math">The Math</h4>
   <ul>
     <li><strong>Sweep:</strong> pole, the feature win and a lap led add up to {SWEEP} points
     ({qualPts(1)} + {featurePts(1)} + {LED_BONUS}). Nothing pays more.</li>
@@ -109,10 +106,6 @@
      table the same width, type size and left edge, so the eye drops straight
      down the page without the tables jumping about. */
   .format-explainer { --table-w: 26rem; }
-  .format-explainer h3 {
-    color: var(--text); font-size: 1.15rem; letter-spacing: 0.06em;
-    margin: 2.6rem 0 0.8rem;
-  }
   .format-explainer p { margin: 0 0 0.8rem; max-width: 62ch; line-height: 1.6; }
   .format-explainer ul { margin: 0 0 1rem; padding-left: 1.3rem; max-width: 62ch; }
   .format-explainer li { margin: 0 0 0.5rem; line-height: 1.6; }
@@ -148,7 +141,7 @@
     position: relative; vertical-align: middle; text-align: left; white-space: nowrap;
     padding-left: 0.8rem; border-left: 2px solid var(--accent);
     font-family: var(--display); font-size: 0.7rem; line-height: 1.2;
-    text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-ink);
   }
   .invert-table td.ff-bracket::before,
   .invert-table td.ff-bracket::after {

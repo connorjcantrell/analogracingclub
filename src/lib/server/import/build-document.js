@@ -135,7 +135,12 @@ export function buildSubsessionDocument(eventResult, opts = {}) {
     stakeSeason: null,
     leagueName: eventResult.league_name ?? null,
     seriesName: eventResult.series_name ?? null,
-    track: { id: track.track_id ?? null, name: track.track_name ?? null, config: trackConfig(track.config_name) },
+    // The layout's category (Oval, Road, Dirt Oval, Dirt Road) and corners
+    // per lap feed the stake's incidents-per-corner rate (see ../stake).
+    track: {
+      id: track.track_id ?? null, name: track.track_name ?? null, config: trackConfig(track.config_name),
+      category: track.category ?? null, corners: typeof eventResult.corners_per_lap === 'number' ? eventResult.corners_per_lap : null,
+    },
     cars,
     startTime: eventResult.start_time ?? null,
     rawType,          // original envelope `type` (or null) — for faithful download

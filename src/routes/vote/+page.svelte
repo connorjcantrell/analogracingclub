@@ -336,10 +336,10 @@
   /* Bars are positioned on a shared axis (see `seg`), so segments can start
      anywhere right of zero; a negative net draws no yellow. The grey `cut`
      segment is the downvoted share, stacked after the net. */
-  .track { position: relative; height: 1.1rem; background: rgba(255, 255, 255, 0.04); }
+  .track { position: relative; height: 1.1rem; background: var(--lane); }
   .bar, .seg { position: absolute; top: 0; height: 100%; }
   .bar { background: var(--accent); opacity: 0.45; transition: width 0.6s ease, left 0.6s ease; }
-  .seg.cut { background: rgba(255, 255, 255, 0.13); transition: width 0.6s ease, left 0.6s ease; }
+  .seg.cut { background: var(--lane-strong); transition: width 0.6s ease, left 0.6s ease; }
   .total.down { color: var(--down); }
 
   /* Hover (or tap) a bar for the popular vote: drivers for vs against. The
@@ -356,7 +356,7 @@
   /* Watch-only rows: one bar, scaled to the leader; every car tied on top is brightened. */
   .vrow.watch { display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr 3.5rem; gap: 0.75rem; }
   .vrow.watch.leader .bar { opacity: 1; }
-  .vrow.watch.leader .total { color: var(--accent); }
+  .vrow.watch.leader .total { color: var(--accent-ink); }
 
   /* ---- Budget header (points remaining) ---- */
   .budget {
@@ -368,7 +368,7 @@
     font-family: var(--display); font-weight: 600; font-size: 1.5rem;
     font-variant-numeric: tabular-nums; line-height: 1;
   }
-  .budget-count strong { color: var(--accent); }
+  .budget-count strong { color: var(--accent-ink); }
   .budget-actions { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
   .ballot-msg { margin: -0.6rem 0 1.2rem; }
 
@@ -384,7 +384,7 @@
   .ballot .vrow .ctl { grid-area: ctl; }
   .ballot .vrow .total { grid-area: total; }
   .vrow input[type="hidden"] { display: none; }
-  .track.lane { background: rgba(255, 255, 255, 0.05); }
+  .track.lane { background: var(--lane); }
   .seg { transition: width 0.3s ease, left 0.3s ease; }
   .seg.mine { background: var(--accent); }
   .seg.mine.down { background: var(--down); }
@@ -397,12 +397,12 @@
     font-size: 1.15rem; line-height: 1; background: var(--panel-dim); color: var(--text);
     border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer;
   }
-  .step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .step:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
   .step.down:hover:not(:disabled) { border-color: var(--down); color: var(--down); }
   .step:disabled { opacity: 0.35; cursor: default; }
   .mine-badge {
     min-width: 2.2rem; text-align: center; font-family: var(--display); font-weight: 600;
-    font-variant-numeric: tabular-nums; color: var(--accent); font-size: 1.1rem;
+    font-variant-numeric: tabular-nums; color: var(--accent-ink); font-size: 1.1rem;
   }
   .mine-badge.down { color: var(--down); }
   /* ---- Sign-in ---- */

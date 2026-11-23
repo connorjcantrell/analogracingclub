@@ -36,7 +36,7 @@
       {#each rows as x (x.custId)}
         <tr>
           <td class="pos"><span class="pos-box">{x.finish == null ? '—' : x.finish}</span></td>
-          <td><DriverName name={driverName(x.displayName)} keys={badges.get(x.custId)} /></td>
+          <td class="drv"><DriverName name={driverName(x.displayName)} keys={badges.get(x.custId)} /></td>
           {#each cols as c (c.head)}
             {@const v = c.cell(x, all)}
             <td class={['num', { muted: v == null }]}>{v ?? '—'}</td>

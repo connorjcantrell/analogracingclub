@@ -81,18 +81,34 @@ export async function resultsIndex(db, seasonSlug = null) {
   };
 }
 
-/** One event for its own page, or null. */
+/**
+ * Pure. A league round's neighbours in its championship: the round run before
+ * it and the one after, each as { id, round, track }, or null at either end.
+ * `docs` are the series' result docs; order is by round, then start time.
+ */
+export function roundNeighbours(docs, id) {
+  const byRound = (a, b) => (a.round ?? 0) - (b.round ?? 0) || (a.startTime ?? '').localeCompare(b.startTime ?? '');
+  const sorted = [...docs].sort(byRound);
+  const i = sorted.findIndex((d) => d._id === id);
+  const pick = (d) => (d ? { id: d._id, round: d.round ?? null, track: d.track ?? null } : null);
+  return { prev: i > 0 ? pick(sorted[i - 1]) : null, next: i >= 0 ? pick(sorted[i + 1]) : null };
+}
+
+/** One event for its own page, or null. A league round also carries its `prev` and `next` rounds. */
 export async function resultEvent(db, id) {
-  const doc = await collections(db).subsessions.findOne({ _id: id }, { projection: { raw: 0 } });
+  const { subsessions } = collections(db);
+  const doc = await subsessions.findOne({ _id: id }, { projection: { raw: 0 } });
   if (!doc) return null;
-  const [series, seasons, videos] = await Promise.all([
+  const [series, seasons, videos, siblings] = await Promise.all([
     doc.seriesSlug ? getSeries(db, doc.seriesSlug) : null,
     listSeasons(db),
     videosByEvent(db),
+    doc.seriesSlug ? subsessions.find({ seriesSlug: doc.seriesSlug }, { projection: { _id: 1, round: 1, track: 1, startTime: 1 } }).toArray() : [],
   ]);
   const { events } = indexEvents({ docs: [doc], series: series ? [series] : [], seasons, videos });
   const ev = events[0];
-  return { ...ev, seasonName: seasons.find((s) => s.slug === ev.season)?.name ?? null };
+  const { prev, next } = series ? roundNeighbours(siblings, id) : { prev: null, next: null };
+  return { ...ev, seasonName: seasons.find((s) => s.slug === ev.season)?.name ?? null, prev, next };
 }
 
 /** The event an older link names (?event=<id>, or ?series=&round=), or null. */

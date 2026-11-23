@@ -211,7 +211,7 @@ export const SESSION_COLS = {
 
 // ---- Results events (shaped by server/results.js) ----
 // The three kinds of race, as the results page names one of them.
-export const KIND_NAMES = { league: 'League Session', single: 'Single Session', special: 'Special Event' };
+export const KIND_NAMES = { league: 'Championship Round', single: 'Single Session', special: 'Special Event' };
 // An event's dedicated results page.
 export const resultsLink = (id) => `/results/${encodeURIComponent(id)}`;
 // What an event is called: a league round by its round and track, a

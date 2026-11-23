@@ -31,7 +31,7 @@ export const WEATHER = [
   { id: 'wet-to-dry', label: 'Wet to dry' },
 ];
 
-// The two round formats, described as on /format.
+// The two round variants, described in the Format section of /about.
 export const VARIATIONS = [
   { id: 'standard', label: 'Standard', blurb: 'A 10-minute heat from the inverted grid sets the feature grid, then a 20-minute feature.' },
   { id: 'long', label: 'Long', blurb: 'No heat. One 40-minute feature from the inverted grid, with limited fuel, so every driver has to make a pit stop.' },
@@ -106,7 +106,7 @@ export function cleanPick(tracks, raw) {
   const weather = WEATHER.find((w) => w.id === raw.weather)?.id;
   if (!weather) throw new Error('Pick the weather.');
   const variation = VARIATIONS.find((v) => v.id === raw.variation)?.id;
-  if (!variation) throw new Error('Pick Standard or Long.');
+  if (!variation) throw new Error('Pick a variant: Standard or Long.');
   const notes = String(raw.notes ?? '').replace(/\s+/g, ' ').trim();
   if ([...notes].length > NOTES_MAX) throw new Error(`Keep the note to ${NOTES_MAX} characters.`);
   return { trackId: track._id, configId: config.srhConfigId, weather, variation, notes };

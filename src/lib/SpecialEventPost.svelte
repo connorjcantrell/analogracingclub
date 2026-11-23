@@ -66,7 +66,7 @@
             {@const d = delta(x)}
             <tr>
               <td class="pos"><span class="pos-box">{x.finish == null ? '—' : x.finish}</span></td>
-              <td><DriverName name={driverName(x.displayName)} keys={badges.get(x.custId)} /></td>
+              <td class="drv"><DriverName name={driverName(x.displayName)} keys={badges.get(x.custId)} /></td>
               <td class="num">{x.start ? `P${x.start}` : '—'}</td>
               <td class={['num', { muted: !x.lapsLead }]}>{x.lapsLead || '—'}</td>
               <td class={['num', { muted: d == null }]}>{d ?? '—'}</td>
